@@ -7,10 +7,8 @@ const PROJECTS = [
   { src: '08.mp4', title: 'GOUAL ART', sub: 'AI ANIMATION', device: 'iphone' },
   { src: '09.mp4', title: 'OVASPORT', sub: '3D / ADVERTISING', device: 'tv' },
   { src: '10.mp4', title: 'GLAM BY MAJHA', sub: 'FASHION FILM', device: 'ipad' },
-  { src: '01.mp4', title: 'MIZUNO', sub: 'AI PRODUCT FILM' },
-  { src: '02.mp4', title: "BALLON D'OR", sub: 'AI ANIMATION' },
-  { src: '03.mp4', title: 'LUCID', sub: 'PRODUCT FILM' },
-  { src: '04.mp4', title: 'BATISTE MILLION', sub: 'FASHION FILM' },
+  { src: '01.mp4', title: 'JAYÎNA', sub: 'AI PRODUCT FILM' },
+  { src: '04.mp4', title: 'GOUAL ART', sub: 'FASHION FILM' },
   { src: '05.mp4', title: 'HEKMOS', sub: 'BRAND FILM' },
   { src: '07.mp4', title: 'GOUAL', sub: 'AI FILM' },
 ];
