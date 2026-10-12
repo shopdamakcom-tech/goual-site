@@ -35,7 +35,7 @@ scene.fog = new THREE.FogExp2(INK.clone(), 0.034);
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.05, 400);
 scene.add(camera);
 
-/* ---------------------------------------------------------------- tunnel */
+/* ------------------------------------------------------------ shader noise */
 const NOISE = /* glsl */`
 float hash(vec2 p){p=fract(p*vec2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
 float noise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);
@@ -43,49 +43,36 @@ float noise(vec2 p){vec2 i=floor(p),f=fract(p);vec2 u=f*f*(3.-2.*f);
 float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<5;i++){v+=a*noise(p);p=p*2.03+vec2(1.7,9.2);a*=.5;}return v;}
 `;
 
-const tunnelUniforms = { uTime: { value: 0 }, uLight: { value: 0 }, uSpeed: { value: 0 }, uFogDensity: { value: 0.034 }, uFogColor: { value: INK.clone() } };
-const tunnel = new THREE.Mesh(
-  new THREE.CylinderGeometry(9, 9, 300, 96, 1, true),
-  new THREE.ShaderMaterial({
-    side: THREE.BackSide,
-    uniforms: tunnelUniforms,
-    vertexShader: /* glsl */`
-      varying vec2 vUv; varying float vDepth;
-      void main(){ vUv=uv; vec4 mv=modelViewMatrix*vec4(position,1.); vDepth=-mv.z; gl_Position=projectionMatrix*mv; }`,
-    fragmentShader: /* glsl */`
-      uniform float uTime,uLight,uSpeed,uFogDensity; uniform vec3 uFogColor;
-      varying vec2 vUv; varying float vDepth;
-      ${NOISE}
-      void main(){
-        float u=vUv.x*64., v=vUv.y*300.;
-        float lane=floor(u);
-        float lines=smoothstep(.04,0.,abs(fract(u)-.5)-.47);
-        float rings=smoothstep(.03,0.,abs(fract(v*.25)-.5)-.485)*.35;
-        float dash=fract(v*.02+uTime*(.08+hash(vec2(lane,3.))*.25)+hash(vec2(lane,1.)));
-        float streak=smoothstep(.0,.04,dash)*smoothstep(.22,.04,dash)*step(.55,hash(vec2(lane,7.)))*smoothstep(.12,.0,abs(fract(u)-.5));
-        float grain=fbm(vec2(u*.4,v*.1))*.08;
-        vec3 col=vec3(.055)+grain+vec3(.5)*lines*.22+vec3(.45)*rings+vec3(1.)*streak*(.4+uSpeed*1.6);
-        col=mix(col,vec3(.95,.95,.93)-lines*.06,uLight);
-        float fog=1.-exp(-uFogDensity*uFogDensity*vDepth*vDepth);
-        gl_FragColor=vec4(mix(col,uFogColor,fog),1.);
-      }`,
-  }),
-);
-tunnel.rotation.x = Math.PI / 2;
-tunnel.position.z = -130;
-scene.add(tunnel);
-
-/* ------------------------------------------------------------- particles */
-const PARTICLES = innerWidth < 768 ? 1600 : 3200;
-const pGeo = new THREE.BufferGeometry();
-const pPos = new Float32Array(PARTICLES * 3);
-for (let i = 0; i < PARTICLES; i++) {
-  const r = 1.2 + Math.sqrt(Math.random()) * 7.2, a = Math.random() * Math.PI * 2;
-  pPos.set([Math.cos(a) * r, Math.sin(a) * r, 10 - Math.random() * 290], i * 3);
+/* -------------------------------------------------------------- starfield */
+const STARS = innerWidth < 768 ? 2600 : 5200;
+const starGeo = new THREE.BufferGeometry();
+const starPos = new Float32Array(STARS * 3), starSize = new Float32Array(STARS), starPhase = new Float32Array(STARS);
+for (let i = 0; i < STARS; i++) {
+  const r = 0.6 + Math.pow(Math.random(), 0.6) * 28, a = Math.random() * Math.PI * 2;
+  starPos.set([Math.cos(a) * r, Math.sin(a) * r, 15 - Math.random() * 300], i * 3);
+  starSize[i] = Math.random() < 0.04 ? 3.2 + Math.random() * 1.5 : 0.6 + Math.random() * 1.4;
+  starPhase[i] = Math.random();
 }
-pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
-const pMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.045, sizeAttenuation: true, transparent: true, opacity: 0.75, depthWrite: false });
-const particles = new THREE.Points(pGeo, pMat);
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+starGeo.setAttribute('aSize', new THREE.BufferAttribute(starSize, 1));
+starGeo.setAttribute('aPhase', new THREE.BufferAttribute(starPhase, 1));
+const starUniforms = { uTime: { value: 0 }, uPixel: { value: renderer.getPixelRatio() }, uColor: { value: BONE.clone() }, uFogDensity: { value: 0.034 } };
+const particles = new THREE.Points(starGeo, new THREE.ShaderMaterial({
+  uniforms: starUniforms, transparent: true, depthWrite: false,
+  vertexShader: /* glsl */`
+    attribute float aSize, aPhase; uniform float uTime, uPixel, uFogDensity;
+    varying float vAlpha;
+    void main(){
+      vec4 mv=modelViewMatrix*vec4(position,1.); float d=-mv.z;
+      gl_PointSize=clamp(aSize*uPixel*28./d,1.8*uPixel,11.*uPixel);
+      float twinkle=.7+.3*sin(uTime*(.8+aPhase*2.5)+aPhase*40.);
+      vAlpha=twinkle*exp(-uFogDensity*uFogDensity*d*d);
+      gl_Position=projectionMatrix*mv;
+    }`,
+  fragmentShader: /* glsl */`
+    uniform vec3 uColor; varying float vAlpha;
+    void main(){ float d=length(gl_PointCoord-.5); float a=smoothstep(.5,.1,d)*.55+smoothstep(.22,0.,d); gl_FragColor=vec4(uColor,min(a*1.3,1.)*vAlpha); }`,
+}));
 scene.add(particles);
 
 /* ----------------------------------------------------- rings (the "O") */
@@ -461,7 +448,7 @@ function frame() {
   velocity = (progress - prev) / Math.max(dt, 1e-4);
   const speed = Math.min(Math.abs(velocity) * 8, 1);
 
-  // Camera rides the tunnel, drifts with the pointer and leans into speed.
+  // Camera flies through the stars, drifts with the pointer and leans into speed.
   mouseSmooth.lerp(mouse, 1 - Math.exp(-dt * 3));
   camera.position.set(mouseSmooth.x * 0.45, mouseSmooth.y * 0.3, -progress * TRAVEL);
   camera.lookAt(mouseSmooth.x * 0.15, mouseSmooth.y * 0.1 + 0.1, camera.position.z - 10);
@@ -471,18 +458,16 @@ function frame() {
   camera.fov += (baseFov + speed * 14 + shatterKick - camera.fov) * (1 - Math.exp(-dt * 5));
   camera.updateProjectionMatrix();
 
-  // Light at the end of the tunnel.
+  // Light at the end of the journey.
   const light = smooth(0.89, 0.965, progress);
   fogColor.copy(INK).lerp(BONE, light);
   scene.fog.color.copy(fogColor);
   scene.fog.density = 0.034 - light * 0.012;
-  tunnelUniforms.uFogColor.value.copy(fogColor);
-  tunnelUniforms.uFogDensity.value = scene.fog.density;
-  tunnelUniforms.uLight.value = light;
-  tunnelUniforms.uTime.value = t;
-  tunnelUniforms.uSpeed.value = speed;
+  // Stars fade with distance more gently than the films, so deep space stays visible.
+  starUniforms.uFogDensity.value = scene.fog.density * 0.4;
+  starUniforms.uTime.value = t;
   renderer.setClearColor(fogColor, 1);
-  pMat.color.copy(BONE).lerp(INK, light);
+  starUniforms.uColor.value.copy(BONE).lerp(INK, light);
   body.classList.toggle('light', light > 0.6);
 
   // Particles swirl harder through the services/process chapters.
