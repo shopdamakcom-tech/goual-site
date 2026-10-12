@@ -56,7 +56,7 @@ body.gate #hint{opacity:1}
 .statement .r{right:4vw;bottom:14svh;text-align:right}
 .project .meta{position:absolute;left:4vw;right:4vw;bottom:9svh;display:flex;justify-content:space-between;align-items:flex-end}
 .project .num{font:700 13px/1 var(--mono);letter-spacing:.2em}
-.project h2{font-size:clamp(40px,7vw,120px)}
+.project h2{font-size:clamp(40px,7vw,120px)}.project h2.long{font-size:clamp(30px,4.4vw,78px)}
 .project .sub{font:700 11px/1 var(--mono);letter-spacing:.25em;margin-top:14px;opacity:.85}
 .services,.process{display:flex;flex-direction:column;justify-content:center;padding:0 6vw}
 .services h2,.process h2{font-size:clamp(46px,8.5vw,150px)}
@@ -82,7 +82,7 @@ body.inside .bottom{opacity:1}
   .wordmark{font-size:12svh;left:4vw}.gate-tag{bottom:calc(2.4svh + 11svh);left:4.4vw;font-size:8px}
   #hold{right:auto;left:4.4vw;bottom:auto;top:84px}
   .statement .l{top:16svh}.statement .r{bottom:12svh}
-  .project .meta{bottom:12svh}.project h2{font-size:40px}
+  .project .meta{bottom:12svh}.project h2{font-size:40px}.project h2.long{font-size:28px}
   .bottom{padding:16px 18px}
   .contact form{flex-direction:column}
 }

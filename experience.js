@@ -9,8 +9,8 @@ const PROJECTS = [
   { src: '10.mp4', title: 'GLAM BY MAJHA', sub: 'FASHION FILM', device: 'ipad' },
   { src: '01.mp4', title: 'JAYÎNA', sub: 'AI PRODUCT FILM' },
   { src: '04.mp4', title: 'GOUAL ART', sub: 'FASHION FILM' },
-  { src: '05.mp4', title: 'HEKMOS', sub: 'BRAND FILM' },
-  { src: '07.mp4', title: 'GOUAL', sub: 'AI FILM' },
+  { src: '05.mp4', title: 'GOUAL ART', sub: 'BRAND FILM' },
+  { src: '07.mp4', title: 'COUPE DU MONDE BY GOUAL ART', sub: 'AI FILM' },
 ];
 const TOTAL = String(PROJECTS.length).padStart(2, '0');
 const WORK_START = 0.08, WORK_END = 0.72;
@@ -473,7 +473,7 @@ const chapterEls = [...document.querySelectorAll('.chapter')].map(el => {
   let range;
   if (el.dataset.project != null) {
     const i = +el.dataset.project, p = PROJECTS[i];
-    el.innerHTML = `<div class="meta" style="justify-content:${panels[i].side > 0 ? 'flex-end' : 'flex-start'};text-align:${panels[i].side > 0 ? 'right' : 'left'}"><div><h2>${p.title}</h2><div class="sub">${p.sub}</div></div></div>`;
+    el.innerHTML = `<div class="meta" style="justify-content:${panels[i].side > 0 ? 'flex-end' : 'flex-start'};text-align:${panels[i].side > 0 ? 'right' : 'left'}"><div><h2${p.title.length > 14 ? ' class="long"' : ''}>${p.title}</h2><div class="sub">${p.sub}</div></div></div>`;
     const c = projectCenter(i); range = [c - SLOT * 0.42, c + SLOT * 0.42];
   } else range = el.dataset.range.split(',').map(Number);
   return { el, range };
