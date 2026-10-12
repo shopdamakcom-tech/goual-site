@@ -1,15 +1,20 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /* ------------------------------------------------------------------ data */
+// device: 'iphone' | 'tv' | 'ipad' shows the film inside that screen; otherwise a floating panel.
 const PROJECTS = [
+  { src: '08.mp4', title: 'GOUAL ART', sub: 'AI ANIMATION', device: 'iphone' },
+  { src: '09.mp4', title: 'OVASPORT', sub: '3D / ADVERTISING', device: 'tv' },
+  { src: '10.mp4', title: 'GLAM BY MAJHA', sub: 'FASHION FILM', device: 'ipad' },
   { src: '01.mp4', title: 'MIZUNO', sub: 'AI PRODUCT FILM' },
   { src: '02.mp4', title: "BALLON D'OR", sub: 'AI ANIMATION' },
   { src: '03.mp4', title: 'LUCID', sub: 'PRODUCT FILM' },
   { src: '04.mp4', title: 'BATISTE MILLION', sub: 'FASHION FILM' },
   { src: '05.mp4', title: 'HEKMOS', sub: 'BRAND FILM' },
-  { src: '06.mp4', title: 'OVASPORT', sub: '3D / ADVERTISING' },
   { src: '07.mp4', title: 'GOUAL', sub: 'AI FILM' },
 ];
+const TOTAL = String(PROJECTS.length).padStart(2, '0');
 const WORK_START = 0.08, WORK_END = 0.72;
 const SLOT = (WORK_END - WORK_START) / PROJECTS.length;
 const projectCenter = i => WORK_START + (i + 0.5) * SLOT;
@@ -83,36 +88,110 @@ const rings = [0.785, 0.875].map(p => {
   return ring;
 });
 
-/* ----------------------------------------------------------- video panels */
+/* ----------------------------------------------------------- video screens */
+// Brushed-metal reflections for the device bodies.
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+
+function roundedShape(w, h, r) {
+  const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+  s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+  s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+  s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+  return s;
+}
+const flatRounded = (w, h, r) => new THREE.ShapeGeometry(roundedShape(w, h, r), 10);
+function slab(w, h, r, depth, mat) {
+  const g = new THREE.ExtrudeGeometry(roundedShape(w, h, r), { depth, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.03, bevelSegments: 4, curveSegments: 14 });
+  g.translate(0, 0, -depth / 2);
+  return new THREE.Mesh(g, mat);
+}
+const metal = new THREE.MeshStandardMaterial({ color: 0x2c2c31, metalness: 0.85, roughness: 0.3 });
+const glassBlack = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+// Each device: body size, screen size and corner radii, in scene units before fitting to the view.
+const DEVICES = {
+  iphone: { w: 2.2, h: 4.6, r: 0.38, d: 0.18, sw: 2.04, sh: 4.44, sr: 0.3 },
+  tv: { w: 8.16, h: 4.66, r: 0.06, d: 0.1, sw: 8, sh: 4.5, sr: 0.03, standH: 0.9 },
+  ipad: { w: 3.9, h: 5.1, r: 0.3, d: 0.12, sw: 3.6, sh: 4.8, sr: 0.16 },
+};
+function buildDevice(kind, videoMesh) {
+  const D = DEVICES[kind], root = new THREE.Group(), front = D.d / 2 + 0.035;
+  root.add(slab(D.w, D.h, D.r, D.d, metal));
+  const screen = new THREE.Mesh(flatRounded(D.sw, D.sh, D.sr), glassBlack);
+  screen.position.z = front; root.add(screen);
+  videoMesh.position.z = front + 0.002; root.add(videoMesh);
+  if (kind === 'iphone') {
+    const island = new THREE.Mesh(flatRounded(0.62, 0.18, 0.09), glassBlack);
+    island.position.set(0, D.sh / 2 - 0.22, front + 0.004); root.add(island);
+  }
+  if (kind === 'ipad') {
+    const cam = new THREE.Mesh(new THREE.CircleGeometry(0.035, 16), new THREE.MeshBasicMaterial({ color: 0x1b1b1f }));
+    cam.position.set(0, D.h / 2 - 0.15, front); root.add(cam);
+  }
+  if (kind === 'tv') {
+    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.32, D.standH, 0.08), metal);
+    neck.position.set(0, -D.h / 2 - D.standH / 2 + 0.1, -0.08); root.add(neck);
+    const base = slab(2.6, 0.9, 0.12, 0.05, metal);
+    base.rotation.x = -Math.PI / 2; base.position.set(0, -D.h / 2 - D.standH + 0.1, 0.05); root.add(base);
+  }
+  return root;
+}
+
 const panels = PROJECTS.map((proj, i) => {
   const video = document.createElement('video');
   Object.assign(video, { src: proj.src, muted: true, loop: true, playsInline: true, preload: i < 2 ? 'auto' : 'metadata' });
   video.setAttribute('playsinline', '');
   const tex = new THREE.VideoTexture(video);
   tex.colorSpace = THREE.SRGBColorSpace;
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: tex, color: 0x111111 }));
+  const screenMat = new THREE.MeshBasicMaterial({ map: tex, color: 0x111111 });
+  const videoMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), screenMat);
   const side = i % 2 ? -1 : 1;
-  mesh.position.set(side * 0.9, 0.25, -projectCenter(i) * TRAVEL - PANEL_AHEAD);
-  mesh.rotation.y = -side * 0.06;
-  mesh.scale.set(PANEL_H * 16 / 9, PANEL_H, 1);
-  const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1.04, 1.04)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
-  frame.position.z = -0.01;
-  mesh.add(frame);
-  const panel = { video, mesh, side, aspect: 16 / 9 };
+  let root;
+  if (proj.device) root = buildDevice(proj.device, videoMesh);
+  else {
+    root = new THREE.Group(); root.add(videoMesh);
+    const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1.04, 1.04)), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
+    frame.position.z = -0.01;
+    videoMesh.add(frame);
+  }
+  root.position.set(0, 0.25, -projectCenter(i) * TRAVEL - PANEL_AHEAD);
+  // Own copies of the materials so each film can fade in and out on its own.
+  const mats = [];
+  root.traverse(o => {
+    if (!o.material) return;
+    if (o.material !== screenMat) o.material = o.material.clone();
+    o.material.transparent = true;
+    o.material.userData.baseOpacity = o.material.opacity;
+    mats.push(o.material);
+  });
+  const panel = { video, root, videoMesh, screenMat, mats, side, device: proj.device, aspect: 16 / 9, baseY: 0.25 };
   video.addEventListener('loadedmetadata', () => {
     if (video.videoWidth) { panel.aspect = video.videoWidth / video.videoHeight; fitPanel(panel); }
   });
-  scene.add(mesh);
+  scene.add(root);
   return panel;
 });
-// Keep each panel inside the view: on narrow screens wide films shrink and centre.
+// Keep each film inside the view: wide films shrink on narrow screens, devices scale to fit.
 function fitPanel(p) {
   const fov = camera.aspect < 0.8 ? 70 : 55;
   const viewH = 2 * PANEL_AHEAD * Math.tan(THREE.MathUtils.degToRad(fov / 2));
   const viewW = viewH * camera.aspect;
-  const h = Math.min(PANEL_H, viewW * 0.86 / p.aspect, viewH * 0.62);
-  p.mesh.scale.set(h * p.aspect, h, 1);
-  p.mesh.position.x = camera.aspect < 0.8 ? 0 : p.side * 0.9;
+  const narrow = camera.aspect < 0.8;
+  if (p.device) {
+    // Film keeps its own ratio inside the device screen (letter- or pillar-boxed).
+    const D = DEVICES[p.device];
+    const vw = p.aspect > D.sw / D.sh ? D.sw : D.sh * p.aspect;
+    p.videoMesh.scale.set(vw, vw / p.aspect, 1);
+    const totalH = D.h + (D.standH || 0);
+    const k = Math.min(viewH * 0.58 / totalH, viewW * (narrow ? 0.82 : 0.6) / D.w);
+    p.root.scale.setScalar(k);
+    p.baseY = viewH * 0.1 + (D.standH || 0) * k * 0.5;
+  } else {
+    const h = Math.min(PANEL_H, viewW * 0.86 / p.aspect, viewH * 0.62);
+    p.videoMesh.scale.set(h * p.aspect, h, 1);
+    p.baseY = 0.25;
+  }
 }
 
 /* ------------------------------------------------- frost glass + shards */
@@ -385,6 +464,13 @@ $('#contact-form').addEventListener('submit', e => {
 });
 
 /* -------------------------------------------------------------- chapters */
+const statementEl = $('.chapter.statement');
+PROJECTS.slice().reverse().forEach((_, k) => {
+  const el = document.createElement('div');
+  el.className = 'chapter project'; el.dataset.project = PROJECTS.length - 1 - k;
+  statementEl.after(el);
+});
+$('#stage-num').textContent = `00 / ${TOTAL}`;
 const chapterEls = [...document.querySelectorAll('.chapter')].map(el => {
   let range;
   if (el.dataset.project != null) {
@@ -478,13 +564,23 @@ function frame() {
 
   // Video panels: play only what is near, fade in from the fog, brighten when centred.
   panels.forEach((p, i) => {
-    const dz = camera.position.z - p.mesh.position.z;
-    const near = state === 'inside' && dz > -10 && dz < 70;
+    // One film at a time: it emerges as you reach it and fades once you move on.
+    const appear = 1 - smooth(SLOT * 0.45, SLOT * 0.85, Math.abs(progress - projectCenter(i)));
+    p.root.visible = appear > 0.001;
+    p.mats.forEach(m => (m.opacity = m.userData.baseOpacity * appear));
+    const near = state === 'inside' && appear > 0;
     if (near && p.video.paused) p.video.play().catch(() => {});
     if (!near && !p.video.paused) p.video.pause();
     const focus = 1 - smooth(0, SLOT * 0.6, Math.abs(progress - projectCenter(i)));
-    p.mesh.material.color.setScalar(0.35 + focus * 0.65);
-    p.mesh.rotation.y = -p.side * 0.06 + mouseSmooth.x * 0.05 * focus;
+    p.screenMat.color.setScalar(0.35 + focus * 0.65);
+    if (p.device) {
+      // Devices float and turn slightly toward the pointer.
+      p.root.position.y = p.baseY + Math.sin(t * 0.8 + i) * 0.06;
+      p.root.rotation.set(Math.sin(t * 0.6 + i) * 0.03 - mouseSmooth.y * 0.08 * focus, mouseSmooth.x * 0.25 * focus + Math.sin(t * 0.5 + i) * 0.04, 0);
+    } else {
+      p.root.position.y = p.baseY;
+      p.root.rotation.y = mouseSmooth.x * 0.06 * focus;
+    }
   });
 
   // DOM chapters, project counter, progress bar.
@@ -495,7 +591,7 @@ function frame() {
   if (current !== lastProject) {
     if (current >= 0 && state === 'inside') sound.whoosh();
     lastProject = current;
-    stageNum.textContent = `${String(current + 1).padStart(2, '0')} / 07`;
+    stageNum.textContent = `${String(current + 1).padStart(2, '0')} / ${TOTAL}`;
   }
   bar.style.transform = `scaleX(${progress})`;
   if (sound.filter) sound.filter.frequency.setTargetAtTime(380 + speed * 900 + light * 600, sound.ctx.currentTime, 0.2);
