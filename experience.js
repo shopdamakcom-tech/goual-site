@@ -155,8 +155,17 @@ const panels = PROJECTS.map((proj, i) => {
     frame.position.z = -0.01;
     videoMesh.add(frame);
   }
-  root.position.set(side * 0.9, 0.25, -projectCenter(i) * TRAVEL - PANEL_AHEAD);
-  const panel = { video, root, videoMesh, screenMat, side, device: proj.device, aspect: 16 / 9, baseY: 0.25 };
+  root.position.set(0, 0.25, -projectCenter(i) * TRAVEL - PANEL_AHEAD);
+  // Own copies of the materials so each film can fade in and out on its own.
+  const mats = [];
+  root.traverse(o => {
+    if (!o.material) return;
+    if (o.material !== screenMat) o.material = o.material.clone();
+    o.material.transparent = true;
+    o.material.userData.baseOpacity = o.material.opacity;
+    mats.push(o.material);
+  });
+  const panel = { video, root, videoMesh, screenMat, mats, side, device: proj.device, aspect: 16 / 9, baseY: 0.25 };
   video.addEventListener('loadedmetadata', () => {
     if (video.videoWidth) { panel.aspect = video.videoWidth / video.videoHeight; fitPanel(panel); }
   });
@@ -183,7 +192,6 @@ function fitPanel(p) {
     p.videoMesh.scale.set(h * p.aspect, h, 1);
     p.baseY = 0.25;
   }
-  p.root.position.x = narrow ? 0 : p.side * (p.device ? 1.3 : 0.9);
 }
 
 /* ------------------------------------------------- frost glass + shards */
@@ -556,8 +564,11 @@ function frame() {
 
   // Video panels: play only what is near, fade in from the fog, brighten when centred.
   panels.forEach((p, i) => {
-    const dz = camera.position.z - p.root.position.z;
-    const near = state === 'inside' && dz > -10 && dz < 70;
+    // One film at a time: it emerges as you reach it and fades once you move on.
+    const appear = 1 - smooth(SLOT * 0.45, SLOT * 0.85, Math.abs(progress - projectCenter(i)));
+    p.root.visible = appear > 0.001;
+    p.mats.forEach(m => (m.opacity = m.userData.baseOpacity * appear));
+    const near = state === 'inside' && appear > 0;
     if (near && p.video.paused) p.video.play().catch(() => {});
     if (!near && !p.video.paused) p.video.pause();
     const focus = 1 - smooth(0, SLOT * 0.6, Math.abs(progress - projectCenter(i)));
@@ -565,10 +576,10 @@ function frame() {
     if (p.device) {
       // Devices float and turn slightly toward the pointer.
       p.root.position.y = p.baseY + Math.sin(t * 0.8 + i) * 0.06;
-      p.root.rotation.set(Math.sin(t * 0.6 + i) * 0.03 - mouseSmooth.y * 0.08 * focus, -p.side * 0.22 + mouseSmooth.x * 0.25 * focus + Math.sin(t * 0.5 + i) * 0.04, 0);
+      p.root.rotation.set(Math.sin(t * 0.6 + i) * 0.03 - mouseSmooth.y * 0.08 * focus, mouseSmooth.x * 0.25 * focus + Math.sin(t * 0.5 + i) * 0.04, 0);
     } else {
       p.root.position.y = p.baseY;
-      p.root.rotation.y = -p.side * 0.06 + mouseSmooth.x * 0.05 * focus;
+      p.root.rotation.y = mouseSmooth.x * 0.06 * focus;
     }
   });
 
