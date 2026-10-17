@@ -1,0 +1,110 @@
+{%- assign s = section.settings -%}
+<section class="promo-strip">
+  <div class="promo-big"><span>{{ s.promo_prefix }}</span><b>{{ s.promo_value }}</b><i>%<br><small>DE REMISE</small></i></div>
+  <div class="promo-copy">
+    <h2>{{ s.promo_title }}</h2>
+    <p>{{ s.promo_text }}</p>
+  </div>
+  {%- if s.promo_image != blank -%}{{ s.promo_image | image_url: width: 900 | image_tag: loading: 'lazy' }}{%- endif -%}
+</section>
+
+<section class="feature">
+  <div class="wrap-wide">
+    <div class="feature-head">
+      <div><h2>{{ s.feature_title }}</h2><p>{{ s.feature_text }}</p></div>
+      <a class="btn btn-ghost-dark" href="{{ s.feature_link }}">{{ s.feature_button }}</a>
+    </div>
+    {%- if s.feature_image != blank -%}<div class="feature-img">{{ s.feature_image | image_url: width: 1800 | image_tag: loading: 'lazy' }}</div>{%- endif -%}
+  </div>
+</section>
+
+<section class="wrap cats">
+  {%- for i in (1..6) -%}
+    {%- assign key = 'cat_' | append: i -%}
+    {%- assign c = s[key] -%}
+    {%- if c != blank -%}
+      <a href="{{ c.url }}">
+        {%- assign img = c.image | default: c.products.first.featured_image -%}
+        {%- if img -%}{{ img | image_url: width: 700 | image_tag: loading: 'lazy', alt: c.title }}{%- endif -%}
+        <span>{{ c.title | capitalize }}</span>
+      </a>
+    {%- endif -%}
+  {%- endfor -%}
+</section>
+
+{%- if s.products_collection != blank -%}
+<section class="wrap products">
+  <button class="arrow prev" data-scroll="-1" aria-label="Précédent">&#8249;</button>
+  <div class="track">
+    {%- for p in s.products_collection.products limit: 12 -%}
+      <a class="card" href="{{ p.url }}">
+        <div class="card-img">{{ p.featured_image | image_url: width: 500 | image_tag: loading: 'lazy', alt: p.title }}<span class="fav" aria-hidden="true">♡</span></div>
+        <div class="card-body">
+          <p class="price"><b>{{ p.price | money_without_trailing_zeros }}</b>
+          {%- if p.compare_at_price > p.price -%}
+            <s>{{ p.compare_at_price | money_without_trailing_zeros }}</s>
+            <em>-{{ p.compare_at_price | minus: p.price | times: 100 | divided_by: p.compare_at_price }} %</em>
+          {%- endif -%}</p>
+          <p class="name">{{ p.title }}</p>
+        </div>
+      </a>
+    {%- endfor -%}
+  </div>
+  <button class="arrow next" data-scroll="1" aria-label="Suivant">&#8250;</button>
+</section>
+{%- endif -%}
+
+<section class="band"><p><span>{{ s.band_kicker }}</span> {{ s.band_text }}</p></section>
+
+<section class="wrap tiles">
+  {%- for i in (1..5) -%}
+    {%- assign key = 'tile_' | append: i -%}
+    {%- assign c = s[key] -%}
+    {%- if c != blank -%}
+      <a href="{{ c.url }}">
+        {%- assign img = c.image | default: c.products.first.featured_image -%}
+        {%- if img -%}{{ img | image_url: width: 500 | image_tag: loading: 'lazy', alt: c.title }}{%- endif -%}
+        <span>{{ c.title | capitalize }}</span>
+      </a>
+    {%- endif -%}
+  {%- endfor -%}
+</section>
+
+{% schema %}
+{
+  "name": "Accueil Rosenberg",
+  "settings": [
+    { "type": "header", "content": "Bandeau promo" },
+    { "type": "text", "id": "promo_prefix", "label": "Avant le chiffre", "default": "JUSQU'À" },
+    { "type": "text", "id": "promo_value", "label": "Pourcentage", "default": "30" },
+    { "type": "text", "id": "promo_title", "label": "Titre", "default": "Sur les bacs à shampoing" },
+    { "type": "text", "id": "promo_text", "label": "Texte", "default": "Dès 800 € d'achat | Jusqu'au 31 octobre" },
+    { "type": "image_picker", "id": "promo_image", "label": "Image" },
+    { "type": "header", "content": "Univers mis en avant" },
+    { "type": "text", "id": "feature_title", "label": "Titre", "default": "Barber shop" },
+    { "type": "text", "id": "feature_text", "label": "Texte", "default": "Tout pour équiper votre salon, du fauteuil au poste de coiffage" },
+    { "type": "text", "id": "feature_button", "label": "Bouton", "default": "Équiper mon salon" },
+    { "type": "url", "id": "feature_link", "label": "Lien", "default": "/collections/fauteuil-barber" },
+    { "type": "image_picker", "id": "feature_image", "label": "Grande image" },
+    { "type": "header", "content": "Grille de 6 catégories" },
+    { "type": "collection", "id": "cat_1", "label": "Catégorie 1" },
+    { "type": "collection", "id": "cat_2", "label": "Catégorie 2" },
+    { "type": "collection", "id": "cat_3", "label": "Catégorie 3" },
+    { "type": "collection", "id": "cat_4", "label": "Catégorie 4" },
+    { "type": "collection", "id": "cat_5", "label": "Catégorie 5" },
+    { "type": "collection", "id": "cat_6", "label": "Catégorie 6" },
+    { "type": "header", "content": "Carrousel produits" },
+    { "type": "collection", "id": "products_collection", "label": "Collection affichée" },
+    { "type": "header", "content": "Bandeau pleine largeur" },
+    { "type": "text", "id": "band_kicker", "label": "Petit texte doré", "default": "Institut & esthétique" },
+    { "type": "text", "id": "band_text", "label": "Texte", "default": "-20 % sur les tables de soin et fauteuils pédicure" },
+    { "type": "header", "content": "5 tuiles encadrées" },
+    { "type": "collection", "id": "tile_1", "label": "Tuile 1" },
+    { "type": "collection", "id": "tile_2", "label": "Tuile 2" },
+    { "type": "collection", "id": "tile_3", "label": "Tuile 3" },
+    { "type": "collection", "id": "tile_4", "label": "Tuile 4" },
+    { "type": "collection", "id": "tile_5", "label": "Tuile 5" }
+  ],
+  "presets": [{ "name": "Accueil Rosenberg" }]
+}
+{% endschema %}

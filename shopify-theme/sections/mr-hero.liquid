@@ -1,0 +1,50 @@
+<section class="hero hero-photo">
+  {%- if section.settings.image != blank -%}
+    {{ section.settings.image | image_url: width: 2400 | image_tag: class: 'hero-bg', alt: section.settings.image.alt, loading: 'eager', fetchpriority: 'high' }}
+  {%- else -%}
+    <img class="hero-bg" src="{{ 'hero-barber.webp' | asset_url }}" alt="Barber shop équipé" fetchpriority="high">
+  {%- endif -%}
+  <div class="hero-panel">
+    {%- if section.settings.kicker != blank -%}<p class="kicker">{{ section.settings.kicker }}</p>{%- endif -%}
+    <h1>{{ section.settings.title | newline_to_br }}</h1>
+    {%- if section.blocks.size > 0 -%}
+    <ul class="pack">
+      {%- for block in section.blocks -%}
+        <li {{ block.shopify_attributes }}><span>{{ block.settings.name }}</span><b>{{ block.settings.price }}</b></li>
+      {%- endfor -%}
+    </ul>
+    {%- endif -%}
+    <div class="pack-total">
+      {%- if section.settings.old_price != blank -%}<s>{{ section.settings.old_price }}</s>{%- endif -%}
+      <strong>{{ section.settings.price }}</strong>
+      {%- if section.settings.badge != blank -%}<em>{{ section.settings.badge }}</em>{%- endif -%}
+    </div>
+    {%- if section.settings.button_label != blank -%}
+      <a class="btn btn-gold" href="{{ section.settings.button_link | default: routes.all_products_collection_url }}">{{ section.settings.button_label }}</a>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Bannière pack",
+  "settings": [
+    { "type": "image_picker", "id": "image", "label": "Photo (format large, 1920 x 815 conseillé)" },
+    { "type": "text", "id": "kicker", "label": "Petit titre", "default": "Pack Barber Prestige" },
+    { "type": "textarea", "id": "title", "label": "Titre", "default": "Votre barber shop,\nprêt à recevoir" },
+    { "type": "text", "id": "old_price", "label": "Prix barré", "default": "3 061 €" },
+    { "type": "text", "id": "price", "label": "Prix", "default": "2 467 €" },
+    { "type": "text", "id": "badge", "label": "Badge", "default": "594 € d'économie" },
+    { "type": "text", "id": "button_label", "label": "Texte du bouton", "default": "Découvrir la collection" },
+    { "type": "url", "id": "button_link", "label": "Lien du bouton", "default": "/products/gabbiano-fauteuil-barbier-marcus-or-noir" }
+  ],
+  "blocks": [
+    { "type": "item", "name": "Produit du pack", "settings": [
+      { "type": "text", "id": "name", "label": "Nom" },
+      { "type": "text", "id": "price", "label": "Prix" }
+    ]}
+  ],
+  "max_blocks": 6,
+  "presets": [{ "name": "Bannière pack" }]
+}
+{% endschema %}

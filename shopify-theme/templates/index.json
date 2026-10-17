@@ -1,0 +1,33 @@
+{
+  "layout": "rosenberg",
+  "sections": {
+    "hero": {
+      "type": "mr-hero",
+      "blocks": {
+        "item1": { "type": "item", "settings": { "name": "Fauteuil barbier Prestige Or & Noir", "price": "899 €" } },
+        "item2": { "type": "item", "settings": { "name": "Bac barbier Icon Or & Noir", "price": "899 €" } },
+        "item3": { "type": "item", "settings": { "name": "Canapé d'attente Avior", "price": "669 €" } }
+      },
+      "block_order": ["item1", "item2", "item3"],
+      "settings": {}
+    },
+    "accueil": {
+      "type": "mr-accueil",
+      "settings": {
+        "cat_1": "fauteuil-barber",
+        "cat_2": "poste-de-coiffage-barber",
+        "cat_3": "bac-a-shampoing-barber",
+        "cat_4": "accueil-barber",
+        "cat_5": "fauteuil-coiffeur-femme",
+        "cat_6": "desinfection-et-sterilisation",
+        "products_collection": "fauteuil-barber",
+        "tile_1": "table-de-soin-esthetique",
+        "tile_2": "fauteuils-pedicure-esthetique",
+        "tile_3": "fauteuil-de-massage-esthetique",
+        "tile_4": "tables-manucures-esthetique",
+        "tile_5": "appareil-cosmetique"
+      }
+    }
+  },
+  "order": ["hero", "accueil"]
+}
