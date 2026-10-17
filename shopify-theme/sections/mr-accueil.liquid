@@ -12,7 +12,7 @@
   <div class="wrap-wide">
     <div class="feature-head">
       <div><h2>{{ s.feature_title }}</h2><p>{{ s.feature_text }}</p></div>
-      <a class="btn btn-ghost-dark" href="{{ s.feature_link }}">{{ s.feature_button }}</a>
+      <a class="btn btn-ghost-dark" href="{{ s.feature_link | default: '/collections/fauteuil-barber' }}">{{ s.feature_button }}</a>
     </div>
     {%- if s.feature_image != blank -%}<div class="feature-img">{{ s.feature_image | image_url: width: 1800 | image_tag: loading: 'lazy' }}</div>{%- endif -%}
   </div>
@@ -84,7 +84,7 @@
     { "type": "text", "id": "feature_title", "label": "Titre", "default": "Barber shop" },
     { "type": "text", "id": "feature_text", "label": "Texte", "default": "Tout pour équiper votre salon, du fauteuil au poste de coiffage" },
     { "type": "text", "id": "feature_button", "label": "Bouton", "default": "Équiper mon salon" },
-    { "type": "url", "id": "feature_link", "label": "Lien", "default": "/collections/fauteuil-barber" },
+    { "type": "url", "id": "feature_link", "label": "Lien" },
     { "type": "image_picker", "id": "feature_image", "label": "Grande image" },
     { "type": "header", "content": "Grille de 6 catégories" },
     { "type": "collection", "id": "cat_1", "label": "Catégorie 1" },

@@ -20,7 +20,7 @@
       {%- if section.settings.badge != blank -%}<em>{{ section.settings.badge }}</em>{%- endif -%}
     </div>
     {%- if section.settings.button_label != blank -%}
-      <a class="btn btn-gold" href="{{ section.settings.button_link | default: routes.all_products_collection_url }}">{{ section.settings.button_label }}</a>
+      <a class="btn btn-gold" href="{{ section.settings.button_link | default: '/products/gabbiano-fauteuil-barbier-marcus-or-noir' }}">{{ section.settings.button_label }}</a>
     {%- endif -%}
   </div>
 </section>
@@ -36,7 +36,7 @@
     { "type": "text", "id": "price", "label": "Prix", "default": "2 467 €" },
     { "type": "text", "id": "badge", "label": "Badge", "default": "594 € d'économie" },
     { "type": "text", "id": "button_label", "label": "Texte du bouton", "default": "Découvrir la collection" },
-    { "type": "url", "id": "button_link", "label": "Lien du bouton", "default": "/products/gabbiano-fauteuil-barbier-marcus-or-noir" }
+    { "type": "url", "id": "button_link", "label": "Lien du bouton" }
   ],
   "blocks": [
     { "type": "item", "name": "Produit du pack", "settings": [
