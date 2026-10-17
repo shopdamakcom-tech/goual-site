@@ -205,3 +205,7 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
 .nl-ok{font-weight:600;color:var(--gold-2)}
 .promo-strip img{width:100%;height:200px;object-fit:contain;background:var(--white)}
 .feature-head>div{min-width:0}
+.cats img,.tiles img,.card-img img,.promo-strip img,.feature-img img{height:auto}
+.cats img{aspect-ratio:4/3}.tiles img{aspect-ratio:3/4}.card-img img{aspect-ratio:1;height:100%}
+.promo-strip img{height:200px}.feature-img img{height:560px}
+@media (max-width:640px){.feature-img img{height:320px}}

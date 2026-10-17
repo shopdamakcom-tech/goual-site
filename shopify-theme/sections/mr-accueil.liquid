@@ -5,7 +5,7 @@
     <h2>{{ s.promo_title }}</h2>
     <p>{{ s.promo_text }}</p>
   </div>
-  {%- if s.promo_image != blank -%}{{ s.promo_image | image_url: width: 900 | image_tag: loading: 'lazy' }}{%- endif -%}
+  {%- if s.promo_image != blank -%}{{ s.promo_image | image_url: width: 900 | image_tag: loading: 'lazy' }}{%- else -%}<img src="{{ 'promo-bac.webp' | asset_url }}" alt="" loading="lazy">{%- endif -%}
 </section>
 
 <section class="feature">
@@ -14,7 +14,7 @@
       <div><h2>{{ s.feature_title }}</h2><p>{{ s.feature_text }}</p></div>
       <a class="btn btn-ghost-dark" href="{{ s.feature_link | default: '/collections/fauteuil-barber' }}">{{ s.feature_button }}</a>
     </div>
-    {%- if s.feature_image != blank -%}<div class="feature-img">{{ s.feature_image | image_url: width: 1800 | image_tag: loading: 'lazy' }}</div>{%- endif -%}
+    <div class="feature-img">{%- if s.feature_image != blank -%}{{ s.feature_image | image_url: width: 1800 | image_tag: loading: 'lazy' }}{%- else -%}<img src="{{ 'feature-barber.jpg' | asset_url }}" alt="" loading="lazy">{%- endif -%}</div>
   </div>
 </section>
 
