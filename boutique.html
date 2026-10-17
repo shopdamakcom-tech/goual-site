@@ -67,45 +67,19 @@
 
 <main>
   <!-- Grande bannière défilante -->
-  <section class="hero" aria-roledescription="carrousel">
-    <div class="slides">
-      <article class="slide is-active">
-        <div class="slide-text">
-          <p class="kicker">Collection barbier</p>
-          <h1>Le fauteuil qui fait<br>revenir vos clients</h1>
-          <p>Cuir vintage, hydraulique silencieuse, assise ferme : pensé pour dix heures de service par jour.</p>
-          <a class="btn btn-dark" href="https://maison-rosenberg.com/collections/fauteuil-barber">Voir les fauteuils</a>
-        </div>
-        <div class="slide-media">
-          <div class="price-tag"><s>1 539 €</s><b>1 099 €</b><span>Fauteuil Baron<br><em>Vintage brun clair</em></span></div>
-          <img src="https://cdn.shopify.com/s/files/1/0736/3303/8499/files/126469_02_1707.jpg?v=1768912489&width=1200" alt="Fauteuil barbier Baron vintage brun clair">
-        </div>
-      </article>
-      <article class="slide">
-        <div class="slide-text">
-          <p class="kicker">Rituel bien-être</p>
-          <h1>Offrez un vrai<br>moment head spa</h1>
-          <p>Des lits et bacs dédiés au soin du cuir chevelu, pour une prestation premium dans votre salon.</p>
-          <a class="btn btn-dark" href="https://maison-rosenberg.com/collections/head-spa-esthetique">Découvrir le head spa</a>
-        </div>
-        <div class="slide-media">
-          <img src="https://cdn.shopify.com/s/files/1/0736/3303/8499/files/154394_02_1710.jpg?v=1768913166&width=1200" alt="Installation head spa">
-        </div>
-      </article>
-      <article class="slide">
-        <div class="slide-text">
-          <p class="kicker">Bacs à shampoing</p>
-          <h1>Le confort<br>jusqu'au rinçage</h1>
-          <p>Vasques inclinables, assises larges, finitions noir, gris ou or. Plus de 40 modèles.</p>
-          <a class="btn btn-dark" href="https://maison-rosenberg.com/collections/bac-a-shampoing-barber">Voir les bacs</a>
-        </div>
-        <div class="slide-media">
-          <img src="https://cdn.shopify.com/s/files/1/0736/3303/8499/files/141273_3_1204.jpg?v=1769524416&width=1200" alt="Bac à shampoing Régence or et noir">
-        </div>
-      </article>
+  <section class="hero hero-photo">
+    <img class="hero-bg" src="hero-barber.webp" alt="Barber shop équipé du fauteuil Prestige, du bac Icon et du canapé Avior">
+    <div class="hero-panel">
+      <p class="kicker">Pack Barber Prestige</p>
+      <h1>Votre barber shop,<br>prêt à recevoir</h1>
+      <ul class="pack">
+        <li><span>Fauteuil barbier Prestige Or &amp; Noir</span><b>899 €</b></li>
+        <li><span>Bac barbier Icon Or &amp; Noir</span><b>899 €</b></li>
+        <li><span>Canapé d'attente Avior</span><b>669 €</b></li>
+      </ul>
+      <div class="pack-total"><s>3 061 €</s><strong>2 467 €</strong><em>594 € d'économie</em></div>
+      <a class="btn btn-gold" href="https://maison-rosenberg.com/products/gabbiano-fauteuil-barbier-marcus-or-noir">Découvrir la collection</a>
     </div>
-    <button class="arrow prev" aria-label="Précédent">&#8249;</button>
-    <button class="arrow next" aria-label="Suivant">&#8250;</button>
   </section>
 
   <!-- Bandeau promo -->
@@ -256,13 +230,6 @@ document.querySelectorAll('.products .arrow').forEach(b=>b.onclick=()=>{
   const t=document.getElementById('track');t.scrollBy({left:b.dataset.scroll*t.clientWidth*.8,behavior:'smooth'});
 });
 
-// Bannière défilante
-const slides=[...document.querySelectorAll('.slide')];let cur=0,timer;
-function show(i){slides[cur].classList.remove('is-active');cur=(i+slides.length)%slides.length;slides[cur].classList.add('is-active');}
-function auto(){clearInterval(timer);timer=setInterval(()=>show(cur+1),6000);}
-document.querySelector('.hero .prev').onclick=()=>{show(cur-1);auto()};
-document.querySelector('.hero .next').onclick=()=>{show(cur+1);auto()};
-auto();
 
 // Compte à rebours jusqu'au 31 octobre
 const end=new Date('2026-10-31T23:59:59');

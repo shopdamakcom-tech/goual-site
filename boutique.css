@@ -178,3 +178,24 @@ svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7;stroke
   .social{justify-content:center}
   .cols{grid-template-columns:1fr}
 }
+
+/* Bannière photo (pack barber) */
+.hero-photo{position:relative;background:#1a1512;min-height:0}
+.hero-bg{width:100%;height:auto;aspect-ratio:1920/815;object-fit:cover;object-position:left center}
+.hero-panel{position:absolute;top:0;right:0;bottom:0;width:30%;display:flex;flex-direction:column;justify-content:center;gap:18px;padding:32px 4vw 32px 2vw;color:#fff}
+.hero-panel .kicker{margin:0;color:#d4b07a}
+.hero-panel h1{font:700 clamp(28px,2.8vw,48px)/1.12 var(--sans);color:#fff}
+.pack{list-style:none;display:grid;gap:8px;border-top:1px solid #ffffff33;padding-top:16px}
+.pack li{display:flex;justify-content:space-between;gap:16px;font-size:clamp(13px,.95vw,16px);color:#e9e2d8}
+.pack b{font-weight:600;color:#fff;white-space:nowrap}
+.pack-total{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;border-top:1px solid #ffffff33;padding-top:16px}
+.pack-total s{color:#b9b0a4;font-size:clamp(16px,1.3vw,22px)}
+.pack-total strong{color:#d4b07a;font-size:clamp(36px,3.6vw,62px);line-height:1}
+.pack-total em{font-style:normal;background:#d4b07a;color:#1a1512;font-weight:600;font-size:13px;padding:4px 10px}
+.hero-panel .btn{align-self:flex-start}
+@media (max-width:900px){
+  .hero-panel{position:static;width:auto;padding:28px 16px 36px}
+}
+.hero-photo::after{content:"";position:absolute;inset:0 0 0 auto;width:42%;background:linear-gradient(90deg,#1a151200,#1a1512cc 45%,#1a1512e6);pointer-events:none}
+.hero-panel{z-index:1}
+@media (max-width:900px){.hero-photo::after{display:none}}
