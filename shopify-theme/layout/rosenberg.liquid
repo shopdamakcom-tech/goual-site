@@ -21,15 +21,8 @@
       <li><svg viewBox="0 0 24 24"><path d="M4 7h16v13H4zM8 7V4h8v3"/></svg>Paiement en 3x / 4x</li>
       <li><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg>Garantie 2 ans</li>
     </ul>
-    <div class="countdown" aria-label="Offre limitée" data-end="2026-10-31T23:59:59">
-      <strong>-15 %<br>en plus</strong>
-      <span><b id="cd-d">00</b>Jours</span>
-      <span><b id="cd-h">00</b>Heures</span>
-      <span><b id="cd-m">00</b>Min</span>
-      <span><b id="cd-s">00</b>Sec</span>
-    </div>
     <ul class="toplinks">
-      <li><a href="/pages/contact">Showroom</a></li>
+      <li><a href="/pages/contact">Contact</a></li>
       <li><a href="/pages/contact">Aide</a></li>
     </ul>
   </div>
@@ -140,15 +133,6 @@
 <button class="to-top" aria-label="Haut de page" onclick="scrollTo({top:0,behavior:'smooth'})">&#8593;</button>
 <script>
 (function(){
-  var el=document.querySelector('.countdown'); if(!el) return;
-  var end=new Date(el.dataset.end||'2026-10-31T23:59:59');
-  function pad(n){return String(n).padStart(2,'0')}
-  (function tick(){
-    var s=Math.max(0,Math.floor((end-Date.now())/1000));
-    var v=[Math.floor(s/86400),Math.floor(s/3600)%24,Math.floor(s/60)%60,s%60];
-    ['d','h','m','s'].forEach(function(k,i){var e=document.getElementById('cd-'+k); if(e) e.textContent=pad(v[i])});
-    setTimeout(tick,1000);
-  })();
   document.querySelectorAll('[data-scroll]').forEach(function(b){b.onclick=function(){var t=b.parentNode.querySelector('.track');t.scrollBy({left:b.dataset.scroll*t.clientWidth*.8,behavior:'smooth'})}});
 })();
 </script>
