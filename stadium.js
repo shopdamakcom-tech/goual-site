@@ -1,6 +1,13 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 /* ------------------------------------------------------------------ data */
 // Each stop on the tour shows one film on a screen in the scene.
@@ -27,23 +34,56 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPrefere
 renderer.setPixelRatio(Math.min(devicePixelRatio, MOBILE ? 1.5 : 1.75));
 renderer.setSize(innerWidth, innerHeight, false);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.12;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
 const scene = new THREE.Scene();
-const HORIZON = new THREE.Color('#ffe9c9');
+const HORIZON = new THREE.Color('#ffdcb0');
 scene.fog = new THREE.Fog(HORIZON, 140, 420);
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environmentIntensity = 0.35;
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 900);
 
+/* ---------------------------------------------------------- post effects */
+// Ambient occlusion (desktop), soft bloom, then a tilt-shift + colour grade pass for the miniature, filmic look.
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 }));
+composer.addPass(new RenderPass(scene, camera));
+const ao = MOBILE ? null : new GTAOPass(scene, camera, innerWidth, innerHeight);
+if (ao) { ao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.4, thickness: 1.2, scale: 1.1 }); ao.blendIntensity = 0.9; composer.addPass(ao); }
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.32, 0.65, 0.88);
+composer.addPass(bloom);
+const grade = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, uTilt: { value: 1 }, uRes: { value: new THREE.Vector2(innerWidth, innerHeight) } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float uTilt; uniform vec2 uRes; varying vec2 vUv;
+    void main(){
+      // Tilt-shift: blur grows toward the top and bottom of the frame.
+      float amt = uTilt * smoothstep(0.12, 0.48, abs(vUv.y - 0.52)) * 7.0;
+      vec4 c = vec4(0.); float tw = 0.;
+      for (int i = 0; i < 12; i++) {
+        float a = float(i) * 2.39996, r = sqrt(float(i) + .5) / 3.5;
+        vec2 o = vec2(cos(a), sin(a)) * r * amt / uRes;
+        c += texture2D(tDiffuse, vUv + o); tw += 1.;
+      }
+      c /= tw;
+      // Warm, slightly richer colours and a soft vignette.
+      float l = dot(c.rgb, vec3(.2126, .7152, .0722));
+      c.rgb = mix(vec3(l), c.rgb, 1.14) * vec3(1.03, 1.0, .97);
+      float v = smoothstep(.95, .35, length((vUv - .5) * vec2(1.1, 1.)));
+      c.rgb *= mix(.82, 1., v);
+      gl_FragColor = c;
+    }`,
+});
+composer.addPass(grade);
+composer.addPass(new OutputPass());
+
 /* ----------------------------------------------------------------- lights */
-scene.add(new THREE.HemisphereLight('#cfe8ff', '#6fa85a', 1.15));
-const sun = new THREE.DirectionalLight('#fff0d8', 2.7);
-sun.position.set(60, 95, 45);
+scene.add(new THREE.HemisphereLight('#c4e3ff', '#7fb069', 1.05));
+const sun = new THREE.DirectionalLight('#ffe2b8', 3.1);
+sun.position.set(75, 70, 50);
 sun.castShadow = true;
-sun.shadow.mapSize.setScalar(MOBILE ? 1024 : 2048);
+sun.shadow.mapSize.setScalar(MOBILE ? 1024 : 4096);
 Object.assign(sun.shadow.camera, { left: -85, right: 85, top: 85, bottom: -85, near: 10, far: 260 });
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.03;
@@ -86,7 +126,11 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(700, 32, 16), new THREE.Shad
 }));
 scene.add(sky);
 
-const ground = mesh(new THREE.CircleGeometry(600, 64), mat('#86c95e', { roughness: 0.95 }), null, 0, -0.02, 0, { cast: false });
+const grassTex = canvasTex(256, 256, (c, w) => {
+  c.fillStyle = '#86c95e'; c.fillRect(0, 0, w, w);
+  for (let i = 0; i < 2600; i++) { c.fillStyle = `hsla(${rand(85, 115)},${rand(35, 55)}%,${rand(38, 58)}%,.35)`; c.fillRect(rand(0, w), rand(0, w), rand(1, 3), rand(2, 6)); }
+}, [160, 160]);
+const ground = mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({ map: grassTex, roughness: 0.95 }), null, 0, -0.02, 0, { cast: false });
 ground.rotation.x = -Math.PI / 2;
 // Rolling hills on the horizon.
 for (let i = 0; i < 26; i++) {
@@ -112,64 +156,74 @@ for (let i = 0; i < 16; i++) {
 }
 
 /* ---------------------------------------------------------------- village */
-// Instanced pastel houses with pointy roofs and trees in a ring around the stadium.
-{
-  const N = MOBILE ? 90 : 150, dummy = new THREE.Object3D(), col = new THREE.Color();
-  const walls = new THREE.InstancedMesh(new RoundedBoxGeometry(1, 1, 1, 2, 0.08), mat('#ffffff', { roughness: 0.85 }), N);
-  const roofGeo = new THREE.ConeGeometry(0.72, 1, 4); roofGeo.rotateY(Math.PI / 4);
-  const roofs = new THREE.InstancedMesh(roofGeo, mat('#ffffff', { roughness: 0.75 }), N);
-  const doors = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#6b3e26'), N);
-  const wins = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#fff6d5', { emissive: '#ffe9a8', emissiveIntensity: 0.4 }), N * 2);
-  const houseCols = ['#ffd6e0', '#ffe7a0', '#c7f0d8', '#cde7ff', '#e3d5ff', '#ffd2b0', '#fff1c9', '#b9f3ee'];
-  const roofCols = ['#e4572e', '#d1495b', '#2e86ab', '#7b2cbf', '#f29e4c', '#3f8a5f'];
-  let placed = 0, tries = 0;
-  const spots = [];
-  while (placed < N && tries++ < 4000) {
-    const a = rand(0, Math.PI * 2), r = rand(72, 150);
+// Houses and trees are CC0 models by Kenney (models/LICENSE-kenney.txt), instanced for speed.
+// Each house type gets one of six palette textures for colourful roofs.
+const gltf = new GLTFLoader();
+const loadModel = url => new Promise((res, rej) => gltf.load(url, g => res(g.scene), undefined, rej));
+// One InstancedMesh per mesh of the model, all sharing the given world transforms.
+function instance(model, transforms, { map, cast = true } = {}) {
+  model.updateMatrixWorld(true);
+  const m = new THREE.Matrix4();
+  model.traverse(o => {
+    if (!o.isMesh) return;
+    let material = o.material;
+    if (map) { material = material.clone(); material.map = map; }
+    material.roughness = Math.max(material.roughness ?? 0.7, 0.6); material.metalness = 0;
+    const im = new THREE.InstancedMesh(o.geometry, material, transforms.length);
+    transforms.forEach((t, i) => im.setMatrixAt(i, m.multiplyMatrices(t, o.matrixWorld)));
+    im.castShadow = cast; im.receiveShadow = true;
+    scene.add(im);
+  });
+}
+const HOUSE_TYPES = 'abcdefghijklmnopqrstu'.split('');
+const PALETTES = ['coral', 'sky', 'violet', 'sun', 'rose', 'teal'];
+const villageReady = (async () => {
+  const texLoader = new THREE.TextureLoader();
+  const maps = PALETTES.map(n => {
+    const t = texLoader.load(`models/houses/textures/${n}.png`);
+    t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    return t;
+  });
+  const [houses, trees] = await Promise.all([
+    Promise.all(HOUSE_TYPES.map(k => loadModel(`models/houses/building-type-${k}.glb`))),
+    Promise.all(['tree-large', 'tree-small', 'tree_default', 'tree_oak', 'tree_fat', 'tree_detailed', 'plant_bushLarge', 'flower_redA', 'flower_yellowA', 'flower_purpleA'].map(n => loadModel(`models/nature/${n}.glb`))),
+  ]);
+  const unit = obj => { const b = new THREE.Box3().setFromObject(obj), sz = b.getSize(new THREE.Vector3()); return { w: Math.max(sz.x, sz.z), h: sz.y }; };
+  const dummy = new THREE.Object3D(), groups = new Map(), spots = [];
+  const N = MOBILE ? 90 : 140;
+  let tries = 0;
+  while (spots.length < N && tries++ < 5000) {
+    const a = rand(0, Math.PI * 2), r = rand(70, 150);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 64)) continue;
+    if (spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 170)) continue;
     spots.push({ x, z });
-    const w = rand(4, 6.5), h = rand(3.5, 6), d = rand(4, 6), roofH = rand(2.5, 4.2);
-    const face = Math.atan2(-x, -z);
-    dummy.position.set(x, h / 2, z); dummy.rotation.set(0, face, 0); dummy.scale.set(w, h, d); dummy.updateMatrix();
-    walls.setMatrixAt(placed, dummy.matrix); walls.setColorAt(placed, col.set(pick(houseCols)));
-    dummy.position.y = h + roofH / 2; dummy.scale.set(w * 1.18, roofH, d * 1.18); dummy.updateMatrix();
-    roofs.setMatrixAt(placed, dummy.matrix); roofs.setColorAt(placed, col.set(pick(roofCols)));
-    // Door and windows on the side facing the stadium.
-    const fwd = new THREE.Vector3(Math.sin(face), 0, Math.cos(face)), side = new THREE.Vector3(fwd.z, 0, -fwd.x);
-    dummy.position.set(x + fwd.x * d / 2, 1.1, z + fwd.z * d / 2); dummy.scale.set(1.1, 2.2, 0.15); dummy.updateMatrix();
-    doors.setMatrixAt(placed, dummy.matrix);
-    [-1, 1].forEach((s, k) => {
-      dummy.position.set(x + fwd.x * d / 2 + side.x * s * w * 0.3, h * 0.62, z + fwd.z * d / 2 + side.z * s * w * 0.3);
-      dummy.scale.set(0.9, 0.9, 0.15); dummy.updateMatrix();
-      wins.setMatrixAt(placed * 2 + k, dummy.matrix);
-    });
-    placed++;
+    const type = Math.floor(Math.random() * HOUSE_TYPES.length), pal = Math.floor(Math.random() * PALETTES.length);
+    const u = unit(houses[type]), k = rand(10, 13) / u.w;
+    dummy.position.set(x, 0, z); dummy.rotation.set(0, Math.atan2(-x, -z) + Math.round(rand(-1, 1)) * Math.PI / 2, 0); dummy.scale.setScalar(k); dummy.updateMatrix();
+    const key = type + '/' + pal;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(dummy.matrix.clone());
   }
-  [walls, roofs, doors, wins].forEach(m => { m.count = m === wins ? placed * 2 : placed; m.receiveShadow = true; scene.add(m); });
+  groups.forEach((list, key) => { const [type, pal] = key.split('/').map(Number); instance(houses[type], list, { map: maps[pal] }); });
 
-  const T = MOBILE ? 140 : 240;
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 1, 8), mat('#8b5a2b'), T);
-  const crowns = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 16, 12), mat('#ffffff', { roughness: 0.9 }), T);
-  const greens = ['#5cb85c', '#4caf50', '#7ccf5b', '#3e9b4f', '#9bd36a'];
-  let t = 0; tries = 0;
-  while (t < T && tries++ < 6000) {
-    const a = rand(0, Math.PI * 2), r = rand(58, 175);
+  // Trees, bushes and flowers.
+  const plantLists = trees.map(() => []);
+  const T = MOBILE ? 220 : 380;
+  tries = 0; let t = 0;
+  while (t < T && tries++ < 9000) {
+    const a = rand(0, Math.PI * 2), r = rand(56, 175);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 30)) continue;
+    if (spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 70)) continue;
     // Keep the area behind the main stand (tunnel, locker room, office) clear.
     if (x > 20 && x < 70 && z > -14 && z < 24) continue;
-    const s = rand(1.6, 3.2), th = rand(1.5, 3);
-    dummy.rotation.set(0, 0, 0);
-    dummy.position.set(x, th / 2, z); dummy.scale.set(1, th, 1); dummy.updateMatrix(); trunks.setMatrixAt(t, dummy.matrix);
-    dummy.position.set(x, th + s * 0.8, z); dummy.scale.set(s, s * 1.1, s); dummy.updateMatrix(); crowns.setMatrixAt(t, dummy.matrix);
-    crowns.setColorAt(t, col.set(pick(greens)));
-    t++;
+    // Mostly the round suburban trees; a few other trees, bushes and flowers.
+    const roll = Math.random(), kind = roll < 0.55 ? (roll < 0.3 ? 0 : 1) : roll < 0.75 ? Math.floor(rand(2, 6)) : Math.floor(rand(6, 10));
+    const u = unit(trees[kind]), size = kind < 6 ? rand(7, 12) : rand(1.6, 2.8);
+    dummy.position.set(x, 0, z); dummy.rotation.set(0, rand(0, Math.PI * 2), 0); dummy.scale.setScalar(size / u.h); dummy.updateMatrix();
+    plantLists[kind].push(dummy.matrix.clone()); t++;
   }
-  trunks.count = crowns.count = t;
-  crowns.castShadow = true;
-  scene.add(trunks, crowns);
-}
+  plantLists.forEach((list, k) => list.length && instance(trees[k], list, { cast: k < 6 }));
+})().catch(err => console.warn('Village models failed to load', err));
 
 /* ------------------------------------------------------------------ pitch */
 // Field is 40 x 60 inside a 44 x 64 grass plane; lines drawn on a canvas.
@@ -670,7 +724,7 @@ $('#contact-form').addEventListener('submit', e => { e.preventDefault(); e.targe
 const counterEl = $('#counter');
 const loadStart = performance.now();
 let loaded = 0;
-const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), ...screens.map(s => new Promise(res => {
+const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), villageReady, ...screens.map(s => new Promise(res => {
   if (s.video.readyState >= 1) return res();
   s.video.addEventListener('loadedmetadata', res, { once: true });
   s.video.addEventListener('error', res, { once: true });
@@ -692,6 +746,8 @@ function updateLoader() {
 /* ----------------------------------------------------------------- resize */
 function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
+  composer.setSize(innerWidth, innerHeight);
+  grade.uniforms.uRes.value.set(innerWidth, innerHeight);
   camera.aspect = innerWidth / innerHeight;
   camera.fov = camera.aspect < 0.8 ? 68 : 50;
   // Portrait screens: shift the picture up so the info card does not cover the films.
@@ -764,7 +820,8 @@ function frame() {
   // Muffle the crowd indoors.
   if (sound.crowdFilter) sound.crowdFilter.frequency.setTargetAtTime(camera.position.x > 25 ? 260 : 700, sound.ctx.currentTime, 0.4);
 
-  renderer.render(scene, camera);
+  grade.uniforms.uTilt.value = 1 - smooth(0.03, 0.13, progress);   // miniature look from the sky only
+  composer.render(dt);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
