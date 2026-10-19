@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>GOUAL Stadium — prototype 2</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{--ink:#1b1f3b;--cream:#fff8ec;--sun:#ffb400;--coral:#ff5a5f;--round:'Fredoka',system-ui,sans-serif}
+  html,body{margin:0;height:100%;overflow:hidden;background:#9fd3ff;font-family:var(--round);color:#fff;overscroll-behavior:none;touch-action:none}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  canvas.hot{cursor:pointer}
+  .layer{position:fixed;inset:0;pointer-events:none;transition:opacity .6s}
+  .intro{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;text-shadow:0 4px 24px rgba(27,31,59,.45)}
+  .intro p{margin:0;font-weight:600;letter-spacing:.22em;font-size:12px}
+  .intro h1{margin:16px 0 0;font-size:clamp(46px,8vw,128px);line-height:.92}
+  .intro h1 span{color:var(--sun)}
+  .intro .hint{margin-top:26px;font-size:15px;letter-spacing:.12em;background:rgba(27,31,59,.35);padding:14px 22px;border-radius:40px;backdrop-filter:blur(6px)}
+  .card-wrap{display:flex;align-items:flex-end;padding:0 3vw 9svh}
+  .card{pointer-events:auto;background:rgba(255,248,236,.95);color:var(--ink);border-radius:26px;padding:20px 24px 22px;box-shadow:0 10px 0 rgba(27,31,59,.18),0 20px 50px rgba(27,31,59,.25);max-width:min(440px,92vw);transform:translateY(20px);transition:transform .7s cubic-bezier(.34,1.56,.64,1)}
+  .on .card{transform:none}
+  .place{font-weight:600;font-size:12px;letter-spacing:.18em;color:var(--coral)}
+  .card h2{margin:10px 0 4px;font-size:clamp(28px,3.2vw,48px);line-height:.95}
+  .sub{font-weight:600;font-size:12px;letter-spacing:.16em;opacity:.7}
+  .play{margin-top:16px;display:inline-flex;align-items:center;gap:10px;background:var(--coral);color:#fff;border:0;border-radius:40px;padding:12px 20px 12px 14px;font:700 14px/1 var(--round);letter-spacing:.08em;box-shadow:0 5px 0 #c73c41;cursor:pointer}
+  .play i{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#fff;color:var(--coral);font-style:normal;font-size:11px;padding-left:2px}
+  .tag{position:fixed;top:18px;left:20px;font-weight:700;font-size:22px;text-shadow:0 1px 8px rgba(27,31,59,.4)}
+  .proto{position:fixed;top:22px;right:20px;font-weight:600;font-size:11px;letter-spacing:.14em;background:rgba(27,31,59,.45);padding:8px 12px;border-radius:20px}
+  #lightbox{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:rgba(17,20,40,.86);backdrop-filter:blur(10px);padding:70px 4vw 40px}
+  #lightbox[hidden]{display:none}
+  #lightbox video{max-width:100%;max-height:calc(100svh - 160px);border-radius:18px;background:#000}
+  #lightbox button{position:absolute;top:20px;right:22px;width:48px;height:48px;border-radius:50%;border:0;background:#fff;color:var(--ink);font:700 18px var(--round);cursor:pointer}
+  @media(max-width:767px){.card-wrap{justify-content:center;padding-bottom:6svh}.card{padding:14px 16px 16px}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="GOUAL stadium"></canvas>
+<div class="tag">GOUAL®</div>
+<div class="proto">PROTOTYPE · SCROLL ↓</div>
+<div class="layer intro" id="intro">
+  <p>AI FILMS · 3D · ANIMATION · ADVERTISING</p>
+  <h1>Welcome to<br><span>GOUAL</span> Stadium</h1>
+  <div class="hint">Scroll to enter the stadium ↓</div>
+</div>
+<div class="layer card-wrap" id="station" style="opacity:0">
+  <div class="card">
+    <div class="place">01 — THE STADIUM SCREEN</div>
+    <h2>COUPE DU MONDE BY GOUAL ART</h2>
+    <div class="sub">AI FILM</div>
+    <button class="play" id="play"><i>▶</i>PLAY FILM</button>
+  </div>
+</div>
+<div id="lightbox" hidden><button id="close" aria-label="Close">✕</button><video id="lbv" controls playsinline></video></div>
+<script>
+// Two still scenes; the camera motion between them is computed live, so it stays sharp at any scroll speed.
+const SCENES = [
+  { src: 'scenes/v2-aerial.jpg', w: 1846, h: 2000, screen: null },
+  { src: 'scenes/v2-inside-keyed.jpg', w: 2000, h: 1124, screen: [[900, 408], [1096, 408], [900, 511]], grow: 1.06 },   // TL, TR, BL of the green screen
+];
+// Where the camera dives through the roof opening in the aerial view, and lands on the grass inside.
+const PITCH = [815, 1440], LAND = [1000, 960];
+const FILM = '07.mp4';
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const span = (a, b, v) => clamp((v - a) / (b - a), 0, 1);
+const lerp = (a, b, t) => a + (b - a) * t;
+
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let W, H, DPR;
+function resize() { DPR = Math.min(devicePixelRatio, 2); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; }
+addEventListener('resize', resize); resize();
+
+const imgs = SCENES.map(s => Object.assign(new Image(), { src: s.src }));
+const film = Object.assign(document.createElement('video'), { src: FILM, muted: true, loop: true, playsInline: true, autoplay: true });
+film.setAttribute('playsinline', ''); film.play().catch(() => {});
+
+// Camera on one scene: zoom (1 = cover the viewport), focus point in image px, rotation; kept inside the image.
+function camera(scene, zoom, fx, fy, rot) {
+  const S = Math.max(W / scene.w, H / scene.h) * zoom, c = Math.abs(Math.cos(rot)), s = Math.abs(Math.sin(rot));
+  let ex = (c * W / 2 + s * H / 2) / S, ey = (s * W / 2 + c * H / 2) / S;
+  const k = Math.max(1, ex / (scene.w / 2), ey / (scene.h / 2));     // zoom in more if rotation would show the edges
+  ex /= k; ey /= k;
+  return { S: S * k, rot, fx: clamp(fx, ex, scene.w - ex), fy: clamp(fy, ey, scene.h - ey) };
+}
+function draw(i, cam, alpha) {
+  const sc = SCENES[i], img = imgs[i];
+  if (!img.complete || alpha <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.translate(W / 2, H / 2); ctx.rotate(cam.rot); ctx.scale(cam.S, cam.S); ctx.translate(-cam.fx, -cam.fy);
+  ctx.drawImage(img, 0, 0, sc.w, sc.h);
+  // The film, mapped onto the green screen (affine from its three corners).
+  if (sc.screen && film.readyState >= 2) {
+    // Grow the screen quad slightly so no green edge shows around the film.
+    const g = sc.grow, cx = (sc.screen[1][0] + sc.screen[2][0]) / 2, cy = (sc.screen[1][1] + sc.screen[2][1]) / 2;
+    const [[x0, y0], [x1, y1], [x2, y2]] = sc.screen.map(([x, y]) => [cx + (x - cx) * g, cy + (y - cy) * g]);
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.lineTo(x1 + x2 - x0, y1 + y2 - y0); ctx.lineTo(x2, y2); ctx.closePath(); ctx.clip();
+    const vw = film.videoWidth, vh = film.videoHeight;
+    ctx.transform((x1 - x0) / vw, (y1 - y0) / vw, (x2 - x0) / vh, (y2 - y0) / vh, x0, y0);
+    ctx.drawImage(film, -2, -2, vw + 4, vh + 4);
+    ctx.restore();
+  }
+  ctx.restore();
+  const s = sc.screen, inv = 1 / cam.S;
+  if (!s) return null;
+  return { hit: (px, py) => {        // screen-space hit test for the film
+    const dx = px - W / 2, dy = py - H / 2, c = Math.cos(-cam.rot), sn = Math.sin(-cam.rot);
+    const ix = (dx * c - dy * sn) * inv + cam.fx, iy = (dx * sn + dy * c) * inv + cam.fy;
+    const ux = s[1][0] - s[0][0], uy = s[1][1] - s[0][1], vx = s[2][0] - s[0][0], vy = s[2][1] - s[0][1], det = ux * vy - uy * vx;
+    const a = ((ix - s[0][0]) * vy - (iy - s[0][1]) * vx) / det, b = (ux * (iy - s[0][1]) - uy * (ix - s[0][0])) / det;
+    return a >= 0 && a <= 1 && b >= 0 && b <= 1;
+  } };
+}
+
+// Scroll progress with inertia.
+let target = 0, p = 0;
+const add = d => { if (lb.hidden) target = clamp(target + d, 0, 1); };
+addEventListener('wheel', e => add(e.deltaY * (e.deltaMode ? 33 : 1) * 0.00035), { passive: true });
+let ty = null;
+addEventListener('touchstart', e => (ty = e.touches[0].clientY), { passive: true });
+addEventListener('touchmove', e => { const y = e.touches[0].clientY; add((ty - y) * 0.0018); ty = y; }, { passive: true });
+addEventListener('keydown', e => { const d = { ArrowDown: .05, ArrowUp: -.05, PageDown: .15, PageUp: -.15 }[e.code]; if (d) add(d); });
+
+const A = SCENES[0], B = SCENES[1];
+const bcx = (B.screen[1][0] + B.screen[2][0]) / 2, bcy = (B.screen[1][1] + B.screen[2][1]) / 2;
+const intro = document.getElementById('intro'), station = document.getElementById('station');
+let hits = [], mx = 0, my = 0;
+addEventListener('pointermove', e => { mx = e.clientX / W - .5; my = e.clientY / H - .5; cv.classList.toggle('hot', hits.some(h => h && h.hit(e.clientX, e.clientY))); });
+cv.addEventListener('click', e => { if (hits.some(h => h && h.hit(e.clientX, e.clientY))) open(); });
+
+function frame() {
+  p += (target - p) * 0.08;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  // 0 → 0.52: fly toward the stadium and dive through the roof opening until the pitch fills the view.
+  // 0.46 → 1: land on the grass inside and pull back to reveal the stands and the giant screen.
+  const t1 = span(0, 0.52, p), t2 = span(0.46, 0.88, p);
+  const zA = Math.exp(lerp(0, Math.log(9), Math.pow(t1, 1.7)));
+  const camA = camera(A, zA, lerp(A.w / 2, PITCH[0], ease(Math.min(1, t1 * 1.3))), lerp(1150, PITCH[1], ease(Math.min(1, t1 * 1.3))), 0.18 * ease(t1));
+  const settle = 1 - Math.pow(1 - t2, 2.4);
+  const camB = camera(B, Math.exp(lerp(Math.log(4), Math.log(1.55), settle)), lerp(LAND[0], 1000, settle) + mx * 40 * settle, lerp(LAND[1], 560, settle) + my * 24 * settle, 0);
+  const swap = span(0.46, 0.54, p);
+  hits = [swap < 1 ? draw(0, camA, 1) : null, swap > 0 ? draw(1, camB, swap) : null];
+  intro.style.opacity = 1 - span(0, 0.08, p);
+  const on = p > 0.88;
+  station.style.opacity = on ? 1 : 0; station.classList.toggle('on', on);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+const lb = document.getElementById('lightbox'), lbv = document.getElementById('lbv');
+function open() { lbv.src = FILM; lb.hidden = false; lbv.play().catch(() => {}); }
+document.getElementById('play').onclick = open;
+document.getElementById('close').onclick = () => { lbv.pause(); lb.hidden = true; };
+if (new URLSearchParams(location.search).has('debug')) window.__p = { goto: v => (target = v), p: () => p };
+</script>
+</body>
+</html>
