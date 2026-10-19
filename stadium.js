@@ -640,18 +640,18 @@ const blocked = () => state !== 'ready' || !lightbox.hidden;
 function addScroll(d) { if (!blocked()) target = clamp(target + d, 0, 1); }
 addEventListener('wheel', e => {
   const k = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? innerHeight : 1;
-  addScroll(e.deltaY * k * 0.0001);
+  addScroll(e.deltaY * k * 0.00005);
 }, { passive: true });
 let touchY = null;
 addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, { passive: true });
 addEventListener('touchmove', e => {
   if (touchY == null) return;
-  const y = e.touches[0].clientY; addScroll((touchY - y) * 0.0006); touchY = y;
+  const y = e.touches[0].clientY; addScroll((touchY - y) * 0.0003); touchY = y;
 }, { passive: true });
 addEventListener('touchend', () => (touchY = null));
 addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
-  const step = { ArrowDown: 0.025, PageDown: 0.07, ArrowUp: -0.025, PageUp: -0.07, Space: e.shiftKey ? -0.05 : 0.05 }[e.code];
+  const step = { ArrowDown: 0.015, PageDown: 0.04, ArrowUp: -0.015, PageUp: -0.04, Space: e.shiftKey ? -0.03 : 0.03 }[e.code];
   if (step) { addScroll(step); e.preventDefault(); }
   if (e.code === 'Home') addScroll(-1);
   if (e.code === 'End') addScroll(1);
@@ -709,7 +709,7 @@ function frame() {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
   if (state === 'loading') updateLoader();
 
-  progress += (target - progress) * (1 - Math.exp(-dt * 3));
+  progress += (target - progress) * (1 - Math.exp(-dt * 2.2));
   const u = curveParam(progress);
   camera.position.copy(posCurve.getPoint(u));
   lookAt.copy(lookCurve.getPoint(u));
