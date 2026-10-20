@@ -9,7 +9,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 // Each stop on the tour shows one film on a screen in the scene.
 const STATIONS = [
   { src: '07.mp4', title: 'COUPE DU MONDE BY GOUAL ART', sub: 'AI FILM', place: 'THE STADIUM SCREEN' },
-  { src: '04.mp4', title: 'GOUAL ART', sub: 'FASHION FILM', place: 'THE BENCH' },
+  { src: '04.mp4', title: 'GOUAL ART', sub: 'FASHION FILM', place: "THE COACH'S TABLET" },
   { src: '09.mp4', title: 'OVASPORT', sub: '3D / ADVERTISING', place: 'THE PLAYERS’ TUNNEL' },
   { src: '08.mp4', title: 'GOUAL ART', sub: 'AI ANIMATION', place: 'THE LOCKER ROOM' },
   { src: '10.mp4', title: 'GLAM BY MAJHA', sub: 'FASHION FILM', place: 'THE GYM' },
@@ -552,7 +552,31 @@ const bench = new THREE.Group(); bench.position.set(16.4, 0, 6); bench.rotation.
   rbox(2.2, 0.5, 0.06, 0.03, seatMat, bench, 0, 0.72, -0.28);
   [-1, 1].forEach(s => { box(0.06, 0.43, 0.4, frame, bench, s * 1.02, 0.215, -0.04); box(0.06, 0.95, 0.06, frame, bench, s * 1.02, 0.475, -0.3); });
 }
-const playerReady = loadModel('models/player.glb').then(m => {
+// The coach on the bench, reading his tablet (a static seated model, base removed). The film plays on
+// his tablet; ?player switches back to the rigged player.
+const BENCH_FIT = { scale: 0.8, z: 0.24 };
+const playerReady = !location.search.includes('player') ? loadModel('models/bench-coach.glb').then(m => {
+  if (!m) return;
+  m.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+  const S = BENCH_FIT.scale;
+  m.scale.setScalar(S); m.position.set(0, 0.86 * S + 0.02, BENCH_FIT.z);
+  bench.add(m); scene.updateMatrixWorld(true);
+  // Film on his tablet: the tablet's plane was measured from the model (centre, width axis, slope axis,
+  // normal toward his face), so the screen sits right on its glass.
+  const holder = new THREE.Group();
+  holder.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(-1, 0.021, 0.016).normalize(), V(0.025, 0.556, 0.831).normalize(), V(0.009, 0.831, -0.556).normalize()));
+  holder.position.set(-0.009, 0.029, 0.428).addScaledVector(V(0.009, 0.831, -0.556), 0.027);
+  m.add(holder);
+  makeScreen(1, 0.22, 0.27, holder, 0, 0, 0.002);
+  // Camera stop: just behind his right shoulder, looking down at the tablet.
+  scene.updateMatrixWorld(true);
+  const right = bench.localToWorld(V(-1, 0, 0)).sub(bench.getWorldPosition(V(0, 0, 0)));
+  const k = KEYS.find(k => k.station === 1);
+  const back = bench.localToWorld(V(0, 0, -1)).sub(bench.getWorldPosition(V(0, 0, 0)));
+  k.pos.copy(holder.getWorldPosition(V(0, 0, 0))).addScaledVector(right, 0.24).addScaledVector(back, 0.3).add(V(0, 0.5, 0));
+  k.look.copy(holder.getWorldPosition(V(0, 0, 0)));
+  rebuildCurves();
+}) : loadModel('models/player.glb').then(m => {
   if (!m) return;
   prepCharacter(m);
   const pose = poseSeated(m, { rig: 'mixamo', seat: 0.47, arms: [58, 28, 70, 62], lean: 10, headDown: 18 });
@@ -564,7 +588,6 @@ const playerReady = loadModel('models/player.glb').then(m => {
   tablet.lookAt(bench.localToWorld(pose.head.clone()));
   rbox(0.34, 0.235, 0.014, 0.018, mat('#2c2c31', { metalness: 0.6, roughness: 0.35 }), tablet, 0, 0, 0);
   makeScreen(1, 0.315, 0.205, tablet, 0, 0, 0.008);
-  // Camera stop: just behind his right shoulder, looking down at the tablet.
   scene.updateMatrixWorld(true);
   const k = KEYS.find(k => k.station === 1);
   k.pos.copy(bench.localToWorld(pose.head.clone().add(V(-0.3, 0.2, -0.2))));
