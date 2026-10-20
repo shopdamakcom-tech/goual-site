@@ -592,21 +592,6 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
   k.look.copy(tablet.getWorldPosition(V(0, 0, 0)));
   rebuildCurves();
 });
-  bench.add(m);
-  // Tablet held in both hands, turned toward his eyes.
-  const tablet = new THREE.Group();
-  tablet.position.copy(pose.hands[0]).add(pose.hands[1]).multiplyScalar(0.5).add(V(0, 0.05, 0.03));
-  bench.add(tablet); scene.updateMatrixWorld(true);
-  tablet.lookAt(bench.localToWorld(pose.head.clone()));
-  rbox(0.34, 0.235, 0.014, 0.018, mat('#2c2c31', { metalness: 0.6, roughness: 0.35 }), tablet, 0, 0, 0);
-  makeScreen(1, 0.315, 0.205, tablet, 0, 0, 0.008);
-  // Camera stop: just behind his right shoulder, looking down at the tablet.
-  scene.updateMatrixWorld(true);
-  const k = KEYS.find(k => k.station === 1);
-  k.pos.copy(bench.localToWorld(pose.head.clone().add(V(-0.3, 0.2, -0.2))));
-  k.look.copy(tablet.getWorldPosition(V(0, 0, 0)));
-  rebuildCurves();
-});
 
 /* ----------------------------------------------------------------- tunnel */
 // "Tunnel" by local.yany (CC BY 4.0). Its stairs climb from the rooms to the pitch:
