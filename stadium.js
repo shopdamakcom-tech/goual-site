@@ -41,7 +41,8 @@ scene.environmentIntensity = 0.35;
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 900);
 
 /* ----------------------------------------------------------------- lights */
-scene.add(new THREE.HemisphereLight('#cfe8ff', '#6fa85a', 1.15));
+const hemi = new THREE.HemisphereLight('#cfe8ff', '#6fa85a', 1.15);
+scene.add(hemi);
 const sun = new THREE.DirectionalLight('#fff0d8', 2.7);
 sun.position.set(60, 95, 45);
 sun.castShadow = true;
@@ -178,6 +179,7 @@ for (let i = 0; i < 16; i++) {
 // Optimised for the web (seats removed, meshopt-compressed, logo replaced). Its pitch is 17 units long,
 // scaled to our 60-unit pitch and turned so the long axis runs along z, benches on the east side.
 const STADIUM_SCALE = 3.53;
+let stadiumModel = null;
 const stadiumReady = new Promise(resolve => {
   const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
   loader.load('models/stadium.glb', gltf => {
@@ -190,7 +192,7 @@ const stadiumReady = new Promise(resolve => {
       if (o.material.name === 'Material.047') o.material.color.set('#2f5fb3');        // seating area: team blue
       if (o.material.map && o.material.map.name === 'goual-logo') screenMesh = o;      // the scoreboard
     });
-    scene.add(model);
+    scene.add(model); stadiumModel = model;
     scene.updateMatrixWorld(true);
     if (screenMesh) adoptScreen(screenMesh, 0);
     resolve();
@@ -226,17 +228,25 @@ function makeScreen(index, w, h, parent, x, y, z, rotY = 0) {
 }
 
 // 1. The stadium's own scoreboard plays the first film (set up once the model loads).
-function adoptScreen(target, index) {
+function adoptScreen(target, index, { placeCamera = true, planarUV = false } = {}) {
   const st = STATIONS[index];
   const video = document.createElement('video');
   Object.assign(video, { src: st.src, muted: true, loop: true, playsInline: true, preload: 'auto' });
   video.setAttribute('playsinline', '');
-  const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false;
+  const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = planarUV;
+  if (planarUV) {
+    // Map the film across the screen as seen from the room (screen faces -x: +z is to the viewer's right).
+    const g = target.geometry = target.geometry.clone(), pos = g.getAttribute('position'), v = new THREE.Vector3();
+    const pts = []; for (let i = 0; i < pos.count; i++) pts.push(v.fromBufferAttribute(pos, i).applyMatrix4(target.matrixWorld).clone());
+    const zs = pts.map(p => p.z), ys = pts.map(p => p.y), z0 = Math.min(...zs), z1 = Math.max(...zs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(pts.flatMap(p => [(p.z - z0) / (z1 - z0), (p.y - y0) / (y1 - y0)]), 2));
+  }
   target.material = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide });
   target.userData.station = index;
   const box3 = new THREE.Box3().setFromObject(target), size = box3.getSize(new THREE.Vector3());
   screens[index] = { index, video, group: target, hit: [target], width: Math.max(size.x, size.z) };
   video.play().catch(() => {});
+  if (!placeCamera) return;
   // Put the camera stop in front of the screen, on the pitch side.
   const centre = box3.getCenter(new THREE.Vector3());
   const n = new THREE.Vector3(0, 0, 1);
@@ -307,6 +317,10 @@ function wall(w, h, d, color, x, y, z) { return box(w, h, d, mat(color, { roughn
   wall(20, 0.15, 5, '#e8e2d6', 35, 3.55, 0);
   wall(5.8, 0.3, 5.6, '#efe7da', 42.2, 3.75, 0);
   [28, 34, 40].forEach(x => lamp(x, 3.2, 0));
+  // End of the tunnel: the locker-room door.
+  wall(0.3, 3.9, 5.6, '#1b1f3b', 45.1, 1.95, 0);
+  rbox(1.6, 2.6, 0.12, 0.05, mat('#ff5a5f'), null, 44.92, 1.3, 0, { cast: false }).rotation.y = Math.PI / 2;
+  box(0.4, 0.4, 0.05, mat('#ffb400', { emissive: '#ffb400', emissiveIntensity: 0.4 }), null, 44.85, 2.9, 0, { cast: false }).rotation.y = Math.PI / 2;
   // Posters along the wall facing the TV.
   ['#ff5a5f', '#00a6ed', '#7fb800'].forEach((c, i) => {
     rbox(1.2, 1.6, 0.06, 0.05, mat(c), null, 30 + i * 3.4, 2.1, 2.36, { cast: false });
@@ -316,48 +330,6 @@ function wall(w, h, d, color, x, y, z) { return box(w, h, d, mat(color, { roughn
   const tv = new THREE.Group(); tv.position.set(36, 2.05, -2.32); scene.add(tv);
   rbox(2.5, 1.45, 0.12, 0.06, mat('#1b1f3b', { roughness: 0.4 }), tv, 0, 0, 0);
   makeScreen(2, 2.36, 1.32, tv, 0, 0, 0.065);
-}
-
-// Locker room.
-{
-  box(16, 0.1, 16, new THREE.MeshStandardMaterial({ map: canvasTex(256, 256, (c, w) => { for (let i = 0; i < 8; i++) for (let j = 0; j < 8; j++) { c.fillStyle = (i + j) % 2 ? '#bfeee6' : '#fff8ec'; c.fillRect(i * w / 8, j * w / 8, w / 8, w / 8); } }, [4, 4]), roughness: 0.6 }), null, 53, 0.05, 0, { cast: false });
-  const H = 4, C = '#fff3e0';
-  wall(0.3, H, 6.5, C, 45, H / 2, -4.75); wall(0.3, H, 6.5, C, 45, H / 2, 4.75); wall(0.3, H - 2.8, 3, C, 45, 2.8 + (H - 2.8) / 2, 0);
-  wall(0.3, H, 16, C, 61, H / 2, 0);
-  wall(16, H, 0.3, C, 53, H / 2, -8);
-  wall(8.5, H, 0.3, C, 49.25, H / 2, 8); wall(4.5, H, 0.3, C, 58.75, H / 2, 8); wall(3, H - 2.8, 0.3, C, 55, 2.8 + (H - 2.8) / 2, 8);
-  wall(16.4, 0.3, 16.4, '#efe7da', 53, H + 0.15, 0);
-  box(3.4, 0.25, 0.4, mat('#ffb400'), null, 45, 2.9, 0, { cast: false });
-  box(3.4, 0.25, 0.4, mat('#ff5a5f'), null, 55, 2.9, 8, { cast: false });
-  // Lockers with numbered jerseys.
-  const jersey = n => canvasTex(128, 128, (c, w) => {
-    c.fillStyle = n % 2 ? '#ff5a5f' : '#00a6ed';
-    c.beginPath(); c.moveTo(30, 18); c.lineTo(50, 10); c.quadraticCurveTo(64, 26, 78, 10); c.lineTo(98, 18); c.lineTo(120, 44); c.lineTo(100, 56); c.lineTo(96, 50); c.lineTo(96, 120); c.lineTo(32, 120); c.lineTo(32, 50); c.lineTo(28, 56); c.lineTo(8, 44); c.closePath(); c.fill();
-    c.fillStyle = '#fff'; c.font = '700 48px Fredoka, sans-serif'; c.textAlign = 'center'; c.fillText(String(n), 64, 98);
-  });
-  [-1, 1].forEach(side => {
-    for (let k = 0; k < 9; k++) {
-      const x = 47.2 + k * 1.3, z = side * 7.45, n = side > 0 ? k + 1 : k + 10;
-      if (side > 0 && x > 52.8 && x < 57.2) continue;   // the office door
-      rbox(1.2, 2.5, 0.7, 0.06, mat(k % 2 ? '#00a6ed' : '#ffb400', { roughness: 0.55 }), null, x, 1.35, z);
-      const j = mesh(new THREE.PlaneGeometry(0.95, 0.95), new THREE.MeshStandardMaterial({ map: jersey(n), transparent: true, roughness: 0.8 }), null, x, 1.65, z - side * 0.37, { cast: false });
-      j.rotation.y = side > 0 ? Math.PI : 0;
-    }
-    rbox(10, 0.12, 0.6, 0.05, mat('#c68642', { roughness: 0.6 }), null, 52.5, 0.48, side * 6.3);
-    [48.5, 52.5, 56.5].forEach(x => box(0.12, 0.45, 0.5, mat('#1b1f3b'), null, x, 0.22, side * 6.3));
-  });
-  // Centre logo rug and a ball.
-  const rug = mesh(new THREE.CircleGeometry(2.4, 48), new THREE.MeshStandardMaterial({ roughness: 0.95, map: canvasTex(256, 256, (c, w) => {
-    c.fillStyle = '#1b1f3b'; c.beginPath(); c.arc(w / 2, w / 2, w / 2, 0, Math.PI * 2); c.fill();
-    c.fillStyle = '#ffb400'; c.font = '700 150px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('G', w / 2, w / 2 + 10);
-  }) }), null, 52, 0.11, 0, { cast: false });
-  rug.rotation.x = -Math.PI / 2;
-  mesh(new THREE.SphereGeometry(0.3, 24, 16), new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.5 }), null, 50, 0.4, -2.6);
-  // TV on the far wall.
-  const tv = new THREE.Group(); tv.position.set(60.75, 2.45, 0); tv.rotation.y = -Math.PI / 2; scene.add(tv);
-  rbox(3.3, 1.95, 0.14, 0.08, mat('#1b1f3b', { roughness: 0.4 }), tv, 0, 0, 0);
-  makeScreen(3, 3.14, 1.77, tv, 0, 0, 0.075);
-  [48, 53, 58].forEach(x => lamp(x, 3.6, 0));
 }
 
 // Coach's office.
@@ -411,9 +383,109 @@ function wall(w, h, d, color, x, y, z) { return box(w, h, d, mat(color, { roughn
 }
 
 const UNDER = -60;
+
+/* ------------------------------------------------------------ locker room */
+// 3D model (Locker-Room, converted from 3DS and optimised), dressed like a pro locker room:
+// glowing lockers with numbered GOUAL jerseys, crests above, patterned benches, kit, a red LED cove,
+// a glossy floor with a red line, and the wall TV playing the fourth film.
+const lockerRoom = new THREE.Group(); lockerRoom.position.y = UNDER; lockerRoom.visible = false; scene.add(lockerRoom);
+const jerseyTex = n => canvasTex(256, 256, (c, w) => {
+  c.fillStyle = '#1b2a6b';
+  c.beginPath(); c.moveTo(60, 36); c.lineTo(100, 20); c.quadraticCurveTo(128, 52, 156, 20); c.lineTo(196, 36); c.lineTo(240, 88); c.lineTo(200, 112);
+  c.lineTo(192, 100); c.lineTo(192, 240); c.lineTo(64, 240); c.lineTo(64, 100); c.lineTo(56, 112); c.lineTo(16, 88); c.closePath(); c.fill();
+  c.fillStyle = '#ffb400'; c.textAlign = 'center';
+  c.font = '700 26px Fredoka, sans-serif'; c.fillText('GOUAL', 128, 92);
+  c.font = '700 96px Fredoka, sans-serif'; c.fillText(String(n), 128, 196);
+});
+const crestTex = k => canvasTex(256, 192, (c, w, h) => {
+  c.fillStyle = '#5b2a86'; c.fillRect(0, 0, w, h);
+  if (k % 2) { ['#ff5a5f', '#ffffff', '#00a6ed'].forEach((col, i) => { c.fillStyle = col; c.fillRect(48 + i * 54, 40, 54, 112); }); }
+  else {
+    c.fillStyle = '#ffb400'; c.beginPath(); c.arc(w / 2, h / 2, 62, 0, Math.PI * 2); c.fill();
+    c.fillStyle = '#5b2a86'; c.font = '700 84px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('G', w / 2, h / 2 + 6);
+  }
+});
+const fabricTex = canvasTex(256, 64, (c, w, h) => {
+  c.fillStyle = '#2b2b33'; c.fillRect(0, 0, w, h);
+  for (let x = 0; x < w; x += 32) {
+    c.fillStyle = '#c8202f'; c.fillRect(x, 8, 16, h - 16);
+    c.fillStyle = '#f2f2f2'; c.beginPath(); c.moveTo(x + 16, h / 2); c.lineTo(x + 24, 12); c.lineTo(x + 32, h / 2); c.lineTo(x + 24, h - 12); c.closePath(); c.fill();
+  }
+}, [8, 1]);
+const lockerReady = new Promise(resolve => {
+  const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+  loader.load('models/locker.glb', gltf => {
+    const m = gltf.scene;
+    m.scale.setScalar(0.01);
+    m.position.set(53 - 10.835, 0, 1.44);                  // centre the room on x 53, z 0
+    lockerRoom.add(m);
+    const jerseys = []; let screenMesh = null, shell = null;
+    const satin = mat('#f6f7fb', { roughness: 0.32, side: THREE.DoubleSide });   // walls and ceiling are seen from inside
+    m.traverse(o => {
+      if (!o.isMesh) return;
+      o.receiveShadow = true;
+      o.material.side = THREE.DoubleSide;           // the room is seen from inside: show both faces
+      if (/^Arch30/.test(o.name) && o.material.name === 'Material #1') jerseys.push(o);
+      else if (o.name === 'Plane_002_') screenMesh = o;
+      else if (o.material.name === '10 - Default') { o.material = satin; if (o.name === 'Shape1') shell = o; }
+    });
+    scene.updateMatrixWorld(true);
+    const room = new THREE.Box3().setFromObject(shell || m), centre = room.getCenter(new THREE.Vector3());
+    const L = v => v.clone().sub(lockerRoom.position);    // world → lockerRoom space
+    // Lockers: hide the untextured cloth, add a glowing back, a numbered jersey, a crest, kit and shoes.
+    const glow = new THREE.MeshStandardMaterial({ color: '#bff0ff', emissive: '#6fd6ff', emissiveIntensity: 1.1 });
+    const rows = { x: [], z: [] };
+    jerseys.forEach((o, i) => {
+      o.visible = false;
+      const b = new THREE.Box3().setFromObject(o), c = L(b.getCenter(new THREE.Vector3())), size = b.getSize(new THREE.Vector3());
+      const alongZ = size.x < size.z;                                   // locker row runs along z: faces ±x
+      const inward = alongZ ? new THREE.Vector3(Math.sign(centre.x - b.getCenter(new THREE.Vector3()).x), 0, 0) : new THREE.Vector3(0, 0, Math.sign(centre.z - b.getCenter(new THREE.Vector3()).z));
+      const rotY = Math.atan2(inward.x, inward.z);
+      const at = (d, y) => c.clone().addScaledVector(inward, d).setY(y);
+      const add = (geo, material, d, y) => { const me = new THREE.Mesh(geo, material); me.position.copy(at(d, y)); me.rotation.y = rotY; lockerRoom.add(me); return me; };
+      add(new THREE.PlaneGeometry(0.6, 1.6), glow, -0.02, 1.15);
+      add(new THREE.PlaneGeometry(0.62, 0.62), new THREE.MeshStandardMaterial({ map: jerseyTex(i + 2), transparent: true, roughness: 0.8 }), 0.0, 1.3);
+      add(new THREE.PlaneGeometry(0.42, 0.32), new THREE.MeshStandardMaterial({ map: crestTex(i), roughness: 0.6 }), 0.36, 2.12);
+      // Folded kit on the bench and a pair of boots in front.
+      const kit = add(new RoundedBoxGeometry(0.36, 0.08, 0.28, 2, 0.03), mat(pick(['#1b2a6b', '#ffffff', '#ff5a5f'])), 0.62, 0.52);
+      kit.castShadow = true;
+      [-0.08, 0.08].forEach(dx => { const boot = add(new RoundedBoxGeometry(0.1, 0.09, 0.27, 2, 0.04), mat(pick(['#ff7eb6', '#00c2a8', '#ffb400', '#f2f2f2'])), 1.0, 0.05); boot.position.add(new THREE.Vector3(inward.z, 0, -inward.x).multiplyScalar(dx)); });
+      (alongZ ? rows.x : rows.z).push({ c, inward, rotY });
+    });
+    // One long patterned bench in front of each row of lockers.
+    Object.values(rows).forEach(row => {
+      if (!row.length) return;
+      const { inward, rotY } = row[0];
+      const along = new THREE.Vector3(inward.z, 0, -inward.x);
+      const ts = row.map(r => r.c.dot(along)), mid = row[0].c.clone().addScaledVector(along, (Math.min(...ts) + Math.max(...ts)) / 2 - row[0].c.dot(along));
+      const len = Math.max(...ts) - Math.min(...ts) + 0.7;
+      const seat = new THREE.Mesh(new RoundedBoxGeometry(len, 0.12, 0.5, 2, 0.04), mat('#33343d', { roughness: 0.6 }));
+      seat.position.copy(mid).addScaledVector(inward, 0.62).setY(0.42); seat.rotation.y = rotY; seat.castShadow = true; lockerRoom.add(seat);
+      const front = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.36), new THREE.MeshStandardMaterial({ map: fabricTex, roughness: 0.9 }));
+      front.position.copy(mid).addScaledVector(inward, 0.875).setY(0.2); front.rotation.y = rotY; lockerRoom.add(front);
+      // Purple band above the lockers, carrying the crests.
+      const band = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.48), mat('#5b2a86', { roughness: 0.5 }));
+      band.position.copy(mid).addScaledVector(inward, 0.34).setY(2.12); band.rotation.y = rotY; lockerRoom.add(band);
+    });
+    // Red LED cove along the top of the walls, and a red line on the floor.
+    const red = new THREE.MeshStandardMaterial({ color: '#ff2a3d', emissive: '#ff1e32', emissiveIntensity: 1.6 });
+    const white = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 1.2 });
+    const lo = L(room.min), hi = L(room.max), mx = (lo.x + hi.x) / 2, mz = (lo.z + hi.z) / 2, top = hi.y - 0.12;
+    const cove = (w, x, z, ry) => { [[red, top, 0.16], [white, top - 0.13, 0.04]].forEach(([mt, y, h]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.05), mt); b.position.set(x, y, z); b.rotation.y = ry; lockerRoom.add(b); }); };
+    cove(hi.x - lo.x - 0.2, mx, lo.z + 0.08, 0); cove(hi.x - lo.x - 0.2, mx, hi.z - 0.08, 0);
+    cove(hi.z - lo.z - 0.2, lo.x + 0.08, mz, Math.PI / 2); cove(hi.z - lo.z - 0.2, hi.x - 0.08, mz, Math.PI / 2);
+    const line = new THREE.Mesh(new THREE.RingGeometry(4.2, 4.28, 96, 1, Math.PI * 0.02, Math.PI * 0.46), red);
+    line.rotation.x = -Math.PI / 2; line.position.set(lo.x + 0.2, 0.012, hi.z - 0.2); line.rotation.z = Math.PI * 1.5; lockerRoom.add(line);
+    // Lights: warm ceiling, cool locker glow, a touch of red.
+    [[mx, top - 0.3, mz, '#fff4e6', 14, 12], [mx - 3, top - 0.3, mz + 2, '#fff4e6', 8, 9], [lo.x + 1.2, 1.6, mz, '#7fdcff', 6, 6], [mx, 1.6, hi.z - 1.2, '#7fdcff', 6, 6], [mx + 2, top - 0.2, lo.z + 1, '#ff3b4a', 4, 6]]
+      .forEach(([x, y, z, col, i, d]) => { const pl = new THREE.PointLight(col, i, d, 2); pl.position.set(x, y, z); lockerRoom.add(pl); });
+    if (screenMesh) adoptScreen(screenMesh, 3, { placeCamera: false, planarUV: true });
+    resolve();
+  }, undefined, err => { console.warn('Locker room failed to load', err); resolve(); });
+});
 {
   const interiors = new THREE.Group(); interiors.position.y = UNDER;
-  scene.children.slice(interiorFrom).forEach(o => interiors.add(o));
+  scene.children.slice(interiorFrom).filter(o => o !== lockerRoom).forEach(o => interiors.add(o));
   scene.add(interiors);
 }
 
@@ -428,10 +500,12 @@ const KEYS = [
   { p: 0.45, pos: [13.6, 1.8, 3], look: [24, 1.9, 0.5] },
   { p: 0.48, pos: [16.8, 1.9, 1], look: [30, 1.9, 0] },                                  // fade to black toward the stand
   { p: 0.51, pos: [30, UNDER + 1.8, 0.4], look: [38, UNDER + 1.9, -0.8] },
-  { p: 0.55, hold: 0.62, station: 2, pos: [36, UNDER + 1.95, -0.1], look: [36, UNDER + 2.05, -2.4] },
-  { p: 0.67, pos: [46.2, UNDER + 1.85, 0], look: [60, UNDER + 2.2, 0] },
-  { p: 0.71, hold: 0.78, station: 3, pos: [56.9, UNDER + 2.1, 0], look: [60.7, UNDER + 2.45, 0] },
-  { p: 0.82, pos: [55, UNDER + 1.8, 6.2], look: [55, UNDER + 1.5, 16] },
+  { p: 0.55, hold: 0.60, station: 2, pos: [36, UNDER + 1.95, -0.1], look: [36, UNDER + 2.05, -2.4] },
+  { p: 0.645, pos: [43.4, UNDER + 1.85, 0], look: [48, UNDER + 1.85, 0] },                // at the locker-room door (fade)
+  { p: 0.66, pos: [57.2, UNDER + 1.7, -2.4], look: [48.2, UNDER + 1.25, 4] },              // inside, facing the lockers
+  { p: 0.70, pos: [56.2, UNDER + 1.65, -0.6], look: [48.4, UNDER + 1.2, 4.4] },
+  { p: 0.74, hold: 0.80, station: 3, pos: [56.3, UNDER + 1.45, 2.06], look: [58.36, UNDER + 1.32, 2.06] },
+  { p: 0.835, pos: [55.4, UNDER + 1.7, 3.8], look: [55, UNDER + 1.5, 16] },               // toward the office (fade)
   { p: 0.86, hold: 0.92, station: 4, pos: [55, UNDER + 1.42, 15.75], look: [55, UNDER + 1.42, 17.1] },
   { p: 1.00, pos: [55, UNDER + 1.7, 12.2], look: [55, UNDER + 1.5, 17] },
 ].map(k => ({ ...k, hold: k.hold ?? k.p, pos: new THREE.Vector3(...k.pos), look: new THREE.Vector3(...k.look) }));
@@ -457,7 +531,7 @@ function curveParam(p) {
   return 1;
 }
 // Furthest a portrait camera may back away from each screen (walls behind it indoors).
-const MAX_BACK = [80, 3, 4.4, 9, 3.3];
+const MAX_BACK = [80, 3, 4.4, 7, 3.3];
 function currentStation(p) {
   for (const k of KEYS) if (k.station != null && p >= k.p - 0.015 && p <= k.hold + 0.015) return k.station;
   return -1;
@@ -595,7 +669,7 @@ $('#contact-form').addEventListener('submit', e => { e.preventDefault(); e.targe
 const counterEl = $('#counter');
 const loadStart = performance.now();
 let loaded = 0;
-const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, ...screens.filter(Boolean).map(s => new Promise(res => {
+const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, lockerReady, ...screens.filter(Boolean).map(s => new Promise(res => {
   if (s.video.readyState >= 1) return res();
   s.video.addEventListener('loadedmetadata', res, { once: true });
   s.video.addEventListener('error', res, { once: true });
@@ -688,7 +762,13 @@ function frame() {
     lastStation = station;
     if (station >= 0) stageNum.textContent = `${String(station + 1).padStart(2, '0')} / ${TOTAL}`;
   }
-  fadeEl.style.opacity = smooth(0.455, 0.478, progress) * (1 - smooth(0.505, 0.53, progress));
+  // Short fades to black when going through a door: pitch → tunnel, tunnel → locker room, locker room → office.
+  fadeEl.style.opacity = Math.max(...[[0.455, 0.478, 0.505, 0.53], [0.625, 0.645, 0.66, 0.68], [0.815, 0.835, 0.85, 0.87]].map(([a, b, c, d]) => smooth(a, b, progress) * (1 - smooth(c, d, progress))));
+  // Only draw the stadium outside and the locker room underground.
+  if (stadiumModel) stadiumModel.visible = camera.position.y > UNDER / 2;
+  lockerRoom.visible = camera.position.y < UNDER / 2;
+  // Underground, the sky/grass ambient light becomes a neutral indoor one.
+  hemi.color.set(lockerRoom.visible ? '#ffffff' : '#cfe8ff'); hemi.groundColor.set(lockerRoom.visible ? '#d9d4cc' : '#6fa85a');
   body.classList.toggle('end', progress > 0.95);
   bar.style.transform = `scaleX(${progress})`;
   // Muffle the crowd indoors.
