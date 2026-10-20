@@ -16,7 +16,7 @@ button{background:none;border:0;padding:0}
 #ui a,#ui button,#ui input,#ui form{pointer-events:auto}
 .top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;padding:22px 2.4vw;font:600 13px/1 var(--round);letter-spacing:.12em;opacity:0;transition:opacity 1s .2s;text-shadow:0 1px 8px rgba(27,31,59,.35)}
 body.ready .top{opacity:1}
-.logo{font:700 24px/1 var(--round);letter-spacing:0;text-decoration:none}.logo sup{font-size:9px}
+.logo{display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none}.logo b{font:400 23px/1 Righteous,var(--round);letter-spacing:.09em;padding-left:.09em}.logo span{font:400 7.5px/1 Righteous,var(--round);letter-spacing:.42em;padding-left:.42em}
 .links{display:flex;gap:34px}.links button{opacity:.9}.links button:hover{opacity:1}
 .right{display:flex;align-items:center;gap:22px}
 .classic{text-decoration:none;background:rgba(255,255,255,.18);border:2px solid #fff;border-radius:30px;padding:10px 16px;backdrop-filter:blur(6px)}
@@ -35,8 +35,10 @@ body.ready .top{opacity:1}
 .tag{font:600 12px/1 var(--round);letter-spacing:.22em;margin:0}
 
 .intro{display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;text-shadow:0 4px 24px rgba(27,31,59,.35)}
-.intro h1{margin:18px 0 0;font:700 clamp(46px,8vw,128px)/.92 var(--round);letter-spacing:-.01em}
-.intro h1 span{color:var(--sun);-webkit-text-stroke:0}
+.intro h1{margin:18px 0 0;display:flex;flex-direction:column;align-items:center;font-weight:400;text-shadow:0 3px 0 rgba(27,31,59,.3),0 6px 30px rgba(27,31,59,.6)}
+.intro h1 small{font:600 clamp(16px,1.6vw,24px)/1 var(--round);letter-spacing:.2em;text-transform:uppercase;margin-bottom:14px}
+.intro h1 b{font:400 clamp(44px,8.4vw,136px)/1 Righteous,var(--round);letter-spacing:.09em;padding-left:.09em;white-space:nowrap}
+.intro h1 span{margin-top:clamp(8px,1.2vw,18px);font:400 clamp(12px,1.75vw,28px)/1 Righteous,var(--round);letter-spacing:.42em;padding-left:.42em;white-space:nowrap}
 .intro .hint{margin:28px 0 0;font:600 15px/1 var(--round);letter-spacing:.12em;background:rgba(27,31,59,.35);padding:14px 22px;border-radius:40px;backdrop-filter:blur(6px)}
 .intro .hint b{display:inline-block;animation:nudge 1.4s ease-in-out infinite}
 @keyframes nudge{50%{transform:translateY(4px)}}
