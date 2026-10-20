@@ -34,6 +34,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.autoUpdate = false;     // the sun and the shadow casters do not move: render the shadow map once
 
 const scene = new THREE.Scene();
 const HORIZON = new THREE.Color('#ffe9c9');
@@ -92,7 +93,7 @@ const sky = new THREE.Mesh(new THREE.SphereGeometry(700, 32, 16), new THREE.Shad
 }));
 scene.add(sky);
 
-const ground = mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({ color: '#86c95e', roughness: 0.95 }), null, 0, -0.02, 0, { cast: false });
+const ground = mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMaterial({ color: '#86c95e', roughness: 0.95 }), null, 0, -0.12, 0, { cast: false });
 ground.rotation.x = -Math.PI / 2;
 // Rolling hills on the horizon.
 for (let i = 0; i < 26; i++) {
@@ -197,14 +198,14 @@ const parkMat = mat('#79c257', { roughness: 1 });
 
 // Plaza around the stadium, the ring road and its kerbs.
 ellipseRing(54, 62.5, 72, 81, plazaMat, 0.03);
-ellipseRing(72, 81, 81, 90, roadMat, 0.04, 70);
-ellipseRing(81, 90, 84, 93, curbMat, 0.05);
+ellipseRing(72, 81, 81, 90, roadMat, 0.06, 70);
+ellipseRing(81, 90, 84, 93, curbMat, 0.08);
 // Avenues to the four sides and a grid of streets.
-[[84, 0, 320, 0], [-84, 0, -320, 0], [0, 93, 0, 320], [0, -93, 0, -320]].forEach(([a, b, c, d]) => road(a, b, c, d, 12, roadMat, 0.045));
-[-140, 140].forEach(z => road(-320, z, 320, z, 10, roadMat, 0.05));
-[-135, 135].forEach(x => road(x, -320, x, 320, 10, roadMat, 0.055));
-[-215, 215].forEach(z => road(-320, z, 320, z, 10, roadMat, 0.05));
-[-210, 210].forEach(x => road(x, -320, x, 320, 10, roadMat, 0.055));
+[[84, 0, 320, 0], [-84, 0, -320, 0], [0, 93, 0, 320], [0, -93, 0, -320]].forEach(([a, b, c, d]) => road(a, b, c, d, 12, roadMat, 0.07));
+[-140, 140].forEach(z => road(-320, z, 320, z, 10, roadMat, 0.11));
+[-135, 135].forEach(x => road(x, -320, x, 320, 10, roadMat, 0.09));
+[-215, 215].forEach(z => road(-320, z, 320, z, 10, roadMat, 0.11));
+[-210, 210].forEach(x => road(x, -320, x, 320, 10, roadMat, 0.09));
 
 // Parking lots north and south of the stadium, with painted bays and parked cars.
 const BAY = 3, ROWS = [0, 11.5, 17, 28.5];          // bay rows (each 5.5 deep), aisles in between
@@ -212,7 +213,7 @@ const LOTS = [];
 [-1, 1].forEach(sz => [[-64, -10], [10, 64]].forEach(([x0, x1]) => LOTS.push({ x0, x1, z0: sz > 0 ? 97 : -131, sz })));
 const lines = [], parked = [];
 LOTS.forEach(L => {
-  flat(L.x1 - L.x0, 34, lotMat, (L.x0 + L.x1) / 2, L.z0 + 17, 0.04);
+  flat(L.x1 - L.x0, 34, lotMat, (L.x0 + L.x1) / 2, L.z0 + 17, 0.06);
   ROWS.forEach((r, ri) => {
     for (let x = L.x0 + 1; x + BAY <= L.x1 - 1; x += BAY) {
       lines.push([x, L.z0 + r + 2.75]);
@@ -222,7 +223,7 @@ LOTS.forEach(L => {
 });
 {
   const m = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 0.02, 5.2), mat('#f4f1e8'), lines.length), d = new THREE.Object3D();
-  lines.forEach(([x, z], i) => { d.position.set(x, 0.06, z); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
+  lines.forEach(([x, z], i) => { d.position.set(x, 0.09, z); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
   city.add(m);
 }
 
@@ -230,8 +231,8 @@ LOTS.forEach(L => {
 flat(40, 118, parkMat, -108, 0, 0.03);
 const courtTex = (w, h, draw) => canvasTex(w, h, draw);
 function court(x, z, w, d, tex, fence, fenceH, glass) {
-  flat(w + 2, d + 2, mat('#2c6e49', { roughness: 0.9 }), x, z, 0.05);
-  flat(w, d, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }), x, z, 0.06);
+  flat(w + 2, d + 2, mat('#2c6e49', { roughness: 0.9 }), x, z, 0.07);
+  flat(w, d, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }), x, z, 0.1);
   if (!fence) return;
   const post = mat('#2b2f3a', { metalness: 0.4, roughness: 0.5 });
   const wallMat = glass ? new THREE.MeshStandardMaterial({ color: '#bfe6ff', transparent: true, opacity: 0.28, roughness: 0.1, depthWrite: false })
@@ -398,7 +399,7 @@ const stadiumReady = new Promise(resolve => {
     cutHoles(model, [B(19.05, -3, 11.6, 25.1, 3.6, 14.4), B(25.1, -3, 11.6, 34.6, 0.75, 14.4)]);
     cutHoles(ground, [B(19.05, -1, 11.6, 34.6, 0.3, 14.4)]);
     // A closed pit under the cut, so no sky shows through gaps around the stairwell.
-    box(22, 5, 14, mat('#55524d', { roughness: 1, side: THREE.BackSide }), outdoor, 27, -2.56, 13, { cast: false, receive: false });
+    box(22, 5, 14, mat('#55524d', { roughness: 1, side: THREE.BackSide }), outdoor, 27, -2.64, 13, { cast: false, receive: false });
     scene.updateMatrixWorld(true);
     if (screenMesh) adoptScreen(screenMesh, 0);
     resolve();
@@ -1126,6 +1127,7 @@ function updateLoader() {
     // Canvas textures used font text: redraw now that Fredoka is ready.
     scene.traverse(o => { const m = o.material; if (m && m.map && m.map.isCanvasTexture) m.map.needsUpdate = true; });
     counterEl.classList.add('done');
+    renderer.shadowMap.needsUpdate = true;
     state = 'ready'; body.classList.add('ready');
   }
 }
@@ -1159,8 +1161,24 @@ const lastCam = new THREE.Vector3();
 /* ------------------------------------------------------------------- loop */
 const clock = new THREE.Clock(), lookAt = new THREE.Vector3();
 let lastStation = -1;
+// Depth precision: push the near plane out when the camera is high up, so distant flat layers
+// (pitch, roads, ground) do not flicker against each other.
+function fitNearPlane() {
+  const near = clamp(camera.position.y * 0.04, 0.05, 4);
+  if (Math.abs(near - camera.near) > camera.near * 0.1) { camera.near = near; camera.updateProjectionMatrix(); }
+}
+// Resolution follows the frame rate: drop the pixel ratio on slow devices, raise it back when smooth.
+const MAX_PR = Math.min(devicePixelRatio, MOBILE ? 1.5 : 1.75);
+let frameAvg = 16, prTimer = 0, pixelRatio = MAX_PR;
+function adaptResolution(rawDt) {
+  frameAvg += (rawDt * 1000 - frameAvg) * 0.05; prTimer += rawDt;
+  if (prTimer < 1.5 || state !== 'ready') return;
+  const next = frameAvg > 24 ? Math.max(1, pixelRatio - 0.25) : frameAvg < 15 ? Math.min(MAX_PR, pixelRatio + 0.25) : pixelRatio;
+  if (next !== pixelRatio) { pixelRatio = next; renderer.setPixelRatio(next); renderer.setSize(innerWidth, innerHeight, false); prTimer = 0; }
+}
 function frame() {
-  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  const rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05), t = clock.elapsedTime;
+  adaptResolution(rawDt);
   if (state === 'loading') updateLoader();
 
   progress += (target - progress) * (1 - Math.exp(-dt * 2.2));
@@ -1169,6 +1187,7 @@ function frame() {
   lookAt.copy(lookCurve.getPoint(u));
   camera.lookAt(lookAt);
   if (freeCam) { camera.position.copy(freeCam[0]); camera.lookAt(freeCam[1]); }
+  fitNearPlane();
   // Portrait screens are narrow: back the camera away from each screen until it fits the width.
   if (camera.aspect < 0.8) {
     const halfTan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect / 1.3;
@@ -1199,7 +1218,7 @@ function frame() {
   tunnel.visible = inside || camera.position.distanceTo(V(26, 0, 13)) < 45;
   if (inside && coachHead && camera.position.x < 40 && camera.position.z < -5) lookAtCamera(dt);
   updateLamps(inside || tunnel.visible);
-  sun.intensity = inside ? 0 : 2.7; renderer.shadowMap.autoUpdate = !inside;
+  sun.intensity = inside ? 0 : 2.7;
 
   // Play only the films near the camera.
   screens.forEach(s => {
