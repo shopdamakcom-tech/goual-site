@@ -554,7 +554,7 @@ const bench = new THREE.Group(); bench.position.set(16.4, 0, 6); bench.rotation.
 }
 // The coach on the bench, reading his tablet (a static seated model, base removed). The film plays on
 // his tablet; ?player switches back to the rigged player.
-const BENCH_FIT = { scale: 0.8, z: 0.24, tablet: [0, 0.05, 0.48], lift: 0.035, head: [0, 0.78, 0.08], screen: [0.22, 0.15] };
+const BENCH_FIT = { scale: 0.8, z: 0.24, tablet: [0, -0.01, 0.43], lift: 0.03, head: [0, 0.78, 0.08], screen: [0.19, 0.27] };
 const playerReady = !location.search.includes('player') ? loadModel('models/bench-coach.glb').then(m => {
   if (!m) return;
   m.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
@@ -572,7 +572,7 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
   scene.updateMatrixWorld(true);
   const head = local(BENCH_FIT.head), right = bench.localToWorld(V(-1, 0, 0)).sub(bench.getWorldPosition(V(0, 0, 0)));
   const k = KEYS.find(k => k.station === 1);
-  k.pos.copy(head).addScaledVector(right, 0.42).add(V(0, 0.32, 0)).addScaledVector(bench.localToWorld(V(0, 0, -1)).sub(bench.getWorldPosition(V(0, 0, 0))), 0.12);
+  k.pos.copy(head).addScaledVector(right, 0.55).add(V(0, 0.42, 0)).addScaledVector(bench.localToWorld(V(0, 0, -1)).sub(bench.getWorldPosition(V(0, 0, 0))), 0.12);
   k.look.copy(holder.getWorldPosition(V(0, 0, 0)));
   rebuildCurves();
 }) : loadModel('models/player.glb').then(m => {
