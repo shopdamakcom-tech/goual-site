@@ -554,7 +554,7 @@ const bench = new THREE.Group(); bench.position.set(16.4, 0, 6); bench.rotation.
 }
 // The coach on the bench, reading his tablet (a static seated model, base removed). The film plays on
 // his tablet; ?player switches back to the rigged player.
-const BENCH_FIT = { scale: 0.8, z: 0.24, tablet: [0.03, -0.005, 0.445], lift: 0.05, head: [0, 0.78, 0.08], screen: [0.2, 0.29] };
+const BENCH_FIT = { scale: 0.8, z: 0.24, head: [0, 0.78, 0.08] };
 const playerReady = !location.search.includes('player') ? loadModel('models/bench-coach.glb').then(m => {
   if (!m) return;
   m.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
@@ -562,12 +562,13 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
   m.scale.setScalar(S); m.position.set(0, 0.86 * S + 0.02, BENCH_FIT.z);
   bench.add(m); scene.updateMatrixWorld(true);
   const local = a => m.localToWorld(V(...a));
-  // Film on the tablet screen, facing his eyes.
-  const holder = new THREE.Group(); bench.add(holder);
-  holder.position.copy(bench.worldToLocal(local(BENCH_FIT.tablet)));
-  scene.updateMatrixWorld(true); holder.lookAt(local(BENCH_FIT.head));
-  holder.translateZ(BENCH_FIT.lift * S);           // just above his tablet's glass
-  makeScreen(1, BENCH_FIT.screen[0] * S, BENCH_FIT.screen[1] * S, holder, 0, 0, 0.004);
+  // Film on his tablet: the tablet's plane was measured from the model (centre, width axis, slope axis,
+  // normal toward his face), so the screen sits right on its glass.
+  const holder = new THREE.Group();
+  holder.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(-1, 0.021, 0.016).normalize(), V(0.025, 0.556, 0.831).normalize(), V(0.009, 0.831, -0.556).normalize()));
+  holder.position.set(-0.009, 0.029, 0.428).addScaledVector(V(0.009, 0.831, -0.556), 0.027);
+  m.add(holder);
+  makeScreen(1, 0.22, 0.27, holder, 0, 0, 0.002);
   // Camera stop: just behind his right shoulder, looking down at the tablet.
   scene.updateMatrixWorld(true);
   const head = local(BENCH_FIT.head), right = bench.localToWorld(V(-1, 0, 0)).sub(bench.getWorldPosition(V(0, 0, 0)));
