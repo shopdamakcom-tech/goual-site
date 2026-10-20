@@ -932,6 +932,10 @@ const sound = {
       this.zones[z] = g; this.next[z] = 0;
     }
     this.steps = ctx.createGain(); this.steps.gain.value = 0.9; this.steps.connect(this.master); this.steps.connect(this.reverb);
+    // Background music: a looping track, kept low under the ambience.
+    this.track = Object.assign(new Audio('music.mp3'), { loop: true, preload: 'auto' });
+    this.musicGain = ctx.createGain(); this.musicGain.gain.value = 0.22;
+    ctx.createMediaElementSource(this.track).connect(this.musicGain).connect(this.master);
     // Beds (continuous sounds).
     this.bed('sky', 'lowpass', 380, 0.7, 0.5, 0.07, 0.3);           // wind
     this.bed('stadium', 'bandpass', 700, 0.7, 0.07, 0.12, 0.05);    // distant crowd murmur
@@ -1016,6 +1020,7 @@ const sound = {
       }
     }
     this.wet.gain.setTargetAtTime(0.18 + (mix.tunnel || 0) * 0.5 + (mix.locker || 0) * 0.3, t, 0.5);
+    this.musicGain.gain.setTargetAtTime(lightbox.hidden ? 0.22 : 0.04, t, 0.4);   // almost silent while a film plays
     // Footsteps on hard floors while the camera moves indoors.
     if (walking && t - this.lastStep > 0.52) {
       this.lastStep = t;
@@ -1025,6 +1030,7 @@ const sound = {
   },
   toggle() {
     this.init(); this.ctx.resume(); this.on = !this.on;
+    if (this.on) this.track.play().catch(() => {}); else this.track.pause();
     this.master.gain.setTargetAtTime(this.on ? 0.9 : 0, this.ctx.currentTime, 0.3);
     return this.on;
   },
@@ -1282,4 +1288,4 @@ requestAnimationFrame(frame);
 
 // The WORK link jumps to the first film.
 document.querySelector('[data-goto="0.2"]').dataset.goto = KEYS.find(k => k.station === 0).p;
-if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
+if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, sound, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
