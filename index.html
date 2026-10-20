@@ -19,11 +19,12 @@
   })();
 </script>
 <noscript><meta http-equiv="refresh" content="0;url=classic.html"></noscript>
-<link rel="stylesheet" href="stadium.css?v=3">
+<link rel="stylesheet" href="stadium.css?v=4">
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"}}
 </script>
-<script type="module" src="stadium.js?v=12"></script>
+<script type="module" src="stadium.js?v=13"></script>
+<script defer src="contact.js?v=1"></script>
 </head>
 <body>
 <div id="bg" aria-hidden="true"></div>
@@ -51,10 +52,32 @@
     </section>
     <!-- One chapter per screen is generated from STATIONS in stadium.js -->
     <section class="chapter contact" data-range="0.955,2">
-      <p class="tag">[ LET'S CREATE ]</p>
-      <h2>Let's<br>talk.</h2>
-      <form id="contact-form"><input type="email" placeholder="YOUR EMAIL" aria-label="Your email" required><button>SEND →</button></form>
-      <small>© 2026 GOUAL® — AI FILMS · 3D · ANIMATION · ADVERTISING</small>
+      <div class="contact-intro">
+        <p class="tag">[ LET'S CREATE ]</p>
+        <h2>Let's<br>talk.</h2>
+        <p class="lead">A film, an ad, a 3D world? Tell us about your project and we will get back to you within 48 hours.</p>
+        <a class="mail" href="mailto:contact@goual.fr">contact@goual.fr</a>
+        <small>© 2026 GOUAL ART — ANIMATION STUDIOS</small>
+      </div>
+      <form class="goual-contact" id="contact-form" novalidate>
+        <div class="row">
+          <label>Name<input name="name" autocomplete="name" required></label>
+          <label>Email<input name="email" type="email" autocomplete="email" required></label>
+        </div>
+        <div class="row">
+          <label>Company <span>(optional)</span><input name="company" autocomplete="organization"></label>
+          <label>Project
+            <select name="project"><option>AI film</option><option>Advertising</option><option>3D / animation</option><option>Music video</option><option>Other</option></select>
+          </label>
+        </div>
+        <label>Budget <span>(optional)</span>
+          <select name="budget"><option value="">—</option><option>&lt; 2 000 €</option><option>2 000 – 5 000 €</option><option>5 000 – 15 000 €</option><option>15 000 € +</option></select>
+        </label>
+        <label>Message<textarea name="message" rows="4" required placeholder="Tell us about your idea, your deadline…"></textarea></label>
+        <input type="text" name="_honey" class="honey" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button type="submit">SEND MESSAGE →</button>
+        <p class="form-status" role="status" aria-live="polite"></p>
+      </form>
       <small class="credit">3D models — Stadium: “Al Wakrah Stadium Worldcup 2022” by Ninh Pham (Sketchfab), used with permission. “Tunnel” by local.yany, “Modular Gym” by Kristen Brown, “Modern Office” by dylanheyes, footballer character by franko981, coach character by Carlos.Maciel (Sketchfab, CC BY 4.0). City, cars and street lights: Kenney (CC0).</small>
     </section>
   </div>

@@ -1119,7 +1119,7 @@ addEventListener('touchmove', e => {
 }, { passive: true });
 addEventListener('touchend', () => (touchY = null));
 addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT') return;
+  if (e.target.closest('form')) return;                       // typing in the contact form
   const step = { ArrowDown: 0.015, PageDown: 0.04, ArrowUp: -0.015, PageUp: -0.04, Space: e.shiftKey ? -0.03 : 0.03 }[e.code];
   if (step) { addScroll(step); e.preventDefault(); }
   if (e.code === 'Home') addScroll(-1);
@@ -1133,7 +1133,6 @@ addEventListener('pointermove', e => {
   mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   if (state === 'ready' && e.pointerType === 'mouse') canvas.classList.toggle('hot', screenAt(e.clientX, e.clientY) != null);
 });
-$('#contact-form').addEventListener('submit', e => { e.preventDefault(); e.target.querySelector('button').textContent = 'THANK YOU ✓'; });
 
 /* ----------------------------------------------------------------- loader */
 const counterEl = $('#counter');

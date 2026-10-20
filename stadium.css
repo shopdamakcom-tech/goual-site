@@ -13,7 +13,7 @@ button{background:none;border:0;padding:0}
 #counter.done{opacity:0;transform:translateY(6vh) scale(.9)}
 
 #ui{position:fixed;inset:0;z-index:2;pointer-events:none}
-#ui a,#ui button,#ui input,#ui form{pointer-events:auto}
+#ui a,#ui button,#ui input,#ui form,#ui select,#ui textarea,#ui label{pointer-events:auto}
 .top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;padding:22px 2.4vw;font:600 13px/1 var(--round);letter-spacing:.12em;opacity:0;transition:opacity 1s .2s;text-shadow:0 1px 8px rgba(27,31,59,.35)}
 body.ready .top{opacity:1}
 .logo{display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none}.logo b{font:400 23px/1 Righteous,var(--round);letter-spacing:.09em;padding-left:.09em}.logo span{font:400 7.5px/1 Righteous,var(--round);letter-spacing:.42em;padding-left:.42em}
@@ -54,13 +54,25 @@ body.ready .top{opacity:1}
 .station .hint{display:block;margin-top:12px;font-size:12px;opacity:.6}
 .station.right{justify-content:flex-end}
 
-.contact{display:flex;flex-direction:column;justify-content:center;padding:0 7vw;color:var(--ink);background:radial-gradient(circle at 70% 30%,#fff 0,var(--cream) 60%)}
+.contact{display:grid;grid-template-columns:1fr minmax(320px,540px);gap:6vw;align-items:center;padding:90px 7vw 110px;color:var(--ink);background:radial-gradient(circle at 70% 30%,#fff 0,var(--cream) 60%);overflow-y:auto;touch-action:pan-y}
 .contact.on{transition:opacity 1s}
-.contact h2{margin:14px 0 0;font:700 clamp(80px,15vw,240px)/.82 var(--round);color:var(--coral)}
-.contact form{display:flex;gap:10px;margin-top:40px;max-width:560px}
-.contact input{flex:1;background:#fff;border:3px solid var(--ink);border-radius:40px;padding:14px 20px;font:600 14px var(--round);letter-spacing:.08em;color:var(--ink);outline:0;user-select:text;-webkit-user-select:text}
-.contact form button{background:var(--ink);color:#fff;border-radius:40px;padding:15px 24px;font:700 14px var(--round);letter-spacing:.08em;box-shadow:0 5px 0 rgba(27,31,59,.35)}
-.contact small{margin-top:50px;font:600 11px var(--round);letter-spacing:.16em}
+.contact-intro{display:flex;flex-direction:column}
+.contact h2{margin:14px 0 0;font:700 clamp(72px,11vw,190px)/.82 var(--round);color:var(--coral)}
+.contact .lead{margin:28px 0 0;max-width:440px;font:500 17px/1.5 Inter,sans-serif;opacity:.8}
+.contact .mail{margin-top:18px;font:700 20px var(--round);color:var(--ink);text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:5px;align-self:flex-start}
+.contact small{margin-top:40px;font:600 11px var(--round);letter-spacing:.16em}
+.goual-contact{display:flex;flex-direction:column;gap:14px;background:#fff;border-radius:28px;padding:28px;box-shadow:0 10px 0 rgba(27,31,59,.12),0 24px 60px rgba(27,31,59,.14)}
+.goual-contact .row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.goual-contact label{display:flex;flex-direction:column;gap:6px;font:700 12px var(--round);letter-spacing:.1em;text-transform:uppercase}
+.goual-contact label span{font-weight:500;text-transform:none;letter-spacing:0;opacity:.55}
+.goual-contact input,.goual-contact select,.goual-contact textarea{width:100%;background:#f6f3ec;border:2px solid transparent;border-radius:14px;padding:12px 14px;font:500 15px Inter,sans-serif;color:var(--ink);outline:0;transition:border-color .2s,background .2s;user-select:text;-webkit-user-select:text}
+.goual-contact textarea{resize:vertical;min-height:110px}
+.goual-contact input:focus,.goual-contact select:focus,.goual-contact textarea:focus{border-color:var(--ink);background:#fff}
+.goual-contact .honey{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.goual-contact button[type=submit]{margin-top:4px;background:var(--coral);color:#fff;border-radius:40px;padding:16px 24px;font:700 15px var(--round);letter-spacing:.08em;box-shadow:0 5px 0 #c73c41;transition:transform .15s,box-shadow .15s}
+.goual-contact button[type=submit]:hover{transform:translateY(2px);box-shadow:0 3px 0 #c73c41}
+.goual-contact button[disabled]{opacity:.6;cursor:wait}
+.form-status{margin:0;min-height:1.2em;font:600 14px/1.4 Inter,sans-serif}.form-status.ok{color:#2f8a4a}.form-status.err{color:#c73c41}.form-status a{color:inherit}
 body.end .top,body.end .bottom{color:var(--ink);text-shadow:none}body.end .classic{border-color:var(--ink)}body.end .bars i,body.end .progress i{background:var(--ink)}
 
 .bottom{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 2.4vw;font:600 12px/1 var(--round);letter-spacing:.16em;opacity:0;transition:opacity .8s;text-shadow:0 1px 8px rgba(27,31,59,.35)}
@@ -84,7 +96,8 @@ body.ready .bottom{opacity:1}
   .station{padding:0 14px 13svh;justify-content:center}.station.right{justify-content:center}
   .station{padding-bottom:8svh}.station .card{padding:12px 16px 14px;width:100%}.station h2{font-size:24px;margin:6px 0 2px}.station .play{margin-top:10px;padding:9px 16px 9px 10px;font-size:13px}.station .hint{display:none}
   .bottom{padding:14px 16px}
-  .contact form{flex-direction:column}
+  .contact{grid-template-columns:1fr;gap:28px;padding:84px 16px 40px;align-items:start;padding-bottom:90px}.contact h2{font-size:64px}.contact .lead{font-size:15px;margin-top:16px}.contact small{margin-top:20px}
+  .goual-contact{padding:20px;border-radius:22px}.goual-contact .row{grid-template-columns:1fr}
 }
 
-.contact .credit{margin-top:14px;font:500 10px/1.5 Inter,sans-serif;letter-spacing:0;opacity:.6}
+.contact .credit{grid-column:1/-1;margin-top:0;font:500 10px/1.5 Inter,sans-serif;letter-spacing:0;opacity:.6}
