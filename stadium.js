@@ -561,7 +561,6 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
   const S = BENCH_FIT.scale;
   m.scale.setScalar(S); m.position.set(0, 0.86 * S + 0.02, BENCH_FIT.z);
   bench.add(m); scene.updateMatrixWorld(true);
-  const local = a => m.localToWorld(V(...a));
   // Film on his tablet: the tablet's plane was measured from the model (centre, width axis, slope axis,
   // normal toward his face), so the screen sits right on its glass.
   const holder = new THREE.Group();
