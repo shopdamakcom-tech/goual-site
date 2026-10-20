@@ -554,7 +554,7 @@ const bench = new THREE.Group(); bench.position.set(16.4, 0, 6); bench.rotation.
 }
 // The coach on the bench, reading his tablet (a static seated model, base removed). The film plays on
 // his tablet; ?player switches back to the rigged player.
-const BENCH_FIT = { scale: 0.8, z: 0.24, tablet: [0.005, 0.005, 0.45], lift: 0.03, head: [0, 0.78, 0.08], screen: [0.18, 0.26] };
+const BENCH_FIT = { scale: 0.8, z: 0.24, tablet: [0.03, -0.005, 0.445], lift: 0.05, head: [0, 0.78, 0.08], screen: [0.2, 0.29] };
 const playerReady = !location.search.includes('player') ? loadModel('models/bench-coach.glb').then(m => {
   if (!m) return;
   m.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
