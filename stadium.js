@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 /* ------------------------------------------------------------------ data */
 // Each stop on the tour shows one film on a screen in the scene.
@@ -125,7 +127,7 @@ for (let i = 0; i < 16; i++) {
   let placed = 0, tries = 0;
   const spots = [];
   while (placed < N && tries++ < 4000) {
-    const a = rand(0, Math.PI * 2), r = rand(72, 150);
+    const a = rand(0, Math.PI * 2), r = rand(76, 150);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 64)) continue;
     spots.push({ x, z });
@@ -154,7 +156,7 @@ for (let i = 0; i < 16; i++) {
   const greens = ['#5cb85c', '#4caf50', '#7ccf5b', '#3e9b4f', '#9bd36a'];
   let t = 0; tries = 0;
   while (t < T && tries++ < 6000) {
-    const a = rand(0, Math.PI * 2), r = rand(58, 175);
+    const a = rand(0, Math.PI * 2), r = rand(70, 175);
     const x = Math.cos(a) * r, z = Math.sin(a) * r;
     if (spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 30)) continue;
     // Keep the area behind the main stand (tunnel, locker room, office) clear.
@@ -171,132 +173,32 @@ for (let i = 0; i < 16; i++) {
   scene.add(trunks, crowns);
 }
 
-/* ------------------------------------------------------------------ pitch */
-// Field is 40 x 60 inside a 44 x 64 grass plane; lines drawn on a canvas.
-const pitchTex = canvasTex(1100, 1600, (c, w, h) => {
-  const s = 25, ox = 2 * s, oz = 2 * s, W = 40 * s, H = 60 * s;
-  for (let i = 0; i < 16; i++) { c.fillStyle = i % 2 ? '#56b947' : '#4aa83d'; c.fillRect(0, i * h / 16, w, h / 16 + 1); }
-  c.strokeStyle = '#ffffff'; c.lineWidth = 6; c.fillStyle = '#fff';
-  c.strokeRect(ox, oz, W, H);
-  c.beginPath(); c.moveTo(ox, oz + H / 2); c.lineTo(ox + W, oz + H / 2); c.stroke();
-  c.beginPath(); c.arc(ox + W / 2, oz + H / 2, 5.4 * s, 0, Math.PI * 2); c.stroke();
-  c.beginPath(); c.arc(ox + W / 2, oz + H / 2, 8, 0, Math.PI * 2); c.fill();
-  [[oz, 1], [oz + H, -1]].forEach(([y0, dir]) => {
-    c.strokeRect(ox + W / 2 - 11.85 * s, dir > 0 ? y0 : y0 - 9.7 * s, 23.7 * s, 9.7 * s);
-    c.strokeRect(ox + W / 2 - 5.4 * s, dir > 0 ? y0 : y0 - 3.2 * s, 10.8 * s, 3.2 * s);
-    c.beginPath(); c.arc(ox + W / 2, y0 + dir * 6.5 * s, 7, 0, Math.PI * 2); c.fill();
-    c.beginPath(); c.arc(ox + W / 2, y0 + dir * 6.5 * s, 5.4 * s, dir > 0 ? 0.2 * Math.PI : 1.2 * Math.PI, dir > 0 ? 0.8 * Math.PI : 1.8 * Math.PI); c.stroke();
-  });
+/* ---------------------------------------------------------------- stadium */
+// Stadium model: "Al Wakrah Stadium Worldcup 2022" by Ninh Pham (Sketchfab), used with the author's permission.
+// Optimised for the web (seats removed, meshopt-compressed, logo replaced). Its pitch is 17 units long,
+// scaled to our 60-unit pitch and turned so the long axis runs along z, benches on the east side.
+const STADIUM_SCALE = 3.53;
+const stadiumReady = new Promise(resolve => {
+  const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+  loader.load('models/stadium.glb', gltf => {
+    const model = gltf.scene;
+    model.rotation.y = -Math.PI / 2; model.scale.setScalar(STADIUM_SCALE); model.position.set(0, 0, 0.26 * STADIUM_SCALE);
+    let screenMesh = null;
+    model.traverse(o => {
+      if (!o.isMesh) return;
+      o.castShadow = o.receiveShadow = true;
+      if (o.material.name === 'Material.047') o.material.color.set('#2f5fb3');        // seating area: team blue
+      if (o.material.map && o.material.map.name === 'goual-logo') screenMesh = o;      // the scoreboard
+    });
+    scene.add(model);
+    scene.updateMatrixWorld(true);
+    if (screenMesh) adoptScreen(screenMesh, 0);
+    resolve();
+  }, undefined, err => { console.warn('Stadium model failed to load', err); resolve(); });
 });
-const pitch = mesh(new THREE.PlaneGeometry(44, 64), new THREE.MeshStandardMaterial({ map: pitchTex, roughness: 0.9 }), null, 0, 0.02, 0, { cast: false });
-pitch.rotation.x = -Math.PI / 2;
-const apron = mesh(new THREE.PlaneGeometry(52, 72), mat('#3f9a3a', { roughness: 1 }), null, 0, 0.01, 0, { cast: false });
-apron.rotation.x = -Math.PI / 2;
-
-// Goals.
-const white = mat('#ffffff', { roughness: 0.4 });
-const netMat = new THREE.MeshStandardMaterial({
-  color: '#ffffff', transparent: true, side: THREE.DoubleSide, roughness: 1,
-  alphaMap: canvasTex(64, 64, (c, w) => { c.fillStyle = '#000'; c.fillRect(0, 0, w, w); c.strokeStyle = '#fff'; c.lineWidth = 3; c.strokeRect(0, 0, w, w); }, [10, 5]),
-});
-[-1, 1].forEach(dir => {
-  const g = new THREE.Group(); g.position.z = dir * 30; scene.add(g);
-  [-2.15, 2.15].forEach(x => mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.9, 12), white, g, x, 0.95, 0));
-  const bar = mesh(new THREE.CylinderGeometry(0.09, 0.09, 4.4, 12), white, g, 0, 1.9, 0); bar.rotation.z = Math.PI / 2;
-  const back = mesh(new THREE.PlaneGeometry(4.3, 1.9), netMat, g, 0, 0.95, dir * 1.4, { cast: false }); back.rotation.y = 0;
-  const roof = mesh(new THREE.PlaneGeometry(4.3, 1.4), netMat, g, 0, 1.9, dir * 0.7, { cast: false }); roof.rotation.x = Math.PI / 2;
-  [-2.15, 2.15].forEach(x => { const sideNet = mesh(new THREE.PlaneGeometry(1.4, 1.9), netMat, g, x, 0.95, dir * 0.7, { cast: false }); sideNet.rotation.y = Math.PI / 2; });
-});
-// Corner flags.
-[[-20, -30], [20, -30], [-20, 30], [20, 30]].forEach(([x, z], i) => {
-  mesh(new THREE.CylinderGeometry(0.04, 0.04, 1.5, 6), white, null, x, 0.75, z);
-  const flag = mesh(new THREE.PlaneGeometry(0.5, 0.35), mat(PALETTE[i], { side: THREE.DoubleSide }), null, x + 0.25, 1.32, z);
-  flag.userData.wave = i;
-});
-// A ball on the centre spot.
 const ballTex = canvasTex(256, 128, (c, w, h) => {
   c.fillStyle = '#fff'; c.fillRect(0, 0, w, h); c.fillStyle = '#1b1f3b';
   for (let i = 0; i < 12; i++) { c.beginPath(); c.arc((i % 6) * w / 6 + (i < 6 ? 20 : 60), i < 6 ? h * 0.3 : h * 0.72, 14, 0, Math.PI * 2); c.fill(); }
-});
-const ball = mesh(new THREE.SphereGeometry(0.35, 24, 16), new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.5 }), null, 0, 0.35, 0);
-
-// Advertising boards around the pitch.
-const adTex = canvasTex(2048, 64, (c, w, h) => {
-  const words = ['GOUAL', 'AI FILMS', 'GOUAL ART', '3D', 'ANIMATION'];
-  for (let i = 0; i < 16; i++) {
-    c.fillStyle = PALETTE[i % PALETTE.length]; c.fillRect(i * w / 16, 0, w / 16 + 1, h);
-    c.fillStyle = '#fff'; c.font = '700 34px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(words[i % words.length], i * w / 16 + w / 32, h / 2 + 2);
-  }
-}, [2, 1]);
-const adMat = new THREE.MeshStandardMaterial({ map: adTex, emissiveMap: adTex, emissive: '#ffffff', emissiveIntensity: 0.55, roughness: 0.5 });
-function adBoard(len, x, z, rotY) { const b = box(len, 0.9, 0.2, adMat, null, x, 0.45, z); b.rotation.y = rotY; }
-adBoard(64, -22, 0, Math.PI / 2);
-adBoard(19, 23, -21.5, Math.PI / 2); adBoard(19, 23, 21.5, Math.PI / 2);   // gap for the tunnel and dugout
-adBoard(44, 0, -32, 0); adBoard(44, 0, 32, 0);
-
-/* ----------------------------------------------------------------- stands */
-// Each stand is built in local space (x along the pitch, z away from it) then rotated into place.
-const concrete = mat('#efe7da', { roughness: 0.9 });
-const crowd = [], seats = [];
-function stand({ length, rows, base, x, z, rotY, tunnel = false, roof = false }) {
-  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = rotY; scene.add(g);
-  const RD = 1.2, RH = 0.7, gap = tunnel ? 2.6 : 0;
-  for (let k = 0; k < rows; k++) {
-    const top = base + (k + 1) * RH, y0 = tunnel ? base : 0;
-    box(length, top - y0, RD, concrete, g, 0, (top + y0) / 2, k * RD + RD / 2);
-    for (let sx = -length / 2 + 0.5; sx < length / 2 - 0.3; sx += 0.62) {
-      const section = Math.floor((sx + length / 2) / 6);
-      seats.push({ g, x: sx, y: top + 0.15, z: k * RD + 0.75, color: PALETTE[(section + (tunnel ? 2 : 0)) % PALETTE.length] });
-      if (Math.random() < 0.62) crowd.push({ g, x: sx, y: top + 0.55, z: k * RD + 0.8, color: pick(PALETTE), skin: pick(SKIN) });
-    }
-  }
-  const depth = rows * RD, topH = base + rows * RH;
-  if (tunnel) {
-    // Raised main stand: a podium split by the players' tunnel.
-    const half = length / 2 - gap;
-    [-1, 1].forEach(s => box(half, base, depth, concrete, g, s * (gap + half / 2), base / 2, depth / 2));
-    box(length, 0.5, 0.25, mat('#1b1f3b'), g, 0, base - 0.25, -0.05);
-    const sign = mesh(new THREE.PlaneGeometry(6, 1.1), new THREE.MeshStandardMaterial({
-      map: canvasTex(512, 96, (c, w, h) => { c.fillStyle = '#ffb400'; c.fillRect(0, 0, w, h); c.fillStyle = '#1b1f3b'; c.font = '700 64px Fredoka, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText('GOUAL ⚽ TUNNEL', w / 2, h / 2 + 4); }),
-      emissive: '#ffb400', emissiveIntensity: 0.25,
-    }), g, 0, base + 0.62, -0.16, { cast: false });
-    sign.rotation.y = Math.PI;
-  }
-  box(length + 0.6, 2.2, 0.4, mat('#1b1f3b'), g, 0, topH + 1.1, depth + 0.2);
-  if (roof) {
-    const r = box(length + 4, 0.4, depth + 3, mat('#ffffff', { roughness: 0.5 }), g, 0, topH + 6, depth / 2 - 1.2);
-    r.rotation.x = -0.08;
-    box(length + 4, 1, 0.3, mat('#00a6ed'), g, 0, topH + 6.6 - (depth / 2 + 0.3) * 0.08, -2.7);
-    for (let px = -length / 2; px <= length / 2; px += length / 4) box(0.4, 6, 0.4, mat('#1b1f3b'), g, px, topH + 3, depth + 0.4);
-  }
-  return g;
-}
-stand({ length: 64, rows: 12, base: 3.6, x: 25, z: 0, rotY: Math.PI / 2, tunnel: true, roof: true });
-stand({ length: 64, rows: 10, base: 1.2, x: -24, z: 0, rotY: -Math.PI / 2 });
-stand({ length: 48, rows: 10, base: 1.2, x: 0, z: -34, rotY: Math.PI });
-stand({ length: 48, rows: 10, base: 1.2, x: 0, z: 34, rotY: 0 });
-scene.updateMatrixWorld(true);
-{
-  const m = new THREE.Matrix4(), local = new THREE.Matrix4(), col = new THREE.Color();
-  const seatMesh = new THREE.InstancedMesh(new RoundedBoxGeometry(0.5, 0.3, 0.45, 1, 0.06), mat('#ffffff', { roughness: 0.6 }), seats.length);
-  seats.forEach((s, i) => { m.multiplyMatrices(s.g.matrixWorld, local.makeTranslation(s.x, s.y, s.z)); seatMesh.setMatrixAt(i, m); seatMesh.setColorAt(i, col.set(s.color)); });
-  const fanBody = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.17, 0.32, 4, 8), mat('#ffffff', { roughness: 0.8 }), crowd.length);
-  const fanHead = new THREE.InstancedMesh(new THREE.SphereGeometry(0.14, 12, 8), mat('#ffffff', { roughness: 0.7 }), crowd.length);
-  crowd.forEach((f, i) => {
-    m.multiplyMatrices(f.g.matrixWorld, local.makeTranslation(f.x, f.y, f.z)); fanBody.setMatrixAt(i, m); fanBody.setColorAt(i, col.set(f.color));
-    m.multiplyMatrices(f.g.matrixWorld, local.makeTranslation(f.x, f.y + 0.42, f.z)); fanHead.setMatrixAt(i, m); fanHead.setColorAt(i, col.set(f.skin));
-  });
-  seatMesh.receiveShadow = fanBody.receiveShadow = fanHead.receiveShadow = true;
-  scene.add(seatMesh, fanBody, fanHead);
-}
-
-// Floodlight towers.
-[[-33, -45], [33, -45], [-33, 45], [33, 45]].forEach(([x, z]) => {
-  mesh(new THREE.CylinderGeometry(0.45, 0.7, 30, 12), mat('#c9ced6', { metalness: 0.4, roughness: 0.4 }), null, x, 15, z);
-  const head = new THREE.Group(); head.position.set(x, 30.5, z); head.lookAt(0, 0, 0); scene.add(head);
-  rbox(6, 3.4, 0.6, 0.2, mat('#1b1f3b'), head, 0, 0, 0);
-  mesh(new THREE.PlaneGeometry(5.4, 2.8), new THREE.MeshStandardMaterial({ color: '#fffbe6', emissive: '#fff4c2', emissiveIntensity: 1.4 }), head, 0, 0, 0.31, { cast: false });
 });
 
 /* ---------------------------------------------------------------- screens */
@@ -323,17 +225,33 @@ function makeScreen(index, w, h, parent, x, y, z, rotY = 0) {
   return s;
 }
 
-// 1. Jumbotron above the north stand.
-{
-  const g = new THREE.Group(); g.position.set(0, 0, -48.5); scene.add(g);
-  [-9, 9].forEach(x => box(1, 17, 1, mat('#1b1f3b'), g, x, 8.5, 0));
-  rbox(22.4, 13.2, 1.2, 0.5, mat('#1b1f3b', { roughness: 0.4 }), g, 0, 18.5, 0);
-  box(22.6, 1.4, 1.3, mat('#ffb400'), g, 0, 25.7, 0);
-  makeScreen(0, 21, 11.8, g, 0, 18.5, 0.62);
+// 1. The stadium's own scoreboard plays the first film (set up once the model loads).
+function adoptScreen(target, index) {
+  const st = STATIONS[index];
+  const video = document.createElement('video');
+  Object.assign(video, { src: st.src, muted: true, loop: true, playsInline: true, preload: 'auto' });
+  video.setAttribute('playsinline', '');
+  const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = false;
+  target.material = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide });
+  target.userData.station = index;
+  const box3 = new THREE.Box3().setFromObject(target), size = box3.getSize(new THREE.Vector3());
+  screens[index] = { index, video, group: target, hit: [target], width: Math.max(size.x, size.z) };
+  video.play().catch(() => {});
+  // Put the camera stop in front of the screen, on the pitch side.
+  const centre = box3.getCenter(new THREE.Vector3());
+  const n = new THREE.Vector3(0, 0, 1);
+  const normalAttr = target.geometry.getAttribute('normal');
+  if (normalAttr) n.fromBufferAttribute(normalAttr, 0).applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(target.matrixWorld)).normalize();
+  if (n.dot(new THREE.Vector3().sub(centre)) < 0) n.negate();
+  n.y = 0; n.normalize();
+  const k = KEYS.find(k => k.station === index);
+  k.look.copy(centre);
+  k.pos.copy(centre).addScaledVector(n, Math.max(size.x, size.z) * 1.6).add(new THREE.Vector3(0, -1.5, 0));
+  rebuildCurves();
 }
 
 // 2. The coach on the sideline, holding a tablet toward the pitch.
-const coach = new THREE.Group(); coach.position.set(21.2, 0, 8); coach.rotation.y = -Math.PI / 2; scene.add(coach);
+const coach = new THREE.Group(); coach.position.set(16.2, 0, 6); coach.rotation.y = -Math.PI / 2; scene.add(coach);
 {
   const jacket = mat('#f26419', { roughness: 0.6 }), pants = mat('#1b1f3b'), skin = mat('#ffd2a8', { roughness: 0.55 });
   [-0.16, 0.16].forEach(x => {
@@ -363,16 +281,12 @@ const coach = new THREE.Group(); coach.position.set(21.2, 0, 8); coach.rotation.
   const tablet = new THREE.Group(); tablet.position.set(0, 1.3, 0.5); tablet.rotation.x = -0.12; coach.add(tablet);
   rbox(0.54, 0.7, 0.035, 0.04, mat('#2c2c31', { metalness: 0.6, roughness: 0.35 }), tablet, 0, 0, 0);
   makeScreen(1, 0.49, 0.65, tablet, 0, 0, 0.019);
-  // Dugout behind the coach.
-  const dug = new THREE.Group(); dug.position.set(22.4, 0, 8); scene.add(dug);
-  rbox(1, 0.45, 6, 0.1, mat('#00a6ed'), dug, 0.2, 0.45, 0);
-  rbox(0.2, 0.7, 6, 0.08, mat('#00a6ed'), dug, 0.65, 0.9, 0);
-  const shell = mesh(new THREE.CylinderGeometry(1.2, 1.2, 6, 24, 1, true, 0, Math.PI), new THREE.MeshStandardMaterial({ color: '#cfefff', transparent: true, opacity: 0.35, side: THREE.DoubleSide, roughness: 0.1 }), dug, 0.4, 0.4, 0, { cast: false });
-  shell.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
 }
 
 /* -------------------------------------------------- tunnel, locker, office */
-// Interiors sit behind the main stand: tunnel x 25→45, locker room x 45→61, office z 8→18.
+// Interiors (tunnel x 25→45, locker room x 45→61, office z 8→18) are built here, then moved 60 units
+// below ground, out of sight of the stadium; the camera reaches them through a short fade to black.
+const interiorFrom = scene.children.length;
 const lights = [];
 function lamp(x, y, z, color = '#fff1d6', intensity = 9, distance = 11) {
   const l = new THREE.PointLight(color, intensity, distance, 2); l.position.set(x, y, z); scene.add(l); lights.push(l);
@@ -496,26 +410,37 @@ function wall(w, h, d, color, x, y, z) { return box(w, h, d, mat(color, { roughn
   lamp(55, 3.05, 16.2, '#fff1d6', 6, 6);
 }
 
+const UNDER = -60;
+{
+  const interiors = new THREE.Group(); interiors.position.y = UNDER;
+  scene.children.slice(interiorFrom).forEach(o => interiors.add(o));
+  scene.add(interiors);
+}
+
 /* ------------------------------------------------------------ camera path */
 // Keyframes: progress p, camera position, look target, and hold (stations pause the camera).
 const KEYS = [
   { p: 0.00, pos: [0, 150, 14], look: [0, 0, 0] },
-  { p: 0.09, pos: [-34, 46, 62], look: [0, 6, 0] },
-  { p: 0.15, hold: 0.24, station: 0, pos: [0, 15.5, -30], look: [0, 18.5, -48] },
-  { p: 0.29, pos: [13, 3, 13], look: [21, 1.4, 8] },
-  { p: 0.34, hold: 0.42, station: 1, pos: [18.75, 1.62, 8.25], look: [21.2, 1.5, 8] },
-  { p: 0.45, pos: [19.2, 1.7, 5.2], look: [25, 1.8, 1.5] },
-  { p: 0.48, pos: [22.4, 1.9, 1.4], look: [32, 1.9, 0] },
-  { p: 0.51, pos: [30, 1.8, 0.4], look: [38, 1.9, -0.8] },
-  { p: 0.55, hold: 0.62, station: 2, pos: [36, 1.95, -0.1], look: [36, 2.05, -2.4] },
-  { p: 0.67, pos: [46.2, 1.85, 0], look: [60, 2.2, 0] },
-  { p: 0.71, hold: 0.78, station: 3, pos: [56.9, 2.1, 0], look: [60.7, 2.45, 0] },
-  { p: 0.82, pos: [55, 1.8, 6.2], look: [55, 1.5, 16] },
-  { p: 0.86, hold: 0.92, station: 4, pos: [55, 1.42, 15.75], look: [55, 1.42, 17.1] },
-  { p: 1.00, pos: [55, 1.7, 12.2], look: [55, 1.5, 17] },
+  { p: 0.09, pos: [-40, 52, 70], look: [0, 6, 0] },
+  { p: 0.15, hold: 0.24, station: 0, pos: [-18, 12, 12], look: [-26, 16, 24] },      // set from the scoreboard on load
+  { p: 0.29, pos: [8, 3.5, 16], look: [16, 1.4, 6] },
+  { p: 0.34, hold: 0.42, station: 1, pos: [13.75, 1.62, 6.25], look: [16.2, 1.5, 6] },
+  { p: 0.45, pos: [13.6, 1.8, 3], look: [24, 1.9, 0.5] },
+  { p: 0.48, pos: [16.8, 1.9, 1], look: [30, 1.9, 0] },                                  // fade to black toward the stand
+  { p: 0.51, pos: [30, UNDER + 1.8, 0.4], look: [38, UNDER + 1.9, -0.8] },
+  { p: 0.55, hold: 0.62, station: 2, pos: [36, UNDER + 1.95, -0.1], look: [36, UNDER + 2.05, -2.4] },
+  { p: 0.67, pos: [46.2, UNDER + 1.85, 0], look: [60, UNDER + 2.2, 0] },
+  { p: 0.71, hold: 0.78, station: 3, pos: [56.9, UNDER + 2.1, 0], look: [60.7, UNDER + 2.45, 0] },
+  { p: 0.82, pos: [55, UNDER + 1.8, 6.2], look: [55, UNDER + 1.5, 16] },
+  { p: 0.86, hold: 0.92, station: 4, pos: [55, UNDER + 1.42, 15.75], look: [55, UNDER + 1.42, 17.1] },
+  { p: 1.00, pos: [55, UNDER + 1.7, 12.2], look: [55, UNDER + 1.5, 17] },
 ].map(k => ({ ...k, hold: k.hold ?? k.p, pos: new THREE.Vector3(...k.pos), look: new THREE.Vector3(...k.look) }));
-const posCurve = new THREE.CatmullRomCurve3(KEYS.map(k => k.pos), false, 'centripetal');
-const lookCurve = new THREE.CatmullRomCurve3(KEYS.map(k => k.look), false, 'centripetal');
+let posCurve, lookCurve;
+function rebuildCurves() {
+  posCurve = new THREE.CatmullRomCurve3(KEYS.map(k => k.pos), false, 'centripetal');
+  lookCurve = new THREE.CatmullRomCurve3(KEYS.map(k => k.look), false, 'centripetal');
+}
+rebuildCurves();
 const U = i => i / (KEYS.length - 1);
 // Map scroll progress to a curve parameter: stations hold still, the camera eases in and out of them.
 function curveParam(p) {
@@ -670,7 +595,7 @@ $('#contact-form').addEventListener('submit', e => { e.preventDefault(); e.targe
 const counterEl = $('#counter');
 const loadStart = performance.now();
 let loaded = 0;
-const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), ...screens.map(s => new Promise(res => {
+const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, ...screens.filter(Boolean).map(s => new Promise(res => {
   if (s.video.readyState >= 1) return res();
   s.video.addEventListener('loadedmetadata', res, { once: true });
   s.video.addEventListener('error', res, { once: true });
@@ -688,6 +613,11 @@ function updateLoader() {
     state = 'ready'; body.classList.add('ready');
   }
 }
+
+// Black fade used when the camera goes from the pitch into the tunnel.
+const fadeEl = Object.assign(document.createElement('div'), { ariaHidden: 'true' });
+Object.assign(fadeEl.style, { position: 'fixed', inset: '0', background: '#05060c', opacity: '0', pointerEvents: 'none', zIndex: '1' });
+canvas.after(fadeEl);
 
 /* ----------------------------------------------------------------- resize */
 function resize() {
@@ -736,7 +666,6 @@ function frame() {
   clouds.forEach((c, i) => { c.position.x += dt * (0.6 + (i % 3) * 0.3); if (c.position.x > 260) c.position.x = -260; });
   scene.children.forEach(o => { if (o.userData.wave != null) o.rotation.y = Math.sin(t * 3 + o.userData.wave) * 0.4; });
   coach.position.y = Math.sin(t * 2) * 0.012;
-  ball.rotation.y = t * 0.3;
 
   // Play only the films near the camera.
   screens.forEach(s => {
@@ -759,10 +688,11 @@ function frame() {
     lastStation = station;
     if (station >= 0) stageNum.textContent = `${String(station + 1).padStart(2, '0')} / ${TOTAL}`;
   }
+  fadeEl.style.opacity = smooth(0.455, 0.478, progress) * (1 - smooth(0.505, 0.53, progress));
   body.classList.toggle('end', progress > 0.95);
   bar.style.transform = `scaleX(${progress})`;
   // Muffle the crowd indoors.
-  if (sound.crowdFilter) sound.crowdFilter.frequency.setTargetAtTime(camera.position.x > 25 ? 260 : 700, sound.ctx.currentTime, 0.4);
+  if (sound.crowdFilter) sound.crowdFilter.frequency.setTargetAtTime(camera.position.y < UNDER / 2 ? 260 : 700, sound.ctx.currentTime, 0.4);
 
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
