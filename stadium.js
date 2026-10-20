@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /* ------------------------------------------------------------------ data */
 // Each stop on the tour shows one film on a screen in the scene.
@@ -95,7 +96,7 @@ const ground = mesh(new THREE.CircleGeometry(600, 64), new THREE.MeshStandardMat
 ground.rotation.x = -Math.PI / 2;
 // Rolling hills on the horizon.
 for (let i = 0; i < 26; i++) {
-  const a = (i / 26) * Math.PI * 2 + rand(-0.1, 0.1), r = rand(190, 280);
+  const a = (i / 26) * Math.PI * 2 + rand(-0.1, 0.1), r = rand(400, 470);
   const hill = mesh(new THREE.SphereGeometry(1, 24, 12), mat(pick(['#7cc057', '#6db34d', '#94d26b', '#5fa845']), { roughness: 1 }), null, Math.cos(a) * r, -4, Math.sin(a) * r, { cast: false });
   hill.scale.set(rand(40, 80), rand(18, 40), rand(40, 80));
 }
@@ -116,64 +117,245 @@ for (let i = 0; i < 16; i++) {
   scene.add(g); clouds.push(g);
 }
 
-/* ---------------------------------------------------------------- village */
-// Instanced pastel houses with pointy roofs and trees in a ring around the stadium.
-{
-  const N = MOBILE ? 90 : 150, dummy = new THREE.Object3D(), col = new THREE.Color();
-  const walls = new THREE.InstancedMesh(new RoundedBoxGeometry(1, 1, 1, 2, 0.08), mat('#ffffff', { roughness: 0.85 }), N);
-  const roofGeo = new THREE.ConeGeometry(0.72, 1, 4); roofGeo.rotateY(Math.PI / 4);
-  const roofs = new THREE.InstancedMesh(roofGeo, mat('#ffffff', { roughness: 0.75 }), N);
-  const doors = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#6b3e26'), N);
-  const wins = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat('#fff6d5', { emissive: '#ffe9a8', emissiveIntensity: 0.4 }), N * 2);
-  const houseCols = ['#ffd6e0', '#ffe7a0', '#c7f0d8', '#cde7ff', '#e3d5ff', '#ffd2b0', '#fff1c9', '#b9f3ee'];
-  const roofCols = ['#e4572e', '#d1495b', '#2e86ab', '#7b2cbf', '#f29e4c', '#3f8a5f'];
-  let placed = 0, tries = 0;
-  const spots = [];
-  while (placed < N && tries++ < 4000) {
-    const a = rand(0, Math.PI * 2), r = rand(76, 150);
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 64)) continue;
-    spots.push({ x, z });
-    const w = rand(4, 6.5), h = rand(3.5, 6), d = rand(4, 6), roofH = rand(2.5, 4.2);
-    const face = Math.atan2(-x, -z);
-    dummy.position.set(x, h / 2, z); dummy.rotation.set(0, face, 0); dummy.scale.set(w, h, d); dummy.updateMatrix();
-    walls.setMatrixAt(placed, dummy.matrix); walls.setColorAt(placed, col.set(pick(houseCols)));
-    dummy.position.y = h + roofH / 2; dummy.scale.set(w * 1.18, roofH, d * 1.18); dummy.updateMatrix();
-    roofs.setMatrixAt(placed, dummy.matrix); roofs.setColorAt(placed, col.set(pick(roofCols)));
-    // Door and windows on the side facing the stadium.
-    const fwd = new THREE.Vector3(Math.sin(face), 0, Math.cos(face)), side = new THREE.Vector3(fwd.z, 0, -fwd.x);
-    dummy.position.set(x + fwd.x * d / 2, 1.1, z + fwd.z * d / 2); dummy.scale.set(1.1, 2.2, 0.15); dummy.updateMatrix();
-    doors.setMatrixAt(placed, dummy.matrix);
-    [-1, 1].forEach((s, k) => {
-      dummy.position.set(x + fwd.x * d / 2 + side.x * s * w * 0.3, h * 0.62, z + fwd.z * d / 2 + side.z * s * w * 0.3);
-      dummy.scale.set(0.9, 0.9, 0.15); dummy.updateMatrix();
-      wins.setMatrixAt(placed * 2 + k, dummy.matrix);
+/* ------------------------------------------------------------------- city */
+// A city district around the stadium: a paved plaza, a ring road with traffic, parking lots,
+// a sports park (basketball, padel, five-a-side), avenues and blocks of offices and towers.
+// Buildings, cars and street lights: Kenney City Kit Commercial, Car Kit and City Kit Roads (CC0).
+const city = new THREE.Group(); scene.add(city);
+const cityLoader = new GLTFLoader();
+const movingCars = [];
+const seeded = (s => () => (s = (s * 16807) % 2147483647) / 2147483647)(20261020);   // same city on every visit
+const srand = (a, b) => a + seeded() * (b - a);
+const spick = arr => arr[Math.floor(seeded() * arr.length)];
+// One merged geometry per Kenney model, so each model is a single instanced draw call.
+function kenney(url) {
+  return new Promise(res => cityLoader.load(url, g => {
+    g.scene.updateMatrixWorld(true);
+    const parts = [];
+    let material = null;
+    g.scene.traverse(o => {
+      if (!o.isMesh) return;
+      const geo = o.geometry.clone().applyMatrix4(o.matrixWorld);
+      for (const k of Object.keys(geo.attributes)) if (!['position', 'normal', 'uv'].includes(k)) geo.deleteAttribute(k);
+      parts.push(geo.index ? geo.toNonIndexed() : geo);
+      material = material || o.material;
     });
-    placed++;
+    res({ geometry: mergeGeometries(parts), material });
+  }, undefined, () => res(null)));
+}
+// Place many copies of one model: items are [x, z, rotY, scale].
+function scatter(model, items, { y = 0, shadow = false } = {}) {
+  if (!model || !items.length) return null;
+  const im = new THREE.InstancedMesh(model.geometry, model.material, items.length), d = new THREE.Object3D();
+  items.forEach(([x, z, r, s], i) => { d.position.set(x, y, z); d.rotation.set(0, r, 0); d.scale.setScalar(s); d.updateMatrix(); im.setMatrixAt(i, d.matrix); });
+  im.receiveShadow = true; im.castShadow = shadow;
+  city.add(im);
+  return im;
+}
+// Flat ring between two ellipses (u runs along the ring so road markings repeat along it).
+function ellipseRing(a0, b0, a1, b1, material, y, uLen = 1, segs = 160) {
+  const pos = [], uv = [], idx = [];
+  for (let i = 0; i <= segs; i++) {
+    const t = (i / segs) * Math.PI * 2, c = Math.cos(t), s = Math.sin(t);
+    pos.push(a0 * c, y, b0 * s, a1 * c, y, b1 * s);
+    uv.push((i / segs) * uLen, 0, (i / segs) * uLen, 1);
+    if (i < segs) { const k = i * 2; idx.push(k, k + 2, k + 1, k + 1, k + 2, k + 3); }
   }
-  [walls, roofs, doors, wins].forEach(m => { m.count = m === wins ? placed * 2 : placed; m.receiveShadow = true; scene.add(m); });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx);
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, material); m.receiveShadow = true; city.add(m);
+  return m;
+}
+// A straight road from (x0, z0) to (x1, z1).
+function road(x0, z0, x1, z1, w, material, y) {
+  const len = Math.hypot(x1 - x0, z1 - z0), g = new THREE.PlaneGeometry(len, w);
+  const uv = g.getAttribute('uv'); for (let i = 0; i < uv.count; i++) uv.setX(i, uv.getX(i) * len / 7);
+  const m = new THREE.Mesh(g, material); m.rotation.set(-Math.PI / 2, 0, -Math.atan2(z1 - z0, x1 - x0));
+  m.position.set((x0 + x1) / 2, y, (z0 + z1) / 2); m.receiveShadow = true; city.add(m);
+  return m;
+}
+const flat = (w, d, material, x, z, y, rotY = 0) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), material); m.rotation.set(-Math.PI / 2, 0, rotY); m.position.set(x, y, z); m.receiveShadow = true; city.add(m); return m;
+};
 
-  const T = MOBILE ? 140 : 240;
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 1, 8), mat('#8b5a2b'), T);
-  const crowns = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 16, 12), mat('#ffffff', { roughness: 0.9 }), T);
-  const greens = ['#5cb85c', '#4caf50', '#7ccf5b', '#3e9b4f', '#9bd36a'];
-  let t = 0; tries = 0;
-  while (t < T && tries++ < 6000) {
-    const a = rand(0, Math.PI * 2), r = rand(70, 175);
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
-    if (spots.some(s => (s.x - x) ** 2 + (s.z - z) ** 2 < 30)) continue;
-    // Keep the area behind the main stand (tunnel, locker room, office) clear.
-    if (x > 20 && x < 70 && z > -14 && z < 24) continue;
-    const s = rand(1.6, 3.2), th = rand(1.5, 3);
-    dummy.rotation.set(0, 0, 0);
-    dummy.position.set(x, th / 2, z); dummy.scale.set(1, th, 1); dummy.updateMatrix(); trunks.setMatrixAt(t, dummy.matrix);
-    dummy.position.set(x, th + s * 0.8, z); dummy.scale.set(s, s * 1.1, s); dummy.updateMatrix(); crowns.setMatrixAt(t, dummy.matrix);
-    crowns.setColorAt(t, col.set(pick(greens)));
-    t++;
+// Road surface: asphalt, white edge lines and a dashed centre line.
+const roadTex = canvasTex(128, 64, (c, w, h) => {
+  c.fillStyle = '#4b505b'; c.fillRect(0, 0, w, h);
+  c.fillStyle = '#f4f1e8'; c.fillRect(0, 3, w, 2); c.fillRect(0, h - 5, w, 2); c.fillRect(0, h / 2 - 1.5, w / 2, 3);
+});
+roadTex.wrapS = THREE.RepeatWrapping;
+const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.85 });
+const plazaMat = new THREE.MeshStandardMaterial({ roughness: 0.9, map: canvasTex(128, 128, (c, w) => {
+  c.fillStyle = '#e4ddcf'; c.fillRect(0, 0, w, w);
+  c.strokeStyle = '#cfc6b4'; c.lineWidth = 2; for (let i = 0; i <= w; i += 32) { c.beginPath(); c.moveTo(i, 0); c.lineTo(i, w); c.moveTo(0, i); c.lineTo(w, i); c.stroke(); }
+}, [60, 4]) });
+const curbMat = mat('#c9c3b6', { roughness: 0.9 });
+const lotMat = mat('#5b606b', { roughness: 0.85 });
+const padMat = mat('#d3cdc1', { roughness: 0.9 });
+const parkMat = mat('#79c257', { roughness: 1 });
+
+// Plaza around the stadium, the ring road and its kerbs.
+ellipseRing(54, 62.5, 72, 81, plazaMat, 0.03);
+ellipseRing(72, 81, 81, 90, roadMat, 0.04, 70);
+ellipseRing(81, 90, 84, 93, curbMat, 0.05);
+// Avenues to the four sides and a grid of streets.
+[[84, 0, 320, 0], [-84, 0, -320, 0], [0, 93, 0, 320], [0, -93, 0, -320]].forEach(([a, b, c, d]) => road(a, b, c, d, 12, roadMat, 0.045));
+[-140, 140].forEach(z => road(-320, z, 320, z, 10, roadMat, 0.05));
+[-135, 135].forEach(x => road(x, -320, x, 320, 10, roadMat, 0.055));
+[-215, 215].forEach(z => road(-320, z, 320, z, 10, roadMat, 0.05));
+[-210, 210].forEach(x => road(x, -320, x, 320, 10, roadMat, 0.055));
+
+// Parking lots north and south of the stadium, with painted bays and parked cars.
+const BAY = 3, ROWS = [0, 11.5, 17, 28.5];          // bay rows (each 5.5 deep), aisles in between
+const LOTS = [];
+[-1, 1].forEach(sz => [[-64, -10], [10, 64]].forEach(([x0, x1]) => LOTS.push({ x0, x1, z0: sz > 0 ? 97 : -131, sz })));
+const lines = [], parked = [];
+LOTS.forEach(L => {
+  flat(L.x1 - L.x0, 34, lotMat, (L.x0 + L.x1) / 2, L.z0 + 17, 0.04);
+  ROWS.forEach((r, ri) => {
+    for (let x = L.x0 + 1; x + BAY <= L.x1 - 1; x += BAY) {
+      lines.push([x, L.z0 + r + 2.75]);
+      if (seeded() < 0.72) parked.push([x + BAY / 2, L.z0 + r + 2.75, (ri % 2 ? 0 : Math.PI) + srand(-0.06, 0.06), 1]);
+    }
+  });
+});
+{
+  const m = new THREE.InstancedMesh(new THREE.BoxGeometry(0.12, 0.02, 5.2), mat('#f4f1e8'), lines.length), d = new THREE.Object3D();
+  lines.forEach(([x, z], i) => { d.position.set(x, 0.06, z); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
+  city.add(m);
+}
+
+// Sports park on the west side: basketball, two padel courts and a five-a-side pitch.
+flat(40, 118, parkMat, -108, 0, 0.03);
+const courtTex = (w, h, draw) => canvasTex(w, h, draw);
+function court(x, z, w, d, tex, fence, fenceH, glass) {
+  flat(w + 2, d + 2, mat('#2c6e49', { roughness: 0.9 }), x, z, 0.05);
+  flat(w, d, new THREE.MeshStandardMaterial({ map: tex, roughness: 0.75 }), x, z, 0.06);
+  if (!fence) return;
+  const post = mat('#2b2f3a', { metalness: 0.4, roughness: 0.5 });
+  const wallMat = glass ? new THREE.MeshStandardMaterial({ color: '#bfe6ff', transparent: true, opacity: 0.28, roughness: 0.1, depthWrite: false })
+    : new THREE.MeshStandardMaterial({ color: '#2b2f3a', transparent: true, opacity: 0.35, roughness: 0.8, depthWrite: false, side: THREE.DoubleSide });
+  [[0, -d / 2, w, 0], [0, d / 2, w, 0], [-w / 2, 0, d, Math.PI / 2], [w / 2, 0, d, Math.PI / 2]].forEach(([dx, dz, len, r]) => {
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(len, fenceH), wallMat); wall.position.set(x + dx, fenceH / 2, z + dz); wall.rotation.y = r; city.add(wall);
+    for (let t = -len / 2; t <= len / 2 + 0.01; t += len / Math.max(2, Math.round(len / 4))) {
+      const p = new THREE.Mesh(new THREE.BoxGeometry(0.15, fenceH, 0.15), post);
+      p.position.set(x + dx + (r ? 0 : t), fenceH / 2, z + dz + (r ? t : 0)); city.add(p);
+    }
+  });
+}
+// Basketball court (lines drawn on canvas, hoops at both ends).
+court(-108, -36, 11, 19, courtTex(220, 380, (c, w, h) => {
+  c.fillStyle = '#e07b39'; c.fillRect(0, 0, w, h); c.fillStyle = '#2f6db5'; c.fillRect(0, 0, w, h * 0.08); c.fillRect(0, h * 0.92, w, h * 0.08);
+  c.strokeStyle = '#ffffff'; c.lineWidth = 3; c.strokeRect(8, 8, w - 16, h - 16);
+  c.beginPath(); c.moveTo(8, h / 2); c.lineTo(w - 8, h / 2); c.stroke(); c.beginPath(); c.arc(w / 2, h / 2, 26, 0, Math.PI * 2); c.stroke();
+  [8, h - 8].forEach((y, k) => { c.fillStyle = '#2f6db5'; c.fillRect(w / 2 - 28, k ? y - 70 : y, 56, 70); c.strokeRect(w / 2 - 28, k ? y - 70 : y, 56, 70); c.beginPath(); c.arc(w / 2, y, 90, k ? Math.PI : 0, k ? 0 : Math.PI, k === 0 ? false : false); c.stroke(); });
+}), true, 3, false);
+[-1, 1].forEach(s => {
+  const z = -36 + s * 8.6, pole = mat('#2b2f3a', { metalness: 0.5, roughness: 0.4 });
+  const p = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 3.4, 10), pole); p.position.set(-108, 1.7, z + s * 0.8); city.add(p);
+  const board = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.1, 0.08), mat('#ffffff')); board.position.set(-108, 3.2, z + s * 0.4); city.add(board);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.03, 8, 20), mat('#ff5a1f')); ring.rotation.x = Math.PI / 2; ring.position.set(-108, 2.95, z); city.add(ring);
+});
+// Padel courts: blue turf, white lines, glass walls and a net.
+const padelTex = courtTex(200, 400, (c, w, h) => {
+  c.fillStyle = '#1f6fb8'; c.fillRect(0, 0, w, h); c.strokeStyle = '#ffffff'; c.lineWidth = 4;
+  c.strokeRect(2, 2, w - 4, h - 4); [h * 0.2, h * 0.8].forEach(y => { c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); });
+  c.beginPath(); c.moveTo(w / 2, h * 0.2); c.lineTo(w / 2, h * 0.8); c.stroke();
+});
+[-114, -102].forEach(x => {
+  court(x, 2, 7, 13, padelTex, true, 2.4, true);
+  const net = new THREE.Mesh(new THREE.BoxGeometry(7, 0.9, 0.05), new THREE.MeshStandardMaterial({ color: '#1b1f3b', transparent: true, opacity: 0.7 })); net.position.set(x, 0.5, 2); city.add(net);
+});
+// Five-a-side pitch.
+court(-108, 38, 14, 22, courtTex(200, 320, (c, w, h) => {
+  for (let i = 0; i < 8; i++) { c.fillStyle = i % 2 ? '#3fae4c' : '#38a045'; c.fillRect(0, i * h / 8, w, h / 8); }
+  c.strokeStyle = '#ffffff'; c.lineWidth = 3; c.strokeRect(6, 6, w - 12, h - 12); c.beginPath(); c.moveTo(6, h / 2); c.lineTo(w - 6, h / 2); c.stroke();
+  c.beginPath(); c.arc(w / 2, h / 2, 24, 0, Math.PI * 2); c.stroke(); c.strokeRect(w / 2 - 36, 6, 72, 34); c.strokeRect(w / 2 - 36, h - 40, 72, 34);
+}), true, 3.5, false);
+// A park on the east side.
+flat(40, 118, parkMat, 108, 0, 0.03);
+
+// Trees along the avenues and in the parks.
+{
+  const spots = [];
+  for (let t = 100; t < 300; t += 11) [[t, 8.5], [t, -8.5], [-t, 8.5], [-t, -8.5]].forEach(([a, b]) => { spots.push([a, b], [b, a]); });
+  for (let i = 0; i < 70; i++) spots.push([srand(92, 124), srand(-56, 56)]);
+  for (let i = 0; i < 26; i++) spots.push([spick([-125, -91]) + srand(-1.5, 1.5), srand(-56, 56)]);
+  const dummy = new THREE.Object3D(), col = new THREE.Color();
+  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.25, 0.35, 1, 8), mat('#8b5a2b'), spots.length);
+  const crowns = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 16, 12), mat('#ffffff', { roughness: 0.9 }), spots.length);
+  spots.forEach(([x, z], i) => {
+    const s = srand(1.6, 2.6), th = srand(1.6, 2.4);
+    dummy.position.set(x, th / 2, z); dummy.scale.set(1, th, 1); dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
+    dummy.position.set(x, th + s * 0.8, z); dummy.scale.set(s, s * 1.1, s); dummy.updateMatrix(); crowns.setMatrixAt(i, dummy.matrix);
+    crowns.setColorAt(i, col.set(spick(['#5cb85c', '#4caf50', '#7ccf5b', '#3e9b4f', '#9bd36a'])));
+  });
+  city.add(trunks, crowns);
+}
+
+// City blocks: a pavement under each building; offices near the stadium, towers further out.
+const lots = { mid: [], tower: [], far: [] };
+{
+  const STEP = MOBILE ? 19 : 16;
+  const clear = (x, z) =>
+    (x / 104) ** 2 + (z / 112) ** 2 < 1 ||                       // plaza, ring road, lots and parks
+    Math.abs(x) < 14 || Math.abs(z) < 14 ||                       // avenues
+    [135, 210].some(v => Math.abs(Math.abs(x) - v) < 12) || [140, 215].some(v => Math.abs(Math.abs(z) - v) < 12) ||
+    (Math.abs(z) < 136 && Math.abs(x) < 70 && Math.abs(z) > 90) || // parking lots
+    (Math.abs(x) < 132 && Math.abs(x) > 86 && Math.abs(z) < 62);   // parks
+  const pads = [];
+  for (let x = -300; x <= 300; x += STEP) for (let z = -300; z <= 300; z += STEP) {
+    const px = x + srand(-1.5, 1.5), pz = z + srand(-1.5, 1.5), d = Math.hypot(px, pz);
+    if (d > 330 || clear(px, pz)) continue;
+    const r = Math.round(Math.atan2(-px, -pz) / (Math.PI / 2)) * (Math.PI / 2);
+    pads.push([px, pz]);
+    (d < 175 ? lots.mid : d < 235 && seeded() < 0.6 ? lots.tower : lots.far).push([px, pz, r]);
   }
-  trunks.count = crowns.count = t;
-  crowns.castShadow = true;
-  scene.add(trunks, crowns);
+  const m = new THREE.InstancedMesh(new THREE.BoxGeometry(STEP - 3, 0.12, STEP - 3), padMat, pads.length), d = new THREE.Object3D();
+  pads.forEach(([x, z], i) => { d.position.set(x, 0.06, z); d.updateMatrix(); m.setMatrixAt(i, d.matrix); });
+  m.receiveShadow = true; city.add(m);
+}
+
+// Load the Kenney models and fill the city.
+const cityReady = (async () => {
+  const B = n => kenney(`models/city/buildings/${n}.glb`);
+  const [mids, towers, far, cars, lights] = await Promise.all([
+    Promise.all('abcdefghijklmn'.split('').map(c => B('building-' + c))),
+    Promise.all('abcde'.split('').map(c => B('building-skyscraper-' + c))),
+    Promise.all('abcdefghijklm'.split('').map(c => B('low-detail-building-' + c))),
+    Promise.all(['sedan', 'suv', 'taxi', 'van', 'hatchback-sports', 'sedan-sports', 'suv-luxury', 'police', 'delivery'].map(n => kenney(`models/city/cars/${n}.glb`))),
+    kenney('models/city/street/light-curved.glb'),
+  ]);
+  const byModel = (models, items, scale) => {
+    const groups = models.map(() => []);
+    items.forEach(it => groups[Math.floor(seeded() * models.length)].push([it[0], it[1], it[2], scale()]));
+    models.forEach((m, i) => scatter(m, groups[i]));
+  };
+  byModel(mids, lots.mid, () => srand(8.5, 10.5));
+  byModel(towers, lots.tower, () => srand(8.5, 10.5));
+  byModel(far, lots.far, () => srand(22, 28));
+  byModel(cars.slice(0, 7), parked, () => 1);
+  // Street lights around the ring road, facing the road.
+  const lamps = [];
+  for (let i = 0; i < 44; i++) { const t = (i / 44) * Math.PI * 2; lamps.push([Math.cos(t) * 82.5, Math.sin(t) * 91.5, -t + Math.PI / 2 + Math.PI, 7]); }
+  scatter(lights, lamps);
+  // Traffic on the ring road, both directions.
+  for (let i = 0; i < (MOBILE ? 10 : 16); i++) {
+    const model = cars[i % cars.length]; if (!model) continue;
+    const car = new THREE.Mesh(model.geometry, model.material); car.scale.setScalar(1.1); city.add(car);
+    movingCars.push({ car, t: (i / 16) * Math.PI * 2 + srand(0, 0.2), dir: i % 2 ? 1 : -1, lane: i % 2 ? 2.3 : -2.3, speed: srand(0.045, 0.07) });
+  }
+})();
+const carPos = new THREE.Vector3(), carAhead = new THREE.Vector3();
+function driveCars(dt) {
+  movingCars.forEach(c => {
+    c.t += c.dir * c.speed * dt;
+    const at = t => carPos.set(Math.cos(t) * (76.5 + c.lane), 0.05, Math.sin(t) * (85.5 + c.lane));
+    at(c.t); c.car.position.copy(carPos);
+    carAhead.copy(at(c.t + c.dir * 0.01));
+    c.car.lookAt(carAhead);
+  });
 }
 
 // Clouds the camera flies through on the way down.
@@ -835,7 +1017,7 @@ $('#contact-form').addEventListener('submit', e => { e.preventDefault(); e.targe
 const counterEl = $('#counter');
 const loadStart = performance.now();
 let loaded = 0;
-const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, playerReady, tunnelReady, lockerReady, gymReady, officeReady, coachReady, ...screens.filter(Boolean).map(s => new Promise(res => {
+const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, cityReady, playerReady, tunnelReady, lockerReady, gymReady, officeReady, coachReady, ...screens.filter(Boolean).map(s => new Promise(res => {
   if (s.video.readyState >= 1) return res();
   s.video.addEventListener('loadedmetadata', res, { once: true });
   s.video.addEventListener('error', res, { once: true });
@@ -904,6 +1086,7 @@ function frame() {
 
   // Living scene: clouds drift; the coach looks at the visitor.
   clouds.forEach((c, i) => { c.position.x += dt * (0.6 + (i % 3) * 0.3); if (c.position.x > 260) c.position.x = -260; });
+  driveCars(dt);
   // Indoors once the camera is down the tunnel stairs: swap the outdoor world for the rooms.
   const inside = camera.position.y < 0.25 && camera.position.x > 20.3;
   outdoor.visible = !inside; indoor.visible = inside || camera.position.x > 17.5 && Math.abs(camera.position.z - 13) < 4;
