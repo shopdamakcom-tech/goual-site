@@ -908,6 +908,11 @@ const sound = {
       this.zones[z] = g; this.next[z] = 0;
     }
     this.steps = ctx.createGain(); this.steps.gain.value = 0.9; this.steps.connect(this.master); this.steps.connect(this.reverb);
+    // Music bus: a soft low-pass keeps it warm and under the ambience.
+    this.music = ctx.createGain(); this.music.gain.value = 0.55;
+    const tone = ctx.createBiquadFilter(); tone.type = 'lowpass'; tone.frequency.value = 5200;
+    this.music.connect(tone); tone.connect(this.master); tone.connect(this.reverb);
+    this.beat = 0; this.nextBeat = ctx.currentTime + 0.3;
     // Beds (continuous sounds).
     this.bed('sky', 'lowpass', 380, 0.7, 0.5, 0.07, 0.3);           // wind
     this.bed('stadium', 'bandpass', 700, 0.7, 0.07, 0.12, 0.05);    // distant crowd murmur
@@ -978,10 +983,45 @@ const sound = {
       if (Math.random() < 0.18) for (let i = 0; i < 6 + Math.random() * 10; i++) s.noise(o, t + 0.2 + i * (0.09 + Math.random() * 0.08), { freq: 2200 + Math.random() * 800, q: 2, level: 0.04, decay: 0.02 });
     }],
   },
+  // Background music: a gentle loop in C major at 88 BPM (C, Am, F, G / C, Em, F, G), with a pad,
+  // a marimba-like melody, a round bass and a soft shaker. Notes are scheduled a little ahead.
+  playMusic() {
+    const ctx = this.ctx, spb = 60 / 88 / 2;                              // seconds per eighth note
+    if (this.nextBeat < ctx.currentTime - 0.1) this.nextBeat = ctx.currentTime + 0.05;   // after a pause, do not catch up
+    const hz = n => 440 * Math.pow(2, (n - 69) / 12);
+    const CHORDS = [[48, 52, 55, 60], [45, 52, 57, 60], [41, 53, 57, 60], [43, 55, 59, 62], [48, 52, 55, 60], [40, 52, 55, 59], [41, 53, 57, 60], [43, 55, 59, 62]];
+    const SCALE = [60, 62, 64, 67, 69, 72, 74, 76, 79];                    // C major pentatonic, for the melody
+    // Melody rhythm per bar (1 = note, 0 = rest), and steps through the scale.
+    const RHY = [[1, 0, 1, 0, 1, 1, 0, 0], [1, 0, 0, 1, 0, 1, 0, 0], [1, 1, 0, 1, 0, 0, 1, 0], [1, 0, 1, 0, 0, 0, 0, 0]];
+    while (this.nextBeat < ctx.currentTime + 0.25) {
+      const t = this.nextBeat, step = this.beat % 8, bar = Math.floor(this.beat / 8), chord = CHORDS[bar % 8], o = this.music;
+      if (step === 0) {
+        chord.slice(1).forEach(n => ['triangle', 'sine'].forEach((w, k) => this.tone(o, t, { freq: hz(n) * (k ? 1.003 : 1), type: w, level: 0.028, attack: 0.5, decay: spb * 8 })));
+        this.tone(o, t, { freq: hz(chord[0] - 12), type: 'sine', level: 0.16, attack: 0.02, decay: spb * 3.5 });
+      }
+      if (step === 4) this.tone(o, t, { freq: hz(chord[0] - 12 + (bar % 2 ? 7 : 0)), type: 'sine', level: 0.12, attack: 0.02, decay: spb * 3 });
+      // Melody: plays from the second time round of the loop on, and rests every fourth phrase.
+      const phrase = Math.floor(bar / 8);
+      if (phrase % 4 !== 3 && bar >= 8 && RHY[bar % 4][step]) {
+        const root = SCALE.indexOf(chord[3]) >= 0 ? SCALE.indexOf(chord[3]) : 3;
+        const idx = clamp(root + [0, 2, 1, -1, 3, 1, 0, -2][(step + bar * 3) % 8] - (bar % 4 === 3 ? 1 : 0), 0, SCALE.length - 1);
+        const f = hz(SCALE[idx] + 12);
+        this.tone(o, t, { freq: f, type: 'sine', level: 0.07, attack: 0.004, decay: 0.55 });
+        this.tone(o, t, { freq: f * 4, type: 'sine', level: 0.012, attack: 0.002, decay: 0.12 });     // mallet "tick"
+      }
+      // Soft shaker on the off-beats, a light kick on beats 1 and 3.
+      if (step % 2) this.noise(o, t, { type: 'highpass', freq: 6500, level: step === 3 || step === 7 ? 0.022 : 0.012, attack: 0.01, decay: 0.05 });
+      if (step === 0 || step === 4) this.tone(o, t, { freq: 110, to: 45, level: 0.09, attack: 0.003, decay: 0.16 });
+      this.beat++; this.nextBeat += spb;
+    }
+  },
   // Called every frame with how much of each place the camera is in (0..1), and whether it is walking.
   update(mix, walking) {
     if (!this.on) return;
     const t = this.ctx.currentTime;
+    this.playMusic();
+    // Quieter while a film is open.
+    this.music.gain.setTargetAtTime(lightbox.hidden ? 0.55 : 0.12, t, 0.4);
     for (const [z, g] of Object.entries(this.zones)) {
       const w = mix[z] || 0;
       g.gain.setTargetAtTime(w, t, 0.6);
@@ -1001,6 +1041,7 @@ const sound = {
   },
   toggle() {
     this.init(); this.ctx.resume(); this.on = !this.on;
+    this.nextBeat = Math.max(this.nextBeat, this.ctx.currentTime + 0.1);
     this.master.gain.setTargetAtTime(this.on ? 0.9 : 0, this.ctx.currentTime, 0.3);
     return this.on;
   },
@@ -1240,4 +1281,4 @@ requestAnimationFrame(frame);
 
 // The WORK link jumps to the first film.
 document.querySelector('[data-goto="0.2"]').dataset.goto = KEYS.find(k => k.station === 0).p;
-if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
+if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, sound, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
