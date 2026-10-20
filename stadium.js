@@ -8,12 +8,12 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 /* ------------------------------------------------------------------ data */
 // Each stop on the tour shows one film on a screen in the scene.
 const STATIONS = [
-  { src: '07.mp4', title: 'COUPE DU MONDE BY GOUAL ART', sub: 'AI FILM', place: 'THE STADIUM SCREEN' },
-  { src: '04.mp4', title: 'GOUAL ART', sub: 'FASHION FILM', place: "THE COACH'S TABLET" },
-  { src: '09.mp4', title: 'OVASPORT', sub: '3D / ADVERTISING', place: 'THE PLAYERS’ TUNNEL' },
-  { src: '08.mp4', title: 'GOUAL ART', sub: 'AI ANIMATION', place: 'THE LOCKER ROOM' },
-  { src: '10.mp4', title: 'GLAM BY MAJHA', sub: 'FASHION FILM', place: 'THE GYM' },
-  { src: '01.mp4', title: 'JAYÎNA', sub: 'AI PRODUCT FILM', place: "THE COACH'S OFFICE" },
+  { src: '07.mp4', title: 'THE LAST ONE', place: 'THE STADIUM SCREEN' },
+  { src: '08.mp4', title: 'GOD SAVE THE KING', place: "THE COACH'S TABLET" },
+  { src: '04.mp4', title: 'THE LAST TEST', place: 'THE PLAYERS’ TUNNEL' },
+  { src: 'the-cage.mp4', title: 'THE CAGE', place: 'THE LOCKER ROOM' },
+  { src: 'el-rey.mp4', title: 'EL REY', place: 'THE GYM' },
+  { src: 'airport-chaos.mp4', title: 'AIRPORT CHAOS', place: "THE COACH'S OFFICE" },
 ];
 const TOTAL = String(STATIONS.length).padStart(2, '0');
 
@@ -416,7 +416,7 @@ const screens = [];
 function makeScreen(index, w, h, parent, x, y, z, rotY = 0) {
   const st = STATIONS[index];
   const video = document.createElement('video');
-  Object.assign(video, { src: st.src, muted: true, loop: true, playsInline: true, preload: 'auto', crossOrigin: 'anonymous' });
+  Object.assign(video, { src: st.src, muted: true, loop: true, playsInline: true, preload: index ? 'metadata' : 'auto', crossOrigin: 'anonymous' });
   video.setAttribute('playsinline', '');
   const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace;
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; (parent || scene).add(g);
@@ -932,6 +932,10 @@ const sound = {
       this.zones[z] = g; this.next[z] = 0;
     }
     this.steps = ctx.createGain(); this.steps.gain.value = 0.9; this.steps.connect(this.master); this.steps.connect(this.reverb);
+    // Background music: a looping track, kept low under the ambience.
+    this.track = Object.assign(new Audio('music.mp3'), { loop: true, preload: 'auto' });
+    this.musicGain = ctx.createGain(); this.musicGain.gain.value = 0.22;
+    ctx.createMediaElementSource(this.track).connect(this.musicGain).connect(this.master);
     // Beds (continuous sounds).
     this.bed('sky', 'lowpass', 380, 0.7, 0.5, 0.07, 0.3);           // wind
     this.bed('stadium', 'bandpass', 700, 0.7, 0.07, 0.12, 0.05);    // distant crowd murmur
@@ -1016,6 +1020,7 @@ const sound = {
       }
     }
     this.wet.gain.setTargetAtTime(0.18 + (mix.tunnel || 0) * 0.5 + (mix.locker || 0) * 0.3, t, 0.5);
+    this.musicGain.gain.setTargetAtTime(lightbox.hidden ? 0.22 : 0.04, t, 0.4);   // almost silent while a film plays
     // Footsteps on hard floors while the camera moves indoors.
     if (walking && t - this.lastStep > 0.52) {
       this.lastStep = t;
@@ -1025,6 +1030,7 @@ const sound = {
   },
   toggle() {
     this.init(); this.ctx.resume(); this.on = !this.on;
+    if (this.on) this.track.play().catch(() => {}); else this.track.pause();
     this.master.gain.setTargetAtTime(this.on ? 0.9 : 0, this.ctx.currentTime, 0.3);
     return this.on;
   },
@@ -1051,7 +1057,7 @@ STATIONS.forEach((st, i) => {
   const el = document.createElement('section');
   el.className = 'chapter station' + (i % 2 ? ' right' : '');
   el.dataset.station = i;
-  el.innerHTML = `<div class="card"><div class="place">${String(i + 1).padStart(2, '0')} — ${st.place}</div><h2>${st.title}</h2><div class="sub">${st.sub}</div><button type="button" class="play" data-open="${i}"><i>▶</i>PLAY FILM</button><span class="hint">or click the screen</span></div>`;
+  el.innerHTML = `<div class="card"><div class="place">${String(i + 1).padStart(2, '0')} — ${st.place}</div><h2>${st.title}</h2><button type="button" class="play" data-open="${i}"><i>▶</i>PLAY FILM</button><span class="hint">or click the screen</span></div>`;
   contactEl.before(el);
 });
 const chapterEls = [...document.querySelectorAll('.chapter')];
@@ -1062,7 +1068,7 @@ stageNum.textContent = `00 / ${TOTAL}`;
 const lightbox = $('#lightbox'), lbVideo = $('#lightbox-video'), lbTitle = $('#lightbox-title');
 function openFilm(i) {
   const st = STATIONS[i];
-  lbVideo.src = st.src; lbTitle.textContent = `${st.title} — ${st.sub}`;
+  lbVideo.src = st.src; lbTitle.textContent = st.title;
   lightbox.hidden = false; requestAnimationFrame(() => lightbox.classList.add('open'));
   lbVideo.play().catch(() => {});
   sound.pop();
@@ -1282,4 +1288,4 @@ requestAnimationFrame(frame);
 
 // The WORK link jumps to the first film.
 document.querySelector('[data-goto="0.2"]').dataset.goto = KEYS.find(k => k.station === 0).p;
-if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
+if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, sound, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
