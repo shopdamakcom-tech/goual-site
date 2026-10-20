@@ -884,8 +884,11 @@ function currentStation(p) {
 }
 
 /* ------------------------------------------------------------------ sound */
+// Ambience, generated live with Web Audio (no sound files): each place has its own bed of sound
+// and small one-off events (ball kicks, whistles, drips, clanks, clock ticks...), cross-faded as the
+// camera moves. Indoors, sounds go through a little room reverb and the visitor's footsteps are heard.
 const sound = {
-  ctx: null, master: null, crowdFilter: null, on: false,
+  ctx: null, master: null, on: false, zones: {}, next: {}, lastStep: 0,
   init() {
     if (this.ctx) return;
     const ctx = this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -893,13 +896,108 @@ const sound = {
     const buf = ctx.createBuffer(1, ctx.sampleRate * 3, ctx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     this.noiseBuf = buf;
-    // Crowd murmur: band-passed noise with a slow swell.
-    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-    this.crowdFilter = ctx.createBiquadFilter(); this.crowdFilter.type = 'bandpass'; this.crowdFilter.frequency.value = 700; this.crowdFilter.Q.value = 0.7;
-    const g = ctx.createGain(); g.gain.value = 0.12;
-    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.12; lg.gain.value = 0.05;
+    // Room reverb: a short decaying noise impulse.
+    const len = ctx.sampleRate * 1.6, ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const ch = ir.getChannelData(c); for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+    this.reverb = ctx.createConvolver(); this.reverb.buffer = ir;
+    this.wet = ctx.createGain(); this.wet.gain.value = 0;
+    this.reverb.connect(this.wet).connect(this.master);
+    // One gain per place; each also feeds the reverb.
+    for (const z of ['sky', 'stadium', 'tunnel', 'locker', 'gym', 'office']) {
+      const g = ctx.createGain(); g.gain.value = 0; g.connect(this.master); g.connect(this.reverb);
+      this.zones[z] = g; this.next[z] = 0;
+    }
+    this.steps = ctx.createGain(); this.steps.gain.value = 0.9; this.steps.connect(this.master); this.steps.connect(this.reverb);
+    // Beds (continuous sounds).
+    this.bed('sky', 'lowpass', 380, 0.7, 0.5, 0.07, 0.3);           // wind
+    this.bed('stadium', 'bandpass', 700, 0.7, 0.07, 0.12, 0.05);    // distant crowd murmur
+    this.bed('tunnel', 'lowpass', 120, 0.8, 0.22, 0.05, 0.06);      // low rumble
+    this.bed('locker', 'highpass', 3500, 0.6, 0.045, 0.2, 0.02);    // shower running far away
+    this.bed('gym', 'lowpass', 160, 0.9, 0.12, 0.3, 0.03);          // ventilation
+    this.bed('office', 'lowpass', 260, 0.7, 0.07, 0.1, 0.02);       // air conditioning
+    this.hum('tunnel', 50, 0.025); this.hum('gym', 60, 0.02); this.hum('office', 120, 0.006);
+  },
+  bed(zone, type, freq, q, level, lfoRate, lfoDepth) {
+    const ctx = this.ctx, src = ctx.createBufferSource(); src.buffer = this.noiseBuf; src.loop = true;
+    src.playbackRate.value = 0.7 + Math.random() * 0.6;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain(); g.gain.value = level;
+    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = lfoRate; lg.gain.value = lfoDepth;
     lfo.connect(lg).connect(g.gain); lfo.start();
-    src.connect(this.crowdFilter).connect(g).connect(this.master); src.start();
+    src.connect(f).connect(g).connect(this.zones[zone]); src.start();
+  },
+  hum(zone, freq, level) {
+    const o = this.ctx.createOscillator(), g = this.ctx.createGain(); o.frequency.value = freq; g.gain.value = level;
+    o.connect(g).connect(this.zones[zone]); o.start();
+  },
+  // Short sound helpers.
+  noise(out, t, { type = 'bandpass', freq = 1000, q = 1, level = 0.3, attack = 0.002, decay = 0.1, sweepTo = 0 }) {
+    const ctx = this.ctx, src = ctx.createBufferSource(); src.buffer = this.noiseBuf;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(freq, t); f.Q.value = q;
+    if (sweepTo) f.frequency.exponentialRampToValueAtTime(sweepTo, t + decay);
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(level, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+    src.connect(f).connect(g).connect(out); src.start(t, Math.random() * 2); src.stop(t + attack + decay + 0.05);
+  },
+  tone(out, t, { freq = 440, to = 0, type = 'sine', level = 0.2, attack = 0.003, decay = 0.2, vibrato = 0 }) {
+    const ctx = this.ctx, o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + attack + decay);
+    if (vibrato) { const v = ctx.createOscillator(), vg = ctx.createGain(); v.frequency.value = vibrato; vg.gain.value = freq * 0.06; v.connect(vg).connect(o.frequency); v.start(t); v.stop(t + attack + decay + 0.05); }
+    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(level, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + attack + decay);
+    o.connect(g).connect(out); o.start(t); o.stop(t + attack + decay + 0.05);
+  },
+  metal(out, t, level, base) {                                        // clank: a few inharmonic partials
+    [1, 2.76, 5.4, 8.93].forEach((m, i) => this.tone(out, t, { freq: base * m, type: i ? 'sine' : 'triangle', level: level / (i + 1), decay: 0.5 / (1 + i * 0.4) }));
+    this.noise(out, t, { freq: 2500, q: 0.8, level: level * 0.8, decay: 0.05 });
+  },
+  // One-off events per place: [min gap, max gap, play].
+  events: {
+    stadium: [0.7, 2.6, (s, o, t) => {
+      const r = Math.random();
+      if (r < 0.72) {                                                 // a pass or a shot: thump of the ball
+        const far = 0.4 + Math.random() * 0.6;
+        s.tone(o, t, { freq: 140, to: 55, level: 0.35 * far, decay: 0.12 }); s.noise(o, t, { type: 'lowpass', freq: 900, level: 0.25 * far, decay: 0.06 });
+        if (Math.random() < 0.3) s.tone(o, t + 0.45 + Math.random() * 0.3, { freq: 110, to: 60, level: 0.12 * far, decay: 0.08 });   // bounce
+      } else if (r < 0.86) {                                          // coach's whistle
+        const n = Math.random() < 0.5 ? 1 : 2;
+        for (let i = 0; i < n; i++) s.tone(o, t + i * 0.32, { freq: 2850, type: 'sine', level: 0.07, attack: 0.02, decay: 0.24, vibrato: 32 });
+      } else {                                                        // a shout from the pitch (formant-ish noise)
+        s.noise(o, t, { freq: 650 + Math.random() * 300, q: 6, level: 0.12, attack: 0.04, decay: 0.3, sweepTo: 420 });
+      }
+    }],
+    tunnel: [2.5, 6, (s, o, t) => s.tone(o, t, { freq: 1500 + Math.random() * 500, to: 700, level: 0.06, decay: 0.09 })],   // a drip
+    locker: [0.8, 3, (s, o, t) => {
+      if (Math.random() < 0.7) s.tone(o, t, { freq: 1100 + Math.random() * 700, to: 520, level: 0.08, decay: 0.08 });   // water drop
+      else s.metal(o, t, 0.08, 180 + Math.random() * 80);                                                            // locker door
+    }],
+    gym: [0.35, 0.45, (s, o, t) => {                                   // treadmill footfalls, and now and then weights
+      s.noise(o, t, { type: 'lowpass', freq: 220, level: 0.14, decay: 0.07 });
+      if (Math.random() < 0.06) s.metal(o, t + 0.2, 0.11, 140 + Math.random() * 60);
+    }],
+    office: [1, 1, (s, o, t) => {                                      // clock tick, and some typing
+      s.noise(o, t, { type: 'highpass', freq: 3000, level: 0.05, decay: 0.012 });
+      if (Math.random() < 0.18) for (let i = 0; i < 6 + Math.random() * 10; i++) s.noise(o, t + 0.2 + i * (0.09 + Math.random() * 0.08), { freq: 2200 + Math.random() * 800, q: 2, level: 0.04, decay: 0.02 });
+    }],
+  },
+  // Called every frame with how much of each place the camera is in (0..1), and whether it is walking.
+  update(mix, walking) {
+    if (!this.on) return;
+    const t = this.ctx.currentTime;
+    for (const [z, g] of Object.entries(this.zones)) {
+      const w = mix[z] || 0;
+      g.gain.setTargetAtTime(w, t, 0.6);
+      const ev = this.events[z];
+      if (ev && w > 0.05 && t >= this.next[z]) {
+        this.next[z] = t + ev[0] + Math.random() * (ev[1] - ev[0]);
+        ev[2](this, g, t + 0.05);
+      }
+    }
+    this.wet.gain.setTargetAtTime(0.18 + (mix.tunnel || 0) * 0.5 + (mix.locker || 0) * 0.3, t, 0.5);
+    // Footsteps on hard floors while the camera moves indoors.
+    if (walking && t - this.lastStep > 0.52) {
+      this.lastStep = t;
+      this.noise(this.steps, t, { type: 'lowpass', freq: 600, level: 0.16, decay: 0.07 });
+      this.noise(this.steps, t + 0.012, { freq: 3200, q: 1.5, level: 0.05, decay: 0.03 });
+    }
   },
   toggle() {
     this.init(); this.ctx.resume(); this.on = !this.on;
@@ -908,18 +1006,12 @@ const sound = {
   },
   whoosh() {
     if (!this.on) return;
-    const ctx = this.ctx, t = ctx.currentTime, src = ctx.createBufferSource(); src.buffer = this.noiseBuf;
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.4;
-    f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(2200, t + 0.7);
-    const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.2, t + 0.2); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
-    src.connect(f).connect(g).connect(this.master); src.start(t); src.stop(t + 0.9);
+    const t = this.ctx.currentTime;
+    this.noise(this.master, t, { freq: 300, sweepTo: 2200, q: 1.4, level: 0.2, attack: 0.2, decay: 0.6 });
   },
   pop() {
     if (!this.on) return;
-    const ctx = this.ctx, t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
-    o.frequency.setValueAtTime(520, t); o.frequency.exponentialRampToValueAtTime(980, t + 0.08);
-    g.gain.setValueAtTime(0.15, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.15);
-    o.connect(g).connect(this.master); o.start(t); o.stop(t + 0.2);
+    this.tone(this.master, this.ctx.currentTime, { freq: 520, to: 980, level: 0.15, decay: 0.12 });
   },
 };
 const soundBtn = $('#sound');
@@ -1052,6 +1144,18 @@ function resize() {
 addEventListener('resize', resize);
 resize();
 
+/* ------------------------------------------------------------- ambience */
+// How much of each place's sound to play for a camera position.
+function placeMix(P, inside) {
+  if (!inside) { const sky = smooth(16, 40, P.y); return { sky, stadium: 1 - sky * 0.8 }; }
+  if (P.z > 5.3) return { tunnel: 1, stadium: 0.12 };                       // tunnel and its corridor
+  if (P.x > 34.8 && P.z > -4.9) return { locker: 1 };
+  if (P.x > 42.5) { const g = smooth(-4.9, -8.6, P.z); return { locker: 1 - g, gym: g }; }
+  if (P.z < -8.3) return { gym: 1 };
+  const o = smooth(38, 33.5, P.x); return { gym: (1 - o) * 0.6, office: o };   // corridor to the office
+}
+const lastCam = new THREE.Vector3();
+
 /* ------------------------------------------------------------------- loop */
 const clock = new THREE.Clock(), lookAt = new THREE.Vector3();
 let lastStation = -1;
@@ -1124,7 +1228,10 @@ function frame() {
   body.classList.toggle('end', progress > 0.96);
   bar.style.transform = `scaleX(${progress})`;
   // Muffle the crowd indoors.
-  if (sound.crowdFilter) sound.crowdFilter.frequency.setTargetAtTime(inside ? 260 : 700, sound.ctx.currentTime, 0.4);
+  // Ambience follows the camera from place to place; footsteps while walking indoors.
+  const walking = inside && camera.position.distanceTo(lastCam) / Math.max(dt, 1e-3) > 0.45;
+  lastCam.copy(camera.position);
+  sound.update(placeMix(camera.position, inside), walking);
 
   renderer.render(scene, camera);
   requestAnimationFrame(frame);
