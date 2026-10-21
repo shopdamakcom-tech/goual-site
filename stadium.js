@@ -371,6 +371,33 @@ function driveCars(dt) {
     }
   });
 }
+// The GOUAL ART logo as a 3D sign hanging in the sky in front of the first view; scrolling flies
+// the camera straight through it. Front face: the logo artwork; sides: glowing violet.
+const LOGO_FROM = new THREE.Vector3(0, 150, 14), LOGO_DIR = new THREE.Vector3(0, -150, -14).normalize(), LOGO_DIST = 32;
+const logo3d = new THREE.Group(); scene.add(logo3d);
+logo3d.position.copy(LOGO_FROM).addScaledVector(LOGO_DIR, LOGO_DIST);
+logo3d.up.set(0, 0, -1); logo3d.lookAt(LOGO_FROM);
+let logoAspect = 1.7;
+function fitLogo() {
+  // About 60 % of the screen width (and at most half its height) at the start of the tour.
+  const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * LOGO_DIST, viewW = 2 * halfH * camera.aspect;
+  const w = Math.min(viewW * (camera.aspect < 0.8 ? 0.84 : 0.52), halfH * 0.9 * logoAspect);
+  logo3d.scale.setScalar(w / logoAspect);
+}
+const logoReady = fetch('models/logo-shape.json').then(r => r.json()).then(data => new Promise(res => {
+  new THREE.TextureLoader().load('models/logo-face.webp', tex => {
+    logoAspect = data.aspect;
+    tex.colorSpace = THREE.SRGBColorSpace; tex.repeat.set(1 / data.aspect, 1); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    const pts = list => list.map(([x, y]) => new THREE.Vector2(x * data.aspect, y));
+    const shapes = data.shapes.map(sh => { const s = new THREE.Shape(pts(sh.o)); sh.h.forEach(h => s.holes.push(new THREE.Path(pts(h)))); return s; });
+    const geo = new THREE.ExtrudeGeometry(shapes, { depth: 0.16, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.008, bevelSegments: 2 });
+    geo.translate(-data.aspect / 2, -0.47, -0.08);
+    const face = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+    const side = new THREE.MeshStandardMaterial({ color: '#2b1670', emissive: '#4422cc', emissiveIntensity: 0.7, metalness: 0.4, roughness: 0.35 });
+    logo3d.add(new THREE.Mesh(geo, [face, side]));
+    fitLogo(); res();
+  }, undefined, () => res());
+})).catch(() => {});
 // Everything outside the stadium is hidden once the camera is indoors.
 const outdoor = new THREE.Group();
 scene.children.slice(outdoorFrom).forEach(o => outdoor.add(o));
@@ -837,6 +864,7 @@ function lookAtCamera(dt) {
 const HOLD = 0.012;
 const KEYS = [
   { pos: [0, 150, 14], look: [0, 0, 0] },
+  { pos: [0, 104.25, 9.71], look: [0, 0, 0], w: 0.5 },                      // straight through the 3D logo
   { pos: [-30, 102, 58], look: [0, 10, 0], w: 0.45 },                                 // through the clouds
   { pos: [-8, 66, 20], look: [0, 0, 0], w: 0.45 },
   { pos: [0, 44, 2], look: [0, 0, -6], w: 0.45 },                                     // above the roof opening
@@ -1147,7 +1175,7 @@ addEventListener('pointermove', e => {
 const counterEl = $('#counter');
 const loadStart = performance.now();
 let loaded = 0;
-const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, cityReady, playerReady, tunnelReady, lockerReady, gymReady, officeReady, coachReady, ...screens.filter(Boolean).map(s => new Promise(res => {
+const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, cityReady, logoReady, playerReady, tunnelReady, lockerReady, gymReady, officeReady, coachReady, ...screens.filter(Boolean).map(s => new Promise(res => {
   if (s.video.readyState >= 1) return res();
   s.video.addEventListener('loadedmetadata', res, { once: true });
   s.video.addEventListener('error', res, { once: true });
@@ -1179,6 +1207,7 @@ function resize() {
   if (camera.aspect < 0.8) camera.setViewOffset(innerWidth, innerHeight * 1.3, 0, innerHeight * 0.3, innerWidth, innerHeight);
   else camera.clearViewOffset();
   camera.updateProjectionMatrix();
+  fitLogo();
 }
 addEventListener('resize', resize);
 resize();
