@@ -1286,5 +1286,11 @@ function frame() {
 requestAnimationFrame(frame);
 
 // The WORK link jumps to the first film.
-document.querySelector('[data-goto="0.2"]').dataset.goto = KEYS.find(k => k.station === 0).p;
+document.querySelectorAll('[data-goto="0.2"]').forEach(el => (el.dataset.goto = KEYS.find(k => k.station === 0).p));
+// Mobile menu (burger).
+const burger = $('#burger'), mobileMenu = $('#mobile-menu');
+const setMenu = open => { mobileMenu.hidden = !open; burger.setAttribute('aria-expanded', open); body.classList.toggle('menu-open', open); };
+burger.addEventListener('click', () => setMenu(mobileMenu.hidden));
+mobileMenu.addEventListener('click', e => { if (e.target.closest('a,button')) setMenu(false); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && !mobileMenu.hidden) setMenu(false); });
 if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, sound, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };

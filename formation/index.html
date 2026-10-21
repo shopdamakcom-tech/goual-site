@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Goual Art — Formation IA Football</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0f;
+    --dark: #111118;
+    --card: #16161f;
+    --border: #2a2a3a;
+    --purple: #c084fc;
+    --purple2: #a855f7;
+    --purple-glow: rgba(160,80,255,0.18);
+    --purple-border: rgba(160,80,255,0.4);
+    --red: #7c3aed;
+    --white: #f0f0f0;
+    --grey: #a0a0b0;
+    --light: #d0d0e0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── LANG SELECTOR ── */
+  .lang-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.97);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px 16px;
+    backdrop-filter: blur(10px);
+  }
+
+  .lang-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--grey);
+    padding: 6px 16px;
+    border-radius: 99px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.03em;
+  }
+  .lang-btn:hover { border-color: var(--purple); color: var(--purple); }
+  .lang-btn.active {
+    background: rgba(160,80,255,0.15);
+    border-color: var(--purple-border);
+    color: var(--purple);
+  }
+
+  /* ── URGENCY BAR ── */
+  .urgency-bar {
+    background: var(--red);
+    text-align: center;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 48px 20px 32px;
+    text-align: center;
+    position: relative;
+  }
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -80px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 400px;
+    background: radial-gradient(ellipse, var(--purple-glow) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .logo-text {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.15em;
+    color: var(--purple);
+    margin-bottom: 28px;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    background: rgba(160,80,255,0.15);
+    border: 1px solid var(--purple-border);
+    color: var(--purple);
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 10vw, 88px);
+    line-height: 0.95;
+    letter-spacing: 2px;
+    color: #ffffff;
+    margin-bottom: 8px;
+  }
+  h1 span { color: var(--purple); }
+
+  .hero-sub {
+    font-size: 18px;
+    color: var(--grey);
+    max-width: 480px;
+    margin: 20px auto 32px;
+    line-height: 1.6;
+  }
+
+  /* ── SOCIAL PROOF ── */
+  .proof-strip {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 36px;
+  }
+  .proof-item { text-align: center; }
+  .proof-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 36px;
+    color: var(--purple);
+    line-height: 1;
+    display: block;
+  }
+  .proof-label {
+    font-size: 12px;
+    color: var(--grey);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .proof-divider {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+  }
+
+  /* ── PRICE BLOCK ── */
+  .price-block {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    max-width: 400px;
+    margin: 0 auto 16px;
+    position: relative;
+  }
+
+  .launch-badge {
+    display: inline-block;
+    background: var(--red);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 99px;
+    margin-bottom: 12px;
+  }
+
+  .price-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .price-old {
+    font-size: 22px;
+    color: var(--grey);
+    text-decoration: line-through;
+    font-weight: 500;
+  }
+  .price-new {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 56px;
+    color: var(--purple);
+    line-height: 1;
+  }
+
+  .price-note {
+    font-size: 12px;
+    color: var(--grey);
+    margin-bottom: 20px;
+  }
+
+  .cta-btn {
+    display: block;
+    background: linear-gradient(135deg, #a855f7, #7c3aed);
+    color: #ffffff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: center;
+    padding: 16px 32px;
+    border-radius: 12px;
+    text-decoration: none;
+    letter-spacing: 0.03em;
+    transition: all 0.2s;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    box-shadow: 0 4px 20px rgba(168,85,247,0.3);
+  }
+  .cta-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(168,85,247,0.45);
+  }
+
+  .guarantee {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--grey);
+  }
+
+  /* ── SECTIONS ── */
+  .section {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    border-top: 1px solid var(--border);
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--purple);
+    margin-bottom: 12px;
+  }
+
+  h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(28px, 6vw, 44px);
+    letter-spacing: 0.02em;
+    margin-bottom: 20px;
+    line-height: 1.1;
+  }
+
+  /* ── INCLUDE GRID ── */
+  .include-grid { display: grid; gap: 12px; }
+  .include-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .include-icon { font-size: 22px; flex-shrink: 0; margin-top: 2px; }
+  .include-title { font-weight: 700; font-size: 15px; margin-bottom: 3px; color: #fff; }
+  .include-desc { font-size: 13px; color: var(--grey); line-height: 1.5; }
+
+  /* ── RESULTS ── */
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .result-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+  .result-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 40px;
+    color: var(--purple);
+    line-height: 1;
+    display: block;
+  }
+  .result-label { font-size: 12px; color: var(--grey); margin-top: 4px; line-height: 1.4; }
+
+  /* ── FOR WHO ── */
+  .for-list { display: grid; gap: 10px; margin-top: 16px; }
+  .for-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 15px;
+    color: var(--light);
+  }
+  .for-item::before {
+    content: '✓';
+    color: var(--purple);
+    font-weight: 800;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* ── TESTIMONIALS ── */
+  .testi-grid { display: grid; gap: 12px; margin-top: 20px; }
+  .testi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .testi-text { font-size: 14px; color: var(--light); line-height: 1.6; margin-bottom: 12px; font-style: italic; }
+  .testi-author { font-size: 12px; color: var(--grey); font-weight: 700; }
+  .stars { color: var(--purple); font-size: 13px; margin-bottom: 8px; }
+
+  /* ── BOTTOM CTA ── */
+  .bottom-cta {
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    padding: 40px 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .bottom-cta::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: 50%; transform: translateX(-50%);
+    width: 400px; height: 300px;
+    background: radial-gradient(ellipse, var(--purple-glow) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .bottom-cta h2 { margin-bottom: 12px; }
+  .bottom-cta p { color: var(--grey); margin-bottom: 24px; font-size: 15px; }
+  .bottom-cta .cta-btn { max-width: 400px; margin: 0 auto; display: block; }
+
+  /* ── STICKY CTA ── */
+  .sticky-cta {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(16,16,24,0.97);
+    border-top: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    backdrop-filter: blur(10px);
+    z-index: 99;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+  }
+  .sticky-cta.visible { transform: translateY(0); }
+  .sticky-price { display: flex; flex-direction: column; }
+  .sticky-old { font-size: 12px; color: var(--grey); text-decoration: line-through; }
+  .sticky-new { font-family: 'Bebas Neue', sans-serif; font-size: 26px; color: var(--purple); line-height: 1; }
+  .sticky-btn {
+    background: linear-gradient(135deg, #a855f7, #7c3aed);
+    color: white;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 12px 24px;
+    border-radius: 10px;
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(168,85,247,0.3);
+  }
+
+  footer {
+    text-align: center;
+    padding: 24px 20px 80px;
+    font-size: 12px;
+    color: var(--grey);
+  }
+
+  [data-lang] { display: none; }
+  [data-lang].active { display: block; }
+</style>
+</head>
+<body>
+
+<!-- LANG BAR -->
+<div class="lang-bar">
+  <button class="lang-btn" onclick="setLang('fr', this)">🇫🇷 Français</button>
+  <button class="lang-btn" onclick="setLang('pt', this)">🇧🇷 Português</button>
+  <button class="lang-btn active" onclick="setLang('en', this)">🇬🇧 English</button>
+</div>
+
+<!-- ════════════════════ FRANÇAIS ════════════════════ -->
+<div data-lang="fr">
+  <div class="urgency-bar">🔥 Prix de lancement — Augmentation imminente à 57€</div>
+  <div class="hero">
+    <div class="logo-text">GOUAL ART</div>
+    <div class="hero-tag">⚽ Formation Exclusive</div>
+    <h1>Crée des Vidéos <span>Virales</span> avec l'IA</h1>
+    <p class="hero-sub">La méthode exacte que j'ai utilisée pour atteindre <strong style="color:#fff">176 000 abonnés en moins d'1 mois</strong> sur Instagram — animations football IA, montage et stratégie.</p>
+    <div class="proof-strip">
+      <div class="proof-item"><span class="proof-num">176K</span><span class="proof-label">Abonnés Insta</span></div>
+      <div class="proof-divider"></div>
+      <div class="proof-item"><span class="proof-num">6M</span><span class="proof-label">Vues / vidéo</span></div>
+      <div class="proof-divider"></div>
+      <div class="proof-item"><span class="proof-num">&lt;1 mois</span><span class="proof-label">Pour y arriver</span></div>
+    </div>
+    <div class="price-block">
+      <span class="launch-badge">🚀 Prix de lancement</span>
+      <div class="price-row"><span class="price-old">57€</span><span class="price-new">37€</span></div>
+      <p class="price-note">PDF complet + Vidéo de formation — accès immédiat</p>
+      <a href="https://maneuver43.gumroad.com/l/jbswc" class="cta-btn">🎬 Accéder à la Formation →</a>
+      <div class="guarantee">🔒 Paiement sécurisé · Accès immédiat</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Ce que tu reçois</div>
+    <h2>Le Pack Complet</h2>
+    <div class="include-grid">
+      <div class="include-item"><div class="include-icon">📄</div><div><div class="include-title">Guide PDF Complet</div><div class="include-desc">Workflow étape par étape : outils IA, génération d'images, style visuel, stratégie de contenu football.</div></div></div>
+      <div class="include-item"><div class="include-icon">🎬</div><div><div class="include-title">Vidéo de Formation</div><div class="include-desc">Screen recording du processus complet : de l'idée à la vidéo publiée, tout est montré à l'écran.</div></div></div>
+      <div class="include-item"><div class="include-icon">🤖</div><div><div class="include-title">Prompts IA Exclusifs</div><div class="include-desc">Les prompts exacts utilisés pour générer des visuels football style Pixar/cinématique qui cartonnent.</div></div></div>
+      <div class="include-item"><div class="include-icon">📱</div><div><div class="include-title">Stratégie Réseaux Sociaux</div><div class="include-desc">Comment structurer les épisodes, quel format, quelle fréquence pour exploser sur Insta et TikTok.</div></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Les résultats</div>
+    <h2>Ce que j'ai accompli en 1 mois</h2>
+    <div class="results-grid">
+      <div class="result-card"><span class="result-num">176K</span><div class="result-label">Abonnés Instagram</div></div>
+      <div class="result-card"><span class="result-num">6M+</span><div class="result-label">Vues sur une vidéo</div></div>
+      <div class="result-card"><span class="result-num">0€</span><div class="result-label">Pub payante utilisée</div></div>
+      <div class="result-card"><span class="result-num">100%</span><div class="result-label">Contenu IA généré</div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Pour qui ?</div>
+    <h2>Cette Formation est Pour Toi Si...</h2>
+    <div class="for-list">
+      <div class="for-item">Tu veux créer un compte football viral sans montrer ton visage</div>
+      <div class="for-item">Tu es passionné de foot et tu veux monétiser cette passion</div>
+      <div class="for-item">Tu es débutant avec l'IA et tu veux un workflow simple et efficace</div>
+      <div class="for-item">Tu veux des résultats rapides sans investir des mois</div>
+      <div class="for-item">Tu veux une source de revenus passifs grâce aux réseaux sociaux</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Avis</div>
+    <h2>Ce Qu'ils Disent</h2>
+    <div class="testi-grid">
+      <div class="testi-card"><div class="stars">★★★★★</div><div class="testi-text">"J'ai suivi la méthode et en 2 semaines j'ai atteint 15K abonnés. Les prompts IA sont vraiment la clé."</div><div class="testi-author">— Youssef M., France</div></div>
+      <div class="testi-card"><div class="stars">★★★★★</div><div class="testi-text">"Enfin une formation qui montre vraiment comment faire, pas juste des généralités. Très concret."</div><div class="testi-author">— Karim D., Belgique</div></div>
+    </div>
+  </div>
+  <div class="bottom-cta">
+    <h2>Commence Maintenant</h2>
+    <p>Prix de lancement — augmentation imminente à 57€</p>
+    <a href="https://maneuver43.gumroad.com/l/jbswc" class="cta-btn">🎬 Je veux la Formation — 37€ →</a>
+  </div>
+</div>
+
+<!-- ════════════════════ PORTUGUÊS ════════════════════ -->
+<div data-lang="pt">
+  <div class="urgency-bar">🔥 Preço de lançamento — Em breve sobe para 57€</div>
+  <div class="hero">
+    <div class="logo-text">GOUAL ART</div>
+    <div class="hero-tag">⚽ Formação Exclusiva</div>
+    <h1>Cria Vídeos <span>Virais</span> com IA</h1>
+    <p class="hero-sub">O método exato que usei para alcançar <strong style="color:#fff">176 000 seguidores em menos de 1 mês</strong> no Instagram — animações de futebol com IA, edição e estratégia.</p>
+    <div class="proof-strip">
+      <div class="proof-item"><span class="proof-num">176K</span><span class="proof-label">Seguidores Insta</span></div>
+      <div class="proof-divider"></div>
+      <div class="proof-item"><span class="proof-num">6M</span><span class="proof-label">Views / vídeo</span></div>
+      <div class="proof-divider"></div>
+      <div class="proof-item"><span class="proof-num">&lt;1 mês</span><span class="proof-label">Para chegar lá</span></div>
+    </div>
+    <div class="price-block">
+      <span class="launch-badge">🚀 Preço de lançamento</span>
+      <div class="price-row"><span class="price-old">57€</span><span class="price-new">37€</span></div>
+      <p class="price-note">PDF completo + Vídeo de formação — acesso imediato</p>
+      <a href="https://maneuver43.gumroad.com/l/jbswc" class="cta-btn">🎬 Aceder à Formação →</a>
+      <div class="guarantee">🔒 Pagamento seguro · Acesso imediato</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">O que recebes</div>
+    <h2>O Pack Completo</h2>
+    <div class="include-grid">
+      <div class="include-item"><div class="include-icon">📄</div><div><div class="include-title">Guia PDF Completo</div><div class="include-desc">Workflow passo a passo: ferramentas IA, geração de imagens, estilo visual, estratégia de conteúdo futebol.</div></div></div>
+      <div class="include-item"><div class="include-icon">🎬</div><div><div class="include-title">Vídeo de Formação</div><div class="include-desc">Gravação de ecrã do processo completo: da ideia ao vídeo publicado, tudo mostrado no ecrã.</div></div></div>
+      <div class="include-item"><div class="include-icon">🤖</div><div><div class="include-title">Prompts IA Exclusivos</div><div class="include-desc">Os prompts exatos usados para gerar visuais de futebol estilo Pixar/cinemático que viralizam.</div></div></div>
+      <div class="include-item"><div class="include-icon">📱</div><div><div class="include-title">Estratégia Redes Sociais</div><div class="include-desc">Como estruturar episódios, que formato, que frequência para explodir no Insta e TikTok.</div></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Os resultados</div>
+    <h2>O Que Alcancei em 1 Mês</h2>
+    <div class="results-grid">
+      <div class="result-card"><span class="result-num">176K</span><div class="result-label">Seguidores Instagram</div></div>
+      <div class="result-card"><span class="result-num">6M+</span><div class="result-label">Views num vídeo</div></div>
+      <div class="result-card"><span class="result-num">0€</span><div class="result-label">Publicidade paga</div></div>
+      <div class="result-card"><span class="result-num">100%</span><div class="result-label">Conteúdo gerado com IA</div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Para quem?</div>
+    <h2>Esta Formação é Para Ti Se...</h2>
+    <div class="for-list">
+      <div class="for-item">Queres criar uma conta de futebol viral sem mostrar a tua cara</div>
+      <div class="for-item">Amas futebol e queres monetizar essa paixão</div>
+      <div class="for-item">És iniciante com IA e queres um workflow simples e eficaz</div>
+      <div class="for-item">Queres resultados rápidos sem investir meses</div>
+      <div class="for-item">Queres uma fonte de rendimento passivo pelas redes sociais</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Avaliações</div>
+    <h2>O Que Dizem</h2>
+    <div class="testi-grid">
+      <div class="testi-card"><div class="stars">★★★★★</div><div class="testi-text">"Segui o método e em 2 semanas cheguei a 15K seguidores. Os prompts de IA são mesmo a chave."</div><div class="testi-author">— Youssef M., França</div></div>
+      <div class="testi-card"><div class="stars">★★★★★</div><div class="testi-text">"Finalmente uma formação que mostra mesmo como fazer, não apenas generalidades. Muito concreto."</div><div class="testi-author">— Karim D., Bélgica</div></div>
+    </div>
+  </div>
+  <div class="bottom-cta">
+    <h2>Começa Agora</h2>
+    <p>Preço de lançamento — em breve sobe para 57€</p>
+    <a href="https://maneuver43.gumroad.com/l/jbswc" class="cta-btn">🎬 Quero a Formação — 37€ →</a>
+  </div>
+</div>
+
+<!-- ════════════════════ ENGLISH ════════════════════ -->
+<div data-lang="en" class="active">
+  <div class="urgency-bar">🔥 Launch price — Going up to 57€ soon</div>
+  <div class="hero">
+    <div class="logo-text">GOUAL ART</div>
+    <div class="hero-tag">⚽ Exclusive Training</div>
+    <h1>Create <span>Viral</span> Videos with AI</h1>
+    <p class="hero-sub">The exact method I used to reach <strong style="color:#fff">176,000 followers in less than 1 month</strong> on Instagram — AI football animations, editing and strategy.</p>
+    <div class="proof-strip">
+      <div class="proof-item"><span class="proof-num">176K</span><span class="proof-label">Insta Followers</span></div>
+      <div class="proof-divider"></div>
+      <div class="proof-item"><span class="proof-num">6M</span><span class="proof-label">Views / video</span></div>
+      <div class="proof-divider"></div>
+      <div class="proof-item"><span class="proof-num">&lt;1 month</span><span class="proof-label">To get there</span></div>
+    </div>
+    <div class="price-block">
+      <span class="launch-badge">🚀 Launch Price</span>
+      <div class="price-row"><span class="price-old">57€</span><span class="price-new">37€</span></div>
+      <p class="price-note">Full PDF + Training Video — instant access</p>
+      <a href="https://maneuver43.gumroad.com/l/jbswc" class="cta-btn">🎬 Get the Training →</a>
+      <div class="guarantee">🔒 Secure payment · Instant access</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">What you get</div>
+    <h2>The Complete Pack</h2>
+    <div class="include-grid">
+      <div class="include-item"><div class="include-icon">📄</div><div><div class="include-title">Full PDF Guide</div><div class="include-desc">Step-by-step workflow: AI tools, image generation, visual style, football content strategy.</div></div></div>
+      <div class="include-item"><div class="include-icon">🎬</div><div><div class="include-title">Training Video</div><div class="include-desc">Full screen recording of the process: from idea to published video, everything shown on screen.</div></div></div>
+      <div class="include-item"><div class="include-icon">🤖</div><div><div class="include-title">Exclusive AI Prompts</div><div class="include-desc">The exact prompts used to generate Pixar/cinematic style football visuals that go viral.</div></div></div>
+      <div class="include-item"><div class="include-icon">📱</div><div><div class="include-title">Social Media Strategy</div><div class="include-desc">How to structure episodes, what format, what frequency to explode on Instagram and TikTok.</div></div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Results</div>
+    <h2>What I Achieved in 1 Month</h2>
+    <div class="results-grid">
+      <div class="result-card"><span class="result-num">176K</span><div class="result-label">Instagram Followers</div></div>
+      <div class="result-card"><span class="result-num">6M+</span><div class="result-label">Views on one video</div></div>
+      <div class="result-card"><span class="result-num">0€</span><div class="result-label">Paid advertising</div></div>
+      <div class="result-card"><span class="result-num">100%</span><div class="result-label">AI generated content</div></div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Who is it for?</div>
+    <h2>This Training is For You If...</h2>
+    <div class="for-list">
+      <div class="for-item">You want to create a viral football account without showing your face</div>
+      <div class="for-item">You're passionate about football and want to monetize that passion</div>
+      <div class="for-item">You're a beginner with AI and want a simple and effective workflow</div>
+      <div class="for-item">You want fast results without investing months</div>
+      <div class="for-item">You want a passive income source through social media</div>
+    </div>
+  </div>
+  <div class="section">
+    <div class="section-label">Reviews</div>
+    <h2>What They Say</h2>
+    <div class="testi-grid">
+      <div class="testi-card"><div class="stars">★★★★★</div><div class="testi-text">"I followed the method and within 2 weeks reached 15K followers. The AI prompts are truly the key."</div><div class="testi-author">— Youssef M., France</div></div>
+      <div class="testi-card"><div class="stars">★★★★★</div><div class="testi-text">"Finally a training that actually shows how to do it, not just generalities. Very concrete."</div><div class="testi-author">— Karim D., Belgium</div></div>
+    </div>
+  </div>
+  <div class="bottom-cta">
+    <h2>Start Now</h2>
+    <p>Launch price — going up to 57€ soon</p>
+    <a href="https://maneuver43.gumroad.com/l/jbswc" class="cta-btn">🎬 I Want the Training — 37€ →</a>
+  </div>
+</div>
+
+<!-- STICKY -->
+<div class="sticky-cta" id="stickyCta">
+  <div class="sticky-price">
+    <span class="sticky-old">57€</span>
+    <span class="sticky-new">37€</span>
+  </div>
+  <a href="https://maneuver43.gumroad.com/l/jbswc" class="sticky-btn" id="stickyBtn">🎬 Accéder →</a>
+</div>
+
+<footer>© 2026 Goual Art · goual.fr</footer>
+
+<script>
+  const labels = { fr: 'Accéder →', pt: 'Aceder →', en: 'Get it →' };
+
+  function setLang(lang, btn) {
+    document.querySelectorAll('[data-lang]').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-lang="' + lang + '"]').classList.add('active');
+    btn.classList.add('active');
+    document.getElementById('stickyBtn').textContent = '🎬 ' + labels[lang];
+    localStorage.setItem('goual_lang', lang);
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const saved = localStorage.getItem('goual_lang');
+    const br = navigator.language.toLowerCase();
+    let lang = saved || 'en';
+    const idx = { fr: 0, pt: 1, en: 2 }[lang];
+    document.querySelectorAll('[data-lang]').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    document.querySelector('[data-lang="' + lang + '"]').classList.add('active');
+    document.querySelectorAll('.lang-btn')[idx].classList.add('active');
+    document.getElementById('stickyBtn').textContent = '🎬 ' + labels[lang];
+  });
+
+  window.addEventListener('scroll', () => {
+    document.getElementById('stickyCta').classList.toggle('visible', window.scrollY > 400);
+  });
+</script>
+</body>
+</html>
