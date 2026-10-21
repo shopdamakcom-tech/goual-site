@@ -381,7 +381,7 @@ let logoAspect = 1.7;
 function fitLogo() {
   // About 60 % of the screen width (and at most half its height) at the start of the tour.
   const halfH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * LOGO_DIST, viewW = 2 * halfH * camera.aspect;
-  const w = Math.min(viewW * (camera.aspect < 0.8 ? 0.86 : 0.6), halfH * logoAspect);
+  const w = Math.min(viewW * (camera.aspect < 0.8 ? 0.84 : 0.52), halfH * 0.9 * logoAspect);
   logo3d.scale.setScalar(w / logoAspect);
 }
 const logoReady = fetch('models/logo-shape.json').then(r => r.json()).then(data => new Promise(res => {
@@ -390,8 +390,8 @@ const logoReady = fetch('models/logo-shape.json').then(r => r.json()).then(data 
     tex.colorSpace = THREE.SRGBColorSpace; tex.repeat.set(1 / data.aspect, 1); tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
     const pts = list => list.map(([x, y]) => new THREE.Vector2(x * data.aspect, y));
     const shapes = data.shapes.map(sh => { const s = new THREE.Shape(pts(sh.o)); sh.h.forEach(h => s.holes.push(new THREE.Path(pts(h)))); return s; });
-    const geo = new THREE.ExtrudeGeometry(shapes, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.012, bevelSize: 0.006, bevelSegments: 2 });
-    geo.translate(-data.aspect / 2, -0.5, -0.035);
+    const geo = new THREE.ExtrudeGeometry(shapes, { depth: 0.16, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.008, bevelSegments: 2 });
+    geo.translate(-data.aspect / 2, -0.47, -0.08);
     const face = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
     const side = new THREE.MeshStandardMaterial({ color: '#2b1670', emissive: '#4422cc', emissiveIntensity: 0.7, metalness: 0.4, roughness: 0.35 });
     logo3d.add(new THREE.Mesh(geo, [face, side]));
