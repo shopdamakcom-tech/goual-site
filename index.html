@@ -19,11 +19,11 @@
   })();
 </script>
 <noscript><meta http-equiv="refresh" content="0;url=classic.html"></noscript>
-<link rel="stylesheet" href="stadium.css?v=4">
+<link rel="stylesheet" href="stadium.css?v=5">
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"}}
 </script>
-<script type="module" src="stadium.js?v=13"></script>
+<script type="module" src="stadium.js?v=14"></script>
 <script defer src="contact.js?v=1"></script>
 </head>
 <body>
@@ -37,12 +37,20 @@
     <nav class="links">
       <button type="button" data-goto="0.2">WORK</button>
       <button type="button" data-goto="1">CONTACT</button>
+      <a href="formation/">FORMATION</a>
     </nav>
     <div class="right">
       <button type="button" id="sound" aria-pressed="false"><span class="bars"><i></i><i></i><i></i><i></i></span><span class="label">SOUND OFF</span></button>
       <a class="classic" href="classic.html">CLASSIC SITE</a>
+      <button type="button" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu"><i></i><i></i><i></i></button>
     </div>
   </header>
+  <nav id="mobile-menu" aria-label="Menu" hidden>
+    <button type="button" data-goto="0.2">WORK</button>
+    <a href="classic.html">CLASSIC SITE</a>
+    <button type="button" data-goto="1">CONTACT</button>
+    <a href="formation/">FORMATION</a>
+  </nav>
 
   <div id="chapters">
     <section class="chapter intro" data-range="-1,0.06">
@@ -57,6 +65,7 @@
         <h2>Let's<br>talk.</h2>
         <p class="lead">A film, an ad, a 3D world? Tell us about your project and we will get back to you within 48 hours.</p>
         <a class="mail" href="mailto:contact@goual.fr">contact@goual.fr</a>
+        <a class="formation-link" href="formation/">Want to learn AI filmmaking? Discover our training →</a>
         <small>© 2026 GOUAL ART — ANIMATION STUDIOS</small>
       </div>
       <form class="goual-contact" id="contact-form" novalidate>

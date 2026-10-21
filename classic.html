@@ -30,16 +30,18 @@ a{color:inherit;text-decoration:none}.hero{height:510px;min-height:0;position:re
  .about{grid-template-columns:1fr;gap:35px;padding:75px 20px}.about p{font-size:14px}.contact{min-height:520px;padding:55px 20px 25px}.contact{grid-template-columns:1fr;gap:30px}.goual-contact .row{grid-template-columns:1fr}.card.big{grid-column:span 2;grid-row:auto;aspect-ratio:1.48/1}.footer{padding:0 20px 25px}
 }
 @media(min-width:801px){.mobile-menu{display:none}}
+@media(max-width:800px){.nav-links.open{display:flex;position:fixed;inset:0;z-index:6;flex-direction:column;justify-content:center;gap:6px;padding:90px 28px;background:#050505;font-size:34px;letter-spacing:.02em}.nav-links.open a{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.12)}.menu-open .mobile-menu{position:fixed;z-index:8}.contact .formation-link{display:inline-block;margin-top:14px}}
+.contact .formation-link{display:inline-block;margin-top:14px;font-weight:700;border-bottom:1px solid currentColor;padding-bottom:2px}
 </style>
 </head>
 <body>
 <header class="hero" id="top">
   <nav class="nav">
     <a class="nav-logo" href="#top" aria-label="GOUAL"></a>
-    <div class="nav-links"><a href="#work">WORK</a><a href="#services">SERVICES</a><a href="#process">PROCESS</a><a href="#contact">CONTACT</a></div>
+    <div class="nav-links"><a href="#work">WORK</a><a href="#services">SERVICES</a><a href="#contact">CONTACT</a><a href="formation/">FORMATION</a><a href="index.html">3D SITE</a></div>
     <a class="talk" href="#contact">LET'S TALK&nbsp;&nbsp;→</a>
   </nav>
-  <button class="mobile-menu" aria-label="Open menu" onclick="document.querySelector('.nav-links').classList.toggle('open')"></button>
+  <button class="mobile-menu" aria-label="Open menu" aria-expanded="false" onclick="const o=document.querySelector('.nav-links').classList.toggle('open');this.setAttribute('aria-expanded',o);document.body.classList.toggle('menu-open',o)"></button>
   <div class="hero-hotspots">
     <a class="hs-work" href="#work"></a><a class="hs-services" href="#services"></a><a class="hs-process" href="#process"></a><a class="hs-contact" href="#contact"></a><a class="hs-talk" href="#contact"></a>
   </div>
@@ -83,7 +85,7 @@ a{color:inherit;text-decoration:none}.hero{height:510px;min-height:0;position:re
 <section class="contact" id="contact">
   <div class="contact-intro"><div class="eyebrow">[ LET'S CREATE ]</div><h2>LET'S<br>TALK.</h2>
     <p class="lead">A film, an ad, a 3D world? Tell us about your project and we will get back to you within 48 hours.</p>
-    <a class="mail" href="mailto:contact@goual.fr">contact@goual.fr</a></div>
+    <a class="mail" href="mailto:contact@goual.fr">contact@goual.fr</a><br><a class="formation-link" href="formation/">Want to learn AI filmmaking? Discover our training →</a></div>
   <form class="goual-contact" novalidate>
     <div class="row"><label>Name<input name="name" autocomplete="name" required></label><label>Email<input name="email" type="email" autocomplete="email" required></label></div>
     <div class="row"><label>Company <span>(optional)</span><input name="company" autocomplete="organization"></label>
@@ -125,5 +127,6 @@ const closeLb=()=>{lbv.pause();lbv.removeAttribute('src');lbv.load();lb.hidden=t
 lb.querySelector('.lb-close').addEventListener('click',closeLb);lb.addEventListener('click',e=>{if(e.target===lb)closeLb();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!lb.hidden)closeLb();});
 </script>
 <script defer src="contact.js?v=1"></script>
+<script>document.querySelectorAll('.nav-links a').forEach(a=>a.addEventListener('click',()=>{document.querySelector('.nav-links').classList.remove('open');document.body.classList.remove('menu-open');}));</script>
 </body>
 </html>

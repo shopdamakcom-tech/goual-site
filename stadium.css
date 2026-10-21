@@ -17,7 +17,7 @@ button{background:none;border:0;padding:0}
 .top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;padding:22px 2.4vw;font:600 13px/1 var(--round);letter-spacing:.12em;opacity:0;transition:opacity 1s .2s;text-shadow:0 1px 8px rgba(27,31,59,.35)}
 body.ready .top{opacity:1}
 .logo{display:flex;flex-direction:column;align-items:center;gap:5px;text-decoration:none}.logo b{font:400 23px/1 Righteous,var(--round);letter-spacing:.09em;padding-left:.09em}.logo span{font:400 7.5px/1 Righteous,var(--round);letter-spacing:.42em;padding-left:.42em}
-.links{display:flex;gap:34px}.links button{opacity:.9}.links button:hover{opacity:1}
+.links{display:flex;gap:34px;align-items:center}.links a{text-decoration:none;opacity:.9}.links a:hover{opacity:1}.links button{opacity:.9}.links button:hover{opacity:1}
 .right{display:flex;align-items:center;gap:22px}
 .classic{text-decoration:none;background:rgba(255,255,255,.18);border:2px solid #fff;border-radius:30px;padding:10px 16px;backdrop-filter:blur(6px)}
 #sound{display:flex;align-items:center;gap:10px}
@@ -101,3 +101,18 @@ body.ready .bottom{opacity:1}
 }
 
 .contact .credit{grid-column:1/-1;margin-top:0;font:500 10px/1.5 Inter,sans-serif;letter-spacing:0;opacity:.6}
+
+/* Burger menu (phones) */
+#burger{display:none;position:relative;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid #fff;backdrop-filter:blur(6px);z-index:6}
+#burger i{position:absolute;left:12px;right:12px;height:2px;border-radius:2px;background:#fff;transition:transform .3s,opacity .3s}
+#burger i:nth-child(1){top:14px}#burger i:nth-child(2){top:20px}#burger i:nth-child(3){top:26px}
+body.menu-open #burger{border-color:var(--ink);background:#fff}body.menu-open #burger i{background:var(--ink)}
+body.menu-open #burger i:nth-child(1){transform:translateY(6px) rotate(45deg)}body.menu-open #burger i:nth-child(2){opacity:0}body.menu-open #burger i:nth-child(3){transform:translateY(-6px) rotate(-45deg)}
+#mobile-menu{position:fixed;inset:0;z-index:5;pointer-events:auto;background:var(--cream);display:flex;flex-direction:column;justify-content:center;gap:10px;padding:90px 28px 40px;animation:menuIn .35s cubic-bezier(.22,1,.36,1)}
+#mobile-menu[hidden]{display:none}
+#mobile-menu a,#mobile-menu button{color:var(--ink);text-decoration:none;text-align:left;font:700 40px/1.15 var(--round);padding:6px 0;border-bottom:2px solid rgba(27,31,59,.08)}
+#mobile-menu a:last-child{color:var(--coral)}
+@keyframes menuIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+body.menu-open .top{color:var(--ink);text-shadow:none;z-index:6;position:absolute}
+.contact .formation-link{margin-top:14px;font:600 15px var(--round);color:var(--coral);text-decoration:none;align-self:flex-start;border-bottom:2px solid currentColor;padding-bottom:2px}
+@media(max-width:767px){#burger{display:block}#sound .label{display:none}}
