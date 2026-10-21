@@ -651,7 +651,7 @@ const indoor = new THREE.Group(); indoor.visible = false; scene.add(indoor);
 }
 
 /* ------------------------------------------------------------ arcade door */
-// End of corridor A, just before the turn to the locker room: a door to the mini-game GOUAL STREET.
+// End of corridor A, just before the turn to the locker room: a door to the mini-game STREET FOOT.
 // The tour stops in front of it; PLAY swings it open onto Rio, and the game opens full screen.
 const arcade = { open: 0, target: 0, playing: false, covered: false };
 const arcadeDoor = new THREE.Group(); indoor.add(arcadeDoor);
@@ -665,7 +665,7 @@ const arcadeDoor = new THREE.Group(); indoor.add(arcadeDoor);
     let g = c.createLinearGradient(0, h * 0.2, 0, h * 0.34); g.addColorStop(0, '#0d1b4d'); g.addColorStop(1, 'rgba(13,27,77,0)'); c.fillStyle = g; c.fillRect(0, h * 0.2, w, h * 0.15);
     g = c.createLinearGradient(0, h * 0.66, 0, h * 0.82); g.addColorStop(0, 'rgba(13,27,77,0)'); g.addColorStop(1, '#0d1b4d'); c.fillStyle = g; c.fillRect(0, h * 0.66, w, h * 0.17);
     c.textAlign = 'center'; c.fillStyle = '#fff'; c.font = '900 118px Impact, "Arial Black", sans-serif';
-    c.fillText('GOUAL', w / 2, 128); c.fillText('STREET', w / 2, 236);
+    c.fillText('STREET', w / 2, 128); c.fillText('FOOT', w / 2, 236);
     c.save(); c.translate(w / 2, 300); c.rotate(-0.05); c.fillStyle = '#ff2d78'; c.font = 'italic 900 52px "Arial Black", Impact, sans-serif'; c.fillText('THE NEXT GEM', 4, 4); c.fillStyle = '#ffd400'; c.fillText('THE NEXT GEM', 0, 0); c.restore();
     c.fillStyle = '#ffd400'; c.beginPath(); c.roundRect(w / 2 - 150, h - 150, 300, 84, 42); c.fill();
     c.fillStyle = '#111'; c.font = '900 50px Impact, "Arial Black", sans-serif'; c.fillText('▶ PLAY', w / 2, h - 90);
@@ -687,7 +687,7 @@ const arcadeDoor = new THREE.Group(); indoor.add(arcadeDoor);
   box(0.05, H + 0.06, 0.05, neon, arcadeDoor, X - 0.03, FLOOR + H / 2, Z - W / 2 - 0.03, { cast: false });
   box(0.05, H + 0.06, 0.05, neon, arcadeDoor, X - 0.03, FLOOR + H / 2, Z + W / 2 + 0.03, { cast: false });
   box(0.05, 0.05, W + 0.11, neon, arcadeDoor, X - 0.03, FLOOR + H + 0.03, Z, { cast: false });
-  const signTex = canvasTex(512, 64, (c, w, h) => { c.fillStyle = '#0d1b4d'; c.fillRect(0, 0, w, h); c.fillStyle = '#ffd400'; c.font = '900 40px Impact, "Arial Black", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowColor = '#ffd400'; c.shadowBlur = 14; c.fillText('ARCADE · GOUAL STREET', w / 2, h / 2 + 2); });
+  const signTex = canvasTex(512, 64, (c, w, h) => { c.fillStyle = '#0d1b4d'; c.fillRect(0, 0, w, h); c.fillStyle = '#ffd400'; c.font = '900 40px Impact, "Arial Black", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowColor = '#ffd400'; c.shadowBlur = 14; c.fillText('ARCADE · STREET FOOT', w / 2, h / 2 + 2); });
   const sign = mesh(new THREE.PlaneGeometry(0.98, 0.12), new THREE.MeshBasicMaterial({ map: signTex, toneMapped: false }), arcadeDoor, X - 0.06, FLOOR + 2.11, Z, { cast: false, receive: false });
   sign.rotation.y = -Math.PI / 2;
   // Behind the door: a small room whose back wall is a window onto the favela.
@@ -1118,7 +1118,7 @@ STATIONS.forEach((st, i) => {
 {
   const k = KEYS.find(k => k.game), el = document.createElement('section');
   el.className = 'chapter station arcade-stop'; el.dataset.range = `${k.p - 0.02},${k.hold + 0.02}`;
-  el.innerHTML = `<div class="card"><div class="place">MINI-GAME — THE ARCADE DOOR</div><h2>GOUAL STREET</h2><p class="pitch">Play CR7 in the favelas of Rio and find the next Brazilian gem.</p><button type="button" class="play" data-arcade><i>▶</i>PLAY</button><span class="hint">or click the door</span></div>`;
+  el.innerHTML = `<div class="card"><div class="place">MINI-GAME — THE ARCADE DOOR</div><h2>STREET FOOT</h2><p class="pitch">Play CR7 in the favelas of Rio and find the next Brazilian gem.</p><button type="button" class="play" data-arcade><i>▶</i>PLAY</button><span class="hint">or click the door</span></div>`;
   contactEl.before(el);
 }
 const chapterEls = [...document.querySelectorAll('.chapter')];

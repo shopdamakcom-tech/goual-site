@@ -1,6 +1,7 @@
 // All sound is generated live with Web Audio: a samba groove from the bar's radio, the favela's
 // ambience (wind, traffic, dogs, motorbikes, kids, birds), and game sounds (ball, steps, cheers).
-// Voices use the browser's speech synthesis, with English subtitles shown by the game.
+// Voices are pre-recorded files (generated with the open Kokoro TTS model), with English subtitles.
+// A carnival batucada plays on the title screen and the intro, then the bar's radio takes over.
 export const audio = {
   ctx: null, on: true, voiceOn: true,
   init() {
@@ -16,7 +17,10 @@ export const audio = {
     this.radio = ctx.createBiquadFilter(); this.radio.type = 'peaking'; this.radio.frequency.value = 1800; this.radio.gain.value = 3;
     this.radio.connect(this.music);
     this.bed('lowpass', 300, 0.18, this.amb); this.bed('bandpass', 900, 0.03, this.amb);    // wind, city hum
-    this.nextEv = 0; this.step16 = 0; this.nextNote = ctx.currentTime + 0.1;
+    this.voice = ctx.createGain(); this.voice.gain.value = 1.15; this.voice.connect(this.master);
+    this.carn = ctx.createGain(); this.carn.gain.value = 0; this.carn.connect(this.master);
+    this.nextEv = 0; this.step16 = 0; this.nextNote = ctx.currentTime + 0.1; this.nextShout = 0; this.carnival = 1;
+    this.loadVoiceFiles();
   },
   bed(type, f, level, out) {
     const ctx = this.ctx, s = ctx.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true;
@@ -38,7 +42,7 @@ export const audio = {
   // ---- samba (104 bpm, 16th-note grid) ----
   BPM: 104,
   scheduleMusic() {
-    const ctx = this.ctx, spb = 60 / this.BPM / 4, o = this.radio;
+    const ctx = this.ctx, spb = 60 / this.BPM / 4, o = this.radio, C = this.carn;
     const tam = 'x.xx.x.xx.x.x.x.', ago = 'x..x..x.x..x.x..', bassN = [50, 0, 0, 50, 0, 0, 57, 0, 55, 0, 0, 55, 0, 0, 53, 0];
     while (this.nextNote < ctx.currentTime + 0.2) {
       const s = this.step16 % 16, bar = Math.floor(this.step16 / 16) % 4, t = this.nextNote;
@@ -50,6 +54,23 @@ export const audio = {
       if (tam[s] === 'x') this.tone(o, t, { f: 820, to: 760, type: 'square', level: 0.035, d: 0.05 });   // tamborim
       if (ago[s] === 'x') this.tone(o, t, { f: (s < 8 ? 960 : 720) * (bar % 2 ? 1 : 1.12), type: 'triangle', level: 0.05, d: 0.18 }); // agogô
       const bn = bassN[s]; if (bn) { const f = 440 * Math.pow(2, (bn + (bar === 3 ? -2 : bar === 2 ? 5 : 0) - 69) / 12) / 2; this.tone(o, t, { f, type: 'triangle', level: 0.22, d: 0.28 }); }
+      if (this.carnival > 0.02) {                                                                 // carnival batucada, full band
+        if (s === 0) this.tone(C, t, { f: 58, to: 40, level: 0.5, d: 0.5 });                         // surdo de segunda
+        if (s === 4 || s === 12) this.tone(C, t, { f: 52, to: 34, level: 0.75, d: 0.65 });           // surdo de primeira
+        if ((s === 6 || s === 7 || s === 14) && bar % 2) this.tone(C, t, { f: 90, to: 60, level: 0.35, d: 0.18 }); // surdo de terceira fills
+        this.noise(C, t, { f: 3000, q: 0.9, level: s % 4 === 0 ? 0.16 : s % 2 ? 0.07 : 0.11, d: 0.05 });               // caixa
+        if ('x..x..x...x..x..'[s] === 'x') { this.tone(C, t, { f: 520, to: 430, type: 'triangle', level: 0.14, d: 0.06 }); this.noise(C, t, { f: 1800, q: 3, level: 0.1, d: 0.04 }); } // repinique
+        this.noise(C, t, { type: 'highpass', f: 7000, level: s % 4 === 2 ? 0.08 : 0.04, d: 0.06 });     // chocalho
+        if (tam[s] === 'x') this.tone(C, t, { f: 900, to: 840, type: 'square', level: 0.05, d: 0.05 });
+        if (ago[s] === 'x') this.tone(C, t, { f: s < 8 ? 1040 : 780, type: 'triangle', level: 0.08, d: 0.2 });
+        if ((s === 3 || s === 11) && Math.random() < 0.6) {                                          // cuíca: a squeaky pitched glide
+          const o2 = ctx.createOscillator(), g2 = ctx.createGain(); o2.type = 'sine';
+          o2.frequency.setValueAtTime(380, t); o2.frequency.exponentialRampToValueAtTime(820, t + 0.12); o2.frequency.exponentialRampToValueAtTime(520, t + 0.22);
+          g2.gain.setValueAtTime(0.0001, t); g2.gain.exponentialRampToValueAtTime(0.09, t + 0.03); g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+          o2.connect(g2).connect(C); o2.start(t); o2.stop(t + 0.26);
+        }
+        if (bar === 0 && (s === 0 || s === 2 || s === 4)) this.apito(t, s === 4 ? 0.3 : 0.09);           // mestre's whistle: tri-tri-triiii
+      }
       if (s === 2 || s === 6 || s === 10 || s === 14) {                                          // cavaquinho strum
         const root = [62, 62, 67, 60][bar]; for (const iv of [0, 4, 7, 12]) this.tone(o, t + iv * 0.004, { f: 440 * Math.pow(2, (root + iv - 69) / 12), type: 'sawtooth', level: 0.012, d: 0.12 });
       }
@@ -60,7 +81,10 @@ export const audio = {
   update(musicLevel, crowd) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    this.music.gain.setTargetAtTime(0.08 + 0.5 * musicLevel, t, 0.4);
+    this.music.gain.setTargetAtTime((0.08 + 0.5 * musicLevel) * (1 - this.carnival * 0.8) * (this.talking ? 0.55 : 1), t, 0.4);
+    this.carn.gain.setTargetAtTime(this.carnival * 0.75 * (this.talking ? 0.45 : 1), t, 0.6);
+    // The kids on the court shout to each other.
+    if (crowd > 0.05 && t > this.nextShout) { this.nextShout = t + 1.0 + Math.random() * 2.8 / crowd; this.shout(crowd); }
     this.scheduleMusic();
     if (t > this.nextEv) {
       this.nextEv = t + 1.5 + Math.random() * 4;
@@ -92,31 +116,47 @@ export const audio = {
   chime() { if (!this.ctx) return; const t = this.ctx.currentTime; [880, 1320, 1760].forEach((f, i) => this.tone(this.sfx, t + i * 0.07, { f, type: 'triangle', level: 0.08, d: 0.35 })); },
   blip(f = 660) { if (!this.ctx) return; this.tone(this.sfx, this.ctx.currentTime, { f, type: 'triangle', level: 0.06, d: 0.08 }); },
   whistle() { if (!this.ctx) return; const t = this.ctx.currentTime; const o = this.ctx.createOscillator(), g = this.ctx.createGain(), v = this.ctx.createOscillator(), vg = this.ctx.createGain(); o.frequency.value = 2900; v.frequency.value = 30; vg.gain.value = 150; v.connect(vg).connect(o.frequency); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); o.connect(g).connect(this.sfx); o.start(t); v.start(t); o.stop(t + 0.55); v.stop(t + 0.55); },
-  setOn(on) { this.on = on; if (this.ctx) this.master.gain.setTargetAtTime(on ? 0.9 : 0, this.ctx.currentTime, 0.2); if (!on) speechSynthesis?.cancel(); },
 
-  // ---- voices ----
-  voices: [],
-  loadVoices() { const v = window.speechSynthesis?.getVoices() || []; this.voices = v.filter(x => /^en/i.test(x.lang)); },
-  pickVoice(prefs) { for (const p of prefs) { const v = this.voices.find(x => p.test(x.name)); if (v) return v; } return this.voices[0] || null; },
-  CAST: {
-    CR7: { prefs: [/Daniel/, /UK English Male/, /Arthur/, /Male/i], pitch: 0.95, rate: 1.02 },
-    AGENT: { prefs: [/US English/, /Alex/, /Samantha/, /Aaron/], pitch: 1.0, rate: 1.08 },
-    'ZÉ': { prefs: [/Daniel/, /Fred/, /UK English Male/, /Male/i], pitch: 0.7, rate: 0.92 },
-    THIAGO: { prefs: [/Rishi/, /US English/, /Alex/], pitch: 1.35, rate: 1.12 },
-    LUCAS: { prefs: [/Samantha/, /US English/], pitch: 1.6, rate: 1.15 },
-    DAVI: { prefs: [/Rishi/, /Aaron/, /US English/, /Alex/], pitch: 1.45, rate: 1.05 },
+  apito(t, len) {                                                                               // samba whistle
+    const o = this.ctx.createOscillator(), v = this.ctx.createOscillator(), vg = this.ctx.createGain(), g = this.ctx.createGain();
+    o.frequency.value = 3100; v.frequency.value = 38; vg.gain.value = 220; v.connect(vg).connect(o.frequency);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.015); g.gain.setValueAtTime(0.06, t + len); g.gain.exponentialRampToValueAtTime(0.0001, t + len + 0.04);
+    o.connect(g).connect(this.carn); o.start(t); v.start(t); o.stop(t + len + 0.06); v.stop(t + len + 0.06);
   },
-  speak(who, text) {
-    return new Promise(res => {
-      if (!this.on || !this.voiceOn || !window.speechSynthesis) return res(false);
-      if (!this.voices.length) this.loadVoices();
-      const c = this.CAST[who] || {}, u = new SpeechSynthesisUtterance(text.replace(/[«»—]/g, ' '));
-      const v = this.pickVoice(c.prefs || []); if (v) u.voice = v; u.lang = v?.lang || 'en-GB';
-      u.pitch = c.pitch ?? 1; u.rate = c.rate ?? 1; u.volume = 1;
-      let done = false; const fin = () => { if (!done) { done = true; res(true); } };
-      u.onend = fin; u.onerror = fin; setTimeout(fin, 1500 + text.length * 120);
-      speechSynthesis.cancel(); speechSynthesis.speak(u);
+  // Short carnival burst for big moments (goals, the end).
+  fiesta(sec = 4) { this.carnival = 1; clearTimeout(this._f); this._f = setTimeout(() => { this.carnival = this.base ?? 0; }, sec * 1000); },
+  setOn(on) { this.on = on; if (this.ctx) this.master.gain.setTargetAtTime(on ? 0.9 : 0, this.ctx.currentTime, 0.2); if (!on) this.stopVoice(); },
+
+  // ---- voices (pre-rendered files) ----
+  manifest: null, bufs: {},
+  async loadVoiceFiles() {
+    try { this.manifest = await (await fetch('voice/lines.json')).json(); } catch (e) { this.manifest = {}; return; }
+    for (const v of Object.values(this.manifest)) for (const n of [].concat(v)) this.buf(n);
+  },
+  buf(n) { return this.bufs[n] ??= fetch('voice/' + n).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => this.ctx.decodeAudioData(b, ok, no))).catch(() => null); },
+  play(name, { out = this.voice, level = 1, pan = 0, rate = 1 } = {}) {
+    return this.buf(name).then(b => {
+      if (!b) return null;
+      const s = this.ctx.createBufferSource(); s.buffer = b; s.playbackRate.value = rate;
+      const g = this.ctx.createGain(); g.gain.value = level; const p = this.ctx.createStereoPanner(); p.pan.value = pan;
+      s.connect(g).connect(p).connect(out); s.start(); return s;
     });
   },
+  speak(who, text) {
+    return new Promise(async res => {
+      if (!this.on || !this.voiceOn || !this.ctx) return res(false);
+      if (!this.manifest) await this.loadVoiceFiles();
+      const name = this.manifest[who + '|' + text]; if (!name) return res(false);
+      this.stopVoice();
+      const src = await this.play(name); if (!src) return res(false);
+      this.cur = src; this.talking = true;
+      src.onended = () => { if (this.cur === src) { this.cur = null; this.talking = false; } res(true); };
+    });
+  },
+  stopVoice() { try { this.cur?.stop(); } catch (e) { } this.cur = null; this.talking = false; },
+  siu() { if (this.on && this.ctx && this.manifest?.SIU) this.play(this.manifest.SIU, { level: 1.2 }); },
+  shout(level = 1, pan = (Math.random() - 0.5) * 1.2) {
+    const l = this.manifest?.SHOUTS; if (!l?.length || !this.on) return;
+    this.play(l[Math.floor(Math.random() * l.length)], { out: this.amb, level: 0.25 + 0.5 * level, pan, rate: 0.96 + Math.random() * 0.1 });
+  },
 };
-if (window.speechSynthesis) { audio.loadVoices(); speechSynthesis.onvoiceschanged = () => audio.loadVoices(); }
