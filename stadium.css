@@ -124,3 +124,9 @@ body.menu-open .top{color:var(--ink);text-shadow:none;z-index:6;position:absolut
 body.end #sound .spk,body.menu-open #sound .spk{stroke:var(--ink)}body.end #sound .spk .cone,body.menu-open #sound .spk .cone{fill:var(--ink)}
 @media(max-width:767px){#sound{width:44px;height:44px;justify-content:center;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid #fff;backdrop-filter:blur(6px)}#sound .bars{display:none}#sound .spk{display:block}body.end #sound{border-color:var(--ink)}}
 .chapter.station,.chapter.intro,.top,.bottom,#counter{touch-action:none}
+
+/* Stone GOUAL ART logo (image) */
+.logo img{display:block;width:150px;height:auto;filter:drop-shadow(0 1px 4px rgba(10,14,30,.55))}
+.intro h1 .brand{display:block;width:min(86vw,1100px);height:auto;filter:drop-shadow(0 4px 0 rgba(10,14,30,.35)) drop-shadow(0 10px 30px rgba(10,14,30,.6))}
+body.end .logo img,body.menu-open .logo img{filter:drop-shadow(0 0 1px rgba(10,14,30,.9)) brightness(.55)}
+@media(max-width:767px){.logo img{width:118px}}
