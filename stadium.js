@@ -639,7 +639,8 @@ const indoor = new THREE.Group(); indoor.visible = false; scene.add(indoor);
   };
   // A: tunnel → locker room (east, then north to the locker-room door).
   slab(33.86, 11.56, 45.75, 14.44, true); slab(42.85, 5.3, 45.75, 11.56, false);
-  wallZ(11.56, 33.86, 42.85); wallZ(14.44, 33.86, 45.75); wallX(45.75, 5.3, 14.44); wallX(42.85, 5.3, 11.56);
+  wallZ(11.56, 33.86, 42.85); wallZ(14.44, 33.86, 45.75); wallX(45.75, 5.3, 12.45); wallX(45.75, 13.55, 14.44); wallX(42.85, 5.3, 11.56);
+  add(T, H - 2.02, 1.1, wallMat, 45.75, FLOOR + 2.02 + (H - 2.02) / 2, 13);          // lintel over the arcade door
   lampAt(38, FLOOR + 2, 13, '#fff1d6', 4); lampAt(44.3, FLOOR + 2, 8.5, '#fff1d6', 4);
   // B: locker room → gym.
   slab(43.3, -8.32, 44.7, -4.87, false); wallX(43.3, -8.32, -4.87); wallX(44.7, -8.32, -4.87);
@@ -647,6 +648,59 @@ const indoor = new THREE.Group(); indoor.visible = false; scene.add(indoor);
   slab(38.5, -8.32, 39.8, -6.0, false); slab(34.42, -7.45, 38.5, -6.0, true);
   wallX(39.8, -8.32, -6.0); wallX(38.5, -8.32, -7.45); wallZ(-6.0, 34.42, 39.8); wallZ(-7.45, 34.42, 38.5);
   lampAt(37, FLOOR + 2, -6.7, '#fff1d6', 4);
+}
+
+/* ------------------------------------------------------------ arcade door */
+// End of corridor A, just before the turn to the locker room: a door to the mini-game GOUAL STREET.
+// The tour stops in front of it; PLAY swings it open onto Rio, and the game opens full screen.
+const arcade = { open: 0, target: 0, playing: false, covered: false };
+const arcadeDoor = new THREE.Group(); indoor.add(arcadeDoor);
+{
+  const X = 45.75, Z = 13, W = 1.06, H = 2.0;
+  const neon = new THREE.MeshStandardMaterial({ color: '#ffd400', emissive: '#ffc400', emissiveIntensity: 2.2 });
+  // Poster on the door: the game's cover, title and a PLAY tag.
+  const drawPoster = (c, w, h, img) => {
+    c.fillStyle = '#0d1b4d'; c.fillRect(0, 0, w, h);
+    if (img) { const s = (h * 0.6) / img.height, iw = img.width * s; c.drawImage(img, (w - iw) / 2 - iw * 0.02, h * 0.22, iw, h * 0.6); }
+    let g = c.createLinearGradient(0, h * 0.2, 0, h * 0.34); g.addColorStop(0, '#0d1b4d'); g.addColorStop(1, 'rgba(13,27,77,0)'); c.fillStyle = g; c.fillRect(0, h * 0.2, w, h * 0.15);
+    g = c.createLinearGradient(0, h * 0.66, 0, h * 0.82); g.addColorStop(0, 'rgba(13,27,77,0)'); g.addColorStop(1, '#0d1b4d'); c.fillStyle = g; c.fillRect(0, h * 0.66, w, h * 0.17);
+    c.textAlign = 'center'; c.fillStyle = '#fff'; c.font = '900 118px Impact, "Arial Black", sans-serif';
+    c.fillText('GOUAL', w / 2, 128); c.fillText('STREET', w / 2, 236);
+    c.save(); c.translate(w / 2, 300); c.rotate(-0.05); c.fillStyle = '#ff2d78'; c.font = 'italic 900 52px "Arial Black", Impact, sans-serif'; c.fillText('THE NEXT GEM', 4, 4); c.fillStyle = '#ffd400'; c.fillText('THE NEXT GEM', 0, 0); c.restore();
+    c.fillStyle = '#ffd400'; c.beginPath(); c.roundRect(w / 2 - 150, h - 150, 300, 84, 42); c.fill();
+    c.fillStyle = '#111'; c.font = '900 50px Impact, "Arial Black", sans-serif'; c.fillText('▶ PLAY', w / 2, h - 90);
+    c.fillStyle = 'rgba(255,255,255,.75)'; c.font = '700 24px Arial, sans-serif'; c.fillText('MINI-GAME · RIO DE JANEIRO', w / 2, h - 26);
+    c.strokeStyle = '#ffd400'; c.lineWidth = 10; c.strokeRect(5, 5, w - 10, h - 10);
+  };
+  const posterTex = canvasTex(512, 1024, (c, w, h) => drawPoster(c, w, h, null));
+  const cover = new Image();
+  cover.onload = () => { drawPoster(posterTex.image.getContext('2d'), 512, 1024, cover); posterTex.needsUpdate = true; };
+  cover.src = 'street/cover-small.jpg';
+  // Door leaf on a hinge (left jamb seen from the corridor), swinging away from the visitor.
+  const hinge = new THREE.Group(); hinge.position.set(X + 0.02, FLOOR, Z - W / 2); arcadeDoor.add(hinge);
+  box(0.05, H, W, mat('#1b2140', { roughness: 0.35, metalness: 0.5 }), hinge, 0, H / 2, W / 2, { cast: false });
+  const poster = mesh(new THREE.PlaneGeometry(W * 0.9, H * 0.92), new THREE.MeshStandardMaterial({ map: posterTex, roughness: 0.35, emissive: '#ffffff', emissiveMap: posterTex, emissiveIntensity: 0.35 }), hinge, -0.03, H / 2, W / 2, { cast: false });
+  poster.rotation.y = -Math.PI / 2;
+  mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.32, 10), mat('#d9d9d9', { metalness: 0.9, roughness: 0.25 }), hinge, -0.07, H * 0.5, W - 0.1, { cast: false });
+  arcade.hinge = hinge; arcade.hit = [poster];
+  // Neon frame and a glowing sign on the lintel.
+  box(0.05, H + 0.06, 0.05, neon, arcadeDoor, X - 0.03, FLOOR + H / 2, Z - W / 2 - 0.03, { cast: false });
+  box(0.05, H + 0.06, 0.05, neon, arcadeDoor, X - 0.03, FLOOR + H / 2, Z + W / 2 + 0.03, { cast: false });
+  box(0.05, 0.05, W + 0.11, neon, arcadeDoor, X - 0.03, FLOOR + H + 0.03, Z, { cast: false });
+  const signTex = canvasTex(512, 64, (c, w, h) => { c.fillStyle = '#0d1b4d'; c.fillRect(0, 0, w, h); c.fillStyle = '#ffd400'; c.font = '900 40px Impact, "Arial Black", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.shadowColor = '#ffd400'; c.shadowBlur = 14; c.fillText('ARCADE · GOUAL STREET', w / 2, h / 2 + 2); });
+  const sign = mesh(new THREE.PlaneGeometry(0.98, 0.12), new THREE.MeshBasicMaterial({ map: signTex, toneMapped: false }), arcadeDoor, X - 0.06, FLOOR + 2.11, Z, { cast: false, receive: false });
+  sign.rotation.y = -Math.PI / 2;
+  // Behind the door: a small room whose back wall is a window onto the favela.
+  const dark = mat('#141a33', { roughness: 0.9 });
+  box(1.7, 0.05, 1.5, dark, arcadeDoor, X + 0.9, FLOOR - 0.03, Z, { cast: false });
+  box(1.7, 0.05, 1.5, dark, arcadeDoor, X + 0.9, FLOOR + 2.23, Z, { cast: false });
+  box(1.7, 2.25, 0.05, dark, arcadeDoor, X + 0.9, FLOOR + 1.1, Z - 0.75, { cast: false });
+  box(1.7, 2.25, 0.05, dark, arcadeDoor, X + 0.9, FLOOR + 1.1, Z + 0.75, { cast: false });
+  const view = new THREE.TextureLoader().load('street/cover.jpg'); view.colorSpace = THREE.SRGBColorSpace;
+  view.repeat.set(0.62, 1); view.offset.set(0.24, 0);
+  const win = mesh(new THREE.PlaneGeometry(1.45, 2.2), new THREE.MeshBasicMaterial({ map: view, toneMapped: false }), arcadeDoor, X + 1.72, FLOOR + 1.1, Z, { cast: false, receive: false });
+  win.rotation.y = -Math.PI / 2;
+  lampAt(44.9, FLOOR + 1.9, Z, '#ffd400', 3, 4);
 }
 
 /* ------------------------------------------------------------ locker room */
@@ -851,7 +905,7 @@ const KEYS = [
   { pos: [26, EYE, 13], look: [30, EYE - 0.1, 14] },
   { station: 2, pos: [29.6, EYE - 0.15, 11.95], look: [29.6, FLOOR + 1.3, 14.4] },
   { pos: [33, EYE, 13], look: [40, EYE, 13] },
-  { pos: [41, EYE, 13], look: [46, EYE, 11] },
+  { game: true, pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13] },           // the arcade door (mini-game)
   { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6] },                           // corner
   { pos: [44.3, EYE, 7.2], look: [43, EYE - 0.1, 2] },
   { pos: [44, EYE, 4.2], look: [37.5, FLOOR + 1.2, 0.5] },                    // into the locker room
@@ -874,9 +928,10 @@ const KEYS = [
 {
   const last = KEYS.length - 1;
   const cost = KEYS.map((k, i) => i ? Math.pow(k.pos.distanceTo(KEYS[i - 1].pos), 0.6) * (k.w || 1) : 0);
-  const sum = cost.slice(0, last).reduce((a, b) => a + b, 0), holds = KEYS.filter(k => k.station != null).length * HOLD;
+  const holdOf = k => k.station != null ? HOLD : k.game ? HOLD * 1.5 : 0;
+  const sum = cost.slice(0, last).reduce((a, b) => a + b, 0), holds = KEYS.reduce((a, k) => a + holdOf(k), 0);
   let acc = 0;
-  KEYS.forEach((k, i) => { acc += cost[i] / sum * (0.93 - holds); k.p = acc; if (k.station != null) acc += HOLD; k.hold = acc; });
+  KEYS.forEach((k, i) => { acc += cost[i] / sum * (0.93 - holds); k.p = acc; acc += holdOf(k); k.hold = acc; });
   KEYS[last].p = KEYS[last].hold = 1;
 }
 let posCurve, lookCurve;
@@ -893,7 +948,7 @@ function curveParam(p) {
     if (p <= a.hold) return U(i);
     if (p < b.p) {
       let t = (p - a.hold) / (b.p - a.hold);
-      const easeOut = a.station != null || i === 0, easeIn = b.station != null;
+      const easeOut = a.station != null || a.game || i === 0, easeIn = b.station != null || b.game;
       t = easeOut && easeIn ? t * t * (3 - 2 * t) : easeIn ? 1 - (1 - t) * (1 - t) : easeOut ? t * t : t;
       return U(i) + t * (U(i + 1) - U(i));
     }
@@ -1012,7 +1067,7 @@ const sound = {
     const t = this.ctx.currentTime;
     for (const [z, g] of Object.entries(this.zones)) {
       const w = mix[z] || 0;
-      g.gain.setTargetAtTime(w, t, 0.6);
+      g.gain.setTargetAtTime(arcade.playing ? 0 : w, t, 0.6);
       const ev = this.events[z];
       if (ev && w > 0.05 && t >= this.next[z]) {
         this.next[z] = t + ev[0] + Math.random() * (ev[1] - ev[0]);
@@ -1020,7 +1075,7 @@ const sound = {
       }
     }
     this.wet.gain.setTargetAtTime(0.18 + (mix.tunnel || 0) * 0.5 + (mix.locker || 0) * 0.3, t, 0.5);
-    this.musicGain.gain.setTargetAtTime(lightbox.hidden ? 0.22 : 0.04, t, 0.4);   // almost silent while a film plays
+    this.musicGain.gain.setTargetAtTime(arcade.playing ? 0 : lightbox.hidden ? 0.22 : 0.04, t, 0.4);   // almost silent while a film plays, off during the game
     // Footsteps on hard floors while the camera moves indoors.
     if (walking && t - this.lastStep > 0.52) {
       this.lastStep = t;
@@ -1060,6 +1115,12 @@ STATIONS.forEach((st, i) => {
   el.innerHTML = `<div class="card"><div class="place">${String(i + 1).padStart(2, '0')} — ${st.place}</div><h2>${st.title}</h2><button type="button" class="play" data-open="${i}"><i>▶</i>PLAY FILM</button><span class="hint">or click the screen</span></div>`;
   contactEl.before(el);
 });
+{
+  const k = KEYS.find(k => k.game), el = document.createElement('section');
+  el.className = 'chapter station arcade-stop'; el.dataset.range = `${k.p - 0.02},${k.hold + 0.02}`;
+  el.innerHTML = `<div class="card"><div class="place">MINI-GAME — THE ARCADE DOOR</div><h2>GOUAL STREET</h2><p class="pitch">Play CR7 in the favelas of Rio and find the next Brazilian gem.</p><button type="button" class="play" data-arcade><i>▶</i>PLAY</button><span class="hint">or click the door</span></div>`;
+  contactEl.before(el);
+}
 const chapterEls = [...document.querySelectorAll('.chapter')];
 const stageNum = $('#stage-num'), bar = $('#progress-bar');
 stageNum.textContent = `00 / ${TOTAL}`;
@@ -1093,19 +1154,49 @@ function screenAt(x, y) {
   const hit = ray.intersectObjects(hitTargets(), false).find(h => shown(h.object));
   return hit && hit.distance < (hit.object.userData.station ? 12 : 60) ? hit.object.userData.station : null;
 }
+function doorAt(x, y) {
+  if (!indoor.visible || !arcade.hit || !atArcade()) return false;
+  ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  return ray.intersectObjects(arcade.hit, false).length > 0;
+}
 let downAt = null;
 canvas.addEventListener('pointerdown', e => (downAt = { x: e.clientX, y: e.clientY }));
 canvas.addEventListener('pointerup', e => {
   if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 8) return;
   const s = screenAt(e.clientX, e.clientY);
   if (s != null) openFilm(s);
+  else if (doorAt(e.clientX, e.clientY)) openArcade();
 });
+
+/* ----------------------------------------------------------------- arcade */
+const arcadeEl = $('#arcade'), arcadeFrame = $('#arcade iframe');
+function openArcade() {
+  if (arcade.playing || state !== 'ready') return;
+  arcade.playing = true; arcade.target = 1; sound.pop(); body.classList.add('arcade-on');
+  setTimeout(() => {
+    arcadeFrame.src = 'street/index.html?embed=1';
+    arcadeEl.hidden = false; requestAnimationFrame(() => arcadeEl.classList.add('open'));
+    setTimeout(() => { arcade.covered = true; arcadeFrame.focus(); }, 700);
+  }, 1150);
+}
+function closeArcade(then) {
+  arcade.covered = false; arcadeEl.classList.remove('open'); arcade.target = 0;
+  setTimeout(() => { arcadeEl.hidden = true; arcadeFrame.removeAttribute('src'); arcade.playing = false; body.classList.remove('arcade-on'); then && then(); }, 600);
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-arcade]')) openArcade(); });
+addEventListener('message', e => {
+  if (e.origin !== location.origin || e.data?.type !== 'goual-street') return;
+  if (e.data.action === 'close') closeArcade();
+  if (e.data.action === 'contact') closeArcade(() => { target = 1; sound.whoosh(); });
+  if (e.data.action === 'ready') arcadeFrame.focus();
+});
+const atArcade = () => { const k = KEYS.find(k => k.game); return progress >= k.p - 0.02 && progress <= k.hold + 0.02; };
 
 /* ------------------------------------------------------------- navigation */
 let state = 'loading', progress = 0, target = 0;
 let freeCam = null;   // debug only
 const mouse = new THREE.Vector2(), mouseSmooth = new THREE.Vector2();
-const blocked = () => state !== 'ready' || !lightbox.hidden;
+const blocked = () => state !== 'ready' || !lightbox.hidden || arcade.playing;
 function addScroll(d) { if (!blocked()) target = clamp(target + d, 0, 1); }
 // Inside the contact page, let the page itself scroll; only leave it (back up the tour) from its top.
 const contactPage = $('.chapter.contact');
@@ -1140,7 +1231,7 @@ document.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('clic
 }));
 addEventListener('pointermove', e => {
   mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
-  if (state === 'ready' && e.pointerType === 'mouse') canvas.classList.toggle('hot', screenAt(e.clientX, e.clientY) != null);
+  if (state === 'ready' && e.pointerType === 'mouse') canvas.classList.toggle('hot', screenAt(e.clientX, e.clientY) != null || doorAt(e.clientX, e.clientY));
 });
 
 /* ----------------------------------------------------------------- loader */
@@ -1215,6 +1306,7 @@ function adaptResolution(rawDt) {
 }
 function frame() {
   const rawDt = clock.getDelta(), dt = Math.min(rawDt, 0.05), t = clock.elapsedTime;
+  if (arcade.covered) { requestAnimationFrame(frame); return; }      // the game is full screen: rest
   adaptResolution(rawDt);
   if (state === 'loading') updateLoader();
 
@@ -1223,6 +1315,13 @@ function frame() {
   camera.position.copy(posCurve.getPoint(u));
   lookAt.copy(lookCurve.getPoint(u));
   camera.lookAt(lookAt);
+  // Arcade door: swing it open and walk the camera through.
+  arcade.open += (arcade.target - arcade.open) * (1 - Math.exp(-dt * (arcade.target ? 2.4 : 4)));
+  if (arcade.hinge) arcade.hinge.rotation.y = Math.min(1, arcade.open * 1.5) * 1.55;
+  if (arcade.open > 0.001) {
+    const e = smooth(0.25, 1, arcade.open) * 0.9;
+    camera.position.lerp(V(46.2, EYE, 13), e); lookAt.lerp(V(48, FLOOR + 1.15, 13), e); camera.lookAt(lookAt);
+  }
   if (freeCam) { camera.position.copy(freeCam[0]); camera.lookAt(freeCam[1]); }
   fitNearPlane();
   // Portrait screens are narrow: back the camera away from each screen until it fits the width.

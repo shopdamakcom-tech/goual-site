@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>GOUAL STREET — The Next Gem</title>
+<meta name="description" content="GOUAL STREET: find the next Brazilian gem in the favelas of Rio. A GOUAL ART mini-game.">
+<meta name="theme-color" content="#0d1b4d">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d1b4d'/><circle cx='16' cy='16' r='9' fill='%23ffd400'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Permanent+Marker&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root { --y: #ffd400; --b: #0d1b4d; --p: #ff2d78; --c: #2ee6ff; --ink: #fff; --glass: rgba(10, 14, 30, 0.62); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1b4d; color: var(--ink); font-family: Inter, system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  kbd { display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 7px; border-radius: 8px; border: 2px solid rgba(255,255,255,.75); font: 800 14px Inter, sans-serif; background: rgba(0,0,0,.35); }
+
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #obj { position: absolute; left: max(16px, env(safe-area-inset-left)); top: 16px; background: var(--glass); border-left: 4px solid var(--y); padding: 10px 16px 11px; border-radius: 4px 12px 12px 4px; max-width: min(420px, 70vw); backdrop-filter: blur(6px); }
+  #obj .chap { font: 22px 'Bebas Neue', sans-serif; letter-spacing: .12em; color: var(--y); line-height: 1; }
+  #obj .txt { margin-top: 4px; font-weight: 600; font-size: 15px; }
+  #obj .txt i { color: var(--y); font-style: normal; margin-right: 6px; }
+  #stats { position: absolute; right: 116px; top: 18px; display: flex; gap: 10px; font: 20px 'Bebas Neue'; letter-spacing: .08em; }
+  #stats > div { background: var(--glass); padding: 6px 12px; border-radius: 10px; }
+  #stats b { color: var(--y); font-weight: 400; }
+  .topbtn { position: absolute; top: 14px; width: 42px; height: 42px; border-radius: 12px; border: 0; background: var(--glass); pointer-events: auto; font-size: 17px; display: grid; place-items: center; }
+  #pauseBtn { right: 64px; } #closeBtn { right: 14px; }
+  #marker { position: absolute; left: 0; top: 0; transform: translate(-50%, -100%); text-align: center; font: 600 12px Inter; text-shadow: 0 1px 3px #000; }
+  #marker i { display: block; width: 18px; height: 18px; margin: 0 auto 3px; background: var(--y); transform: rotate(45deg); box-shadow: 0 0 14px var(--y); border: 2px solid #fff; animation: bob 1.4s ease-in-out infinite; }
+  #marker.edge i { background: var(--p); box-shadow: 0 0 14px var(--p); }
+  @keyframes bob { 50% { translate: 0 -5px; } }
+  #prompt { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; padding: 9px 20px 9px 10px; background: var(--glass); border-radius: 30px; font-weight: 600; pointer-events: auto; }
+  #hint { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 7px 16px; border-radius: 8px; background: rgba(0,0,0,.45); font-size: 13px; white-space: nowrap; transition: opacity .6s; }
+  #toast { position: absolute; left: 50%; top: 24%; transform: translate(-50%, -50%) rotate(-4deg); font: 76px 'Permanent Marker', cursive; color: var(--y); text-shadow: 4px 4px 0 var(--p), 0 0 30px rgba(0,0,0,.6); opacity: 0; white-space: nowrap; }
+  #toast.go { animation: pop 1.6s ease-out; }
+  @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-4deg) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -50%) rotate(-4deg) scale(1.1); } 25% { transform: translate(-50%, -50%) rotate(-4deg) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -60%) rotate(-4deg) scale(1); } }
+  #style { position: absolute; left: 50%; top: 34%; transform: translateX(-50%); font: 26px 'Bebas Neue'; letter-spacing: .1em; color: var(--c); text-shadow: 0 2px 6px #000; opacity: 0; transition: opacity .3s; }
+  /* subtitles */
+  #sub { position: absolute; left: 50%; bottom: 40px; transform: translateX(-50%); width: min(820px, 92vw); text-align: center; pointer-events: auto; }
+  #sub .box { display: inline-block; background: rgba(0,0,0,.72); padding: 12px 20px 14px; border-radius: 10px; font-size: clamp(16px, 2.2vw, 21px); line-height: 1.4; }
+  #sub .who { display: block; font: 18px 'Bebas Neue'; letter-spacing: .14em; margin-bottom: 2px; }
+  #sub .next { display: block; margin-top: 6px; font-size: 11px; opacity: .55; letter-spacing: .08em; }
+  /* challenges */
+  #meter { position: absolute; right: 12%; top: 50%; transform: translateY(-50%); width: 64px; height: 300px; }
+  #meter .track { position: absolute; left: 22px; top: 0; bottom: 0; width: 20px; border-radius: 10px; background: rgba(0,0,0,.55); border: 2px solid rgba(255,255,255,.5); overflow: hidden; }
+  #meter .zone { position: absolute; left: 0; right: 0; background: rgba(46, 230, 120, .65); }
+  #meter .perfect { position: absolute; left: 0; right: 0; background: rgba(255, 212, 0, .9); }
+  #meter .ball { position: absolute; left: 14px; width: 36px; height: 36px; margin-top: -18px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #ddd 50%, #888); box-shadow: 0 0 0 3px #111 inset, 0 2px 8px #000; }
+  #count { position: absolute; left: 50%; top: 13%; transform: translateX(-50%); font: 64px 'Bebas Neue'; color: #fff; text-shadow: 0 3px 10px #000; letter-spacing: .05em; }
+  #count small { font-size: 28px; opacity: .7; }
+  #power { position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%); width: min(360px, 70vw); height: 18px; border-radius: 9px; background: rgba(0,0,0,.6); border: 2px solid rgba(255,255,255,.6); overflow: hidden; }
+  #power i { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, #2ee67a, #ffd400 70%, #ff2d55); }
+  #power::after { content: ''; position: absolute; left: 92%; top: 0; bottom: 0; width: 2px; background: #fff; }
+  #tally { position: absolute; left: 50%; top: 13%; transform: translateX(-50%); display: flex; gap: 10px; }
+  #tally span { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255,255,255,.7); background: rgba(0,0,0,.4); display: grid; place-items: center; font: 800 18px Inter; }
+  #tally span.g { background: #2ee67a; color: #062; border-color: #fff; } #tally span.m { background: #ff2d55; border-color: #fff; }
+  /* touch controls */
+  #touch { position: fixed; inset: 0; pointer-events: none; }
+  #stick { position: absolute; left: 0; bottom: 0; width: 50%; height: 60%; pointer-events: auto; }
+  #stick .base { position: absolute; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); background: rgba(0,0,0,.18); left: 90px; top: calc(100% - 110px); }
+  #stick .nub { position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(255,255,255,.55); left: 60px; top: 60px; }
+  #btns { position: absolute; right: max(14px, env(safe-area-inset-right)); bottom: 24px; display: grid; grid-template-columns: repeat(2, 64px); gap: 12px; pointer-events: auto; }
+  #btns button { width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255,255,255,.6); background: rgba(0,0,0,.35); font: 800 11px Inter; letter-spacing: .04em; display: grid; place-items: center; }
+  #btns button.big { background: rgba(255,212,0,.25); border-color: var(--y); }
+  #btns button.on { background: rgba(46,230,255,.35); }
+  /* screens */
+  .screen { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(ellipse at 30% 60%, rgba(13,27,77,.2), rgba(5,8,20,.82)); z-index: 5; padding: 20px; }
+  .panel { width: min(560px, 100%); }
+  #title .panel { justify-self: start; margin-left: clamp(0px, 7vw, 120px); }
+  .logo { font: clamp(64px, 12vw, 132px) 'Bebas Neue'; line-height: .82; letter-spacing: .02em; margin: 0; }
+  .logo span { display: block; font: clamp(30px, 5.4vw, 58px) 'Permanent Marker'; color: var(--y); transform: rotate(-3deg); text-shadow: 3px 3px 0 var(--p); margin-top: 10px; }
+  .kicker { font: 18px 'Bebas Neue'; letter-spacing: .3em; color: var(--c); margin-bottom: 8px; }
+  .lede { opacity: .82; line-height: 1.5; max-width: 470px; margin: 18px 0 24px; }
+  .menu { display: grid; gap: 10px; max-width: 340px; }
+  .menu button { text-align: left; padding: 14px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.07); font-weight: 600; letter-spacing: .03em; }
+  .menu button.primary { background: var(--y); color: #111; border-color: var(--y); font: 26px 'Bebas Neue'; letter-spacing: .1em; padding: 12px 18px 10px; }
+  .menu button:hover { filter: brightness(1.15); }
+  .controls { display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; align-items: center; font-size: 14px; margin: 14px 0 22px; }
+  .controls div:nth-child(odd) { display: flex; gap: 5px; flex-wrap: wrap; }
+  .credits { margin-top: 22px; font-size: 11px; opacity: .55; line-height: 1.5; }
+  #end .big { font: clamp(54px, 10vw, 110px) 'Bebas Neue'; line-height: .85; margin: 0; }
+  #end .big span { display: block; color: var(--y); font-family: 'Permanent Marker'; font-size: .5em; transform: rotate(-3deg); margin-top: 10px; }
+  .scores { display: flex; gap: 12px; margin: 22px 0 26px; flex-wrap: wrap; }
+  .scores div { background: rgba(255,255,255,.08); border-radius: 10px; padding: 10px 16px; min-width: 110px; }
+  .scores b { display: block; font: 34px 'Bebas Neue'; color: var(--y); line-height: 1; }
+  .scores small { opacity: .7; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 9; background: #0d1b4d; }
+  #loading .bar { width: 220px; height: 4px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; margin-top: 14px; }
+  #loading .bar i { display: block; height: 100%; width: 0; background: var(--y); transition: width .3s; }
+  #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 4; }
+  #letterbox::before, #letterbox::after { content: ''; position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .5s; z-index: 1; }
+  #letterbox::before { top: 0; } #letterbox::after { bottom: 0; }
+  #letterbox.on::before, #letterbox.on::after { height: 7vh; }
+  @media (max-width: 700px) {
+    #stats { top: auto; bottom: auto; right: 112px; font-size: 16px; } #stats > div { padding: 5px 8px; }
+    #obj { top: 66px; } #obj .txt { font-size: 13px; }
+    #toast { font-size: 48px; }
+    #prompt { bottom: 236px; }
+    #hint { white-space: normal; width: max-content; max-width: calc(100vw - 32px); text-align: center; bottom: auto; top: 128px; font-size: 12px; }
+    #meter { right: 24px; height: 240px; }
+    #sub { bottom: 236px; }
+    #title .panel { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="letterbox"></div>
+<div id="hud" class="hidden">
+  <div id="obj"><div class="chap"></div><div class="txt"><i>◆</i><span></span></div></div>
+  <div id="stats"><div>STYLE <b id="styleN">0</b></div><div>CARDS <b id="cardsN">0/8</b></div></div>
+  <div id="marker" class="hidden"><i></i><span></span></div>
+  <div id="prompt" class="hidden"><kbd>E</kbd><span></span></div>
+  <div id="hint"></div>
+  <div id="toast"></div>
+  <div id="style"></div>
+  <div id="sub" class="hidden"><div class="box"><b class="who"></b><span class="line"></span><span class="next">CLICK / SPACE ▸</span></div></div>
+  <div id="meter" class="hidden"><div class="track"><div class="zone"></div><div class="perfect"></div></div><div class="ball"></div></div>
+  <div id="count" class="hidden"></div>
+  <div id="power" class="hidden"><i></i></div>
+  <div id="tally" class="hidden"></div>
+  <button class="topbtn" id="pauseBtn" aria-label="Pause">❚❚</button>
+</div>
+<button class="topbtn" id="closeBtn" aria-label="Close the game" style="position:fixed;z-index:8">✕</button>
+<div id="touch" class="hidden">
+  <div id="stick"><div class="base"><div class="nub"></div></div></div>
+  <div id="btns">
+    <button id="bTrick">TRICK</button><button id="bSiu">SIUUU</button>
+    <button id="bShoot">SHOOT</button><button id="bJump" class="big">JUMP</button>
+    <button id="bRun">SPRINT</button><button id="bAct" class="big">E</button>
+  </div>
+</div>
+<div id="title" class="screen hidden">
+  <div class="panel">
+    <div class="kicker">GOUAL ART PRESENTS</div>
+    <h1 class="logo">GOUAL STREET<span>The Next Gem</span></h1>
+    <p class="lede">Rio de Janeiro, Morro da Goual. Somewhere in these alleys plays a kid nobody can take the ball off. They call him <b>O Fantasma</b>. Every club in Europe wants him. Find him first.</p>
+    <div class="menu">
+      <button class="primary" id="playBtn">▶ PLAY</button>
+      <button id="ctrlBtn">Controls</button>
+    </div>
+  </div>
+</div>
+<div id="menu" class="screen hidden">
+  <div class="panel">
+    <div class="kicker" id="menuKicker">PAUSED</div>
+    <div class="controls" id="ctrlList"></div>
+    <div class="menu">
+      <button class="primary" id="resumeBtn">RESUME</button>
+      <button id="soundBtn">Sound: on</button>
+      <button id="voiceBtn">Voices: on</button>
+      <button id="restartBtn">Restart the mission</button>
+      <button id="quitBtn">Back to the GOUAL ART tour</button>
+    </div>
+    <p class="credits">CR7 model: “3D Rigged Cristiano Ronaldo Al Nassr” by Lean_Lo1786 (Sketchfab), CC BY 4.0. Favela, sounds and animation made in code by GOUAL ART.</p>
+  </div>
+</div>
+<div id="end" class="screen hidden">
+  <div class="panel">
+    <div class="kicker">MISSION COMPLETE</div>
+    <h2 class="big">GEM FOUND<span>Welcome to GOUAL ART, Davi</span></h2>
+    <div class="scores"><div><b id="eTime">0:00</b><small>Time</small></div><div><b id="eCards">0/8</b><small>Cards</small></div><div><b id="eStyle">0</b><small>Style</small></div></div>
+    <div class="menu">
+      <button class="primary" id="tourBtn">BACK TO THE TOUR</button>
+      <button id="contactBtn">Make a film with GOUAL ART</button>
+      <button id="againBtn">Play again</button>
+    </div>
+  </div>
+</div>
+<div id="fade"></div>
+<div id="loading"><div style="text-align:center"><div class="logo" style="font-size:54px">GOUAL STREET</div><div class="bar"><i></i></div><div id="loadTxt" style="margin-top:10px;font-size:12px;opacity:.6">Loading the favela…</div></div></div>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
+<script type="module" src="game.js?v=1"></script>
+</body>
+</html>
