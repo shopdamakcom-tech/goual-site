@@ -116,3 +116,10 @@ body.menu-open #burger i:nth-child(1){transform:translateY(6px) rotate(45deg)}bo
 body.menu-open .top{color:var(--ink);text-shadow:none;z-index:6;position:absolute}
 .contact .formation-link{margin-top:14px;font:600 15px var(--round);color:var(--coral);text-decoration:none;align-self:flex-start;border-bottom:2px solid currentColor;padding-bottom:2px}
 @media(max-width:767px){#burger{display:block}#sound .label{display:none}}
+
+/* Speaker icon for the sound button on phones (muted cross when off, waves when on). */
+#sound .spk{display:none;width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#sound .spk .cone{fill:#fff}
+#sound .spk .waves{display:none}#sound[aria-pressed=true] .spk .waves{display:inline}#sound[aria-pressed=true] .spk .mute{display:none}
+body.end #sound .spk,body.menu-open #sound .spk{stroke:var(--ink)}body.end #sound .spk .cone,body.menu-open #sound .spk .cone{fill:var(--ink)}
+@media(max-width:767px){#sound{width:44px;height:44px;justify-content:center;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid #fff;backdrop-filter:blur(6px)}#sound .bars{display:none}#sound .spk{display:block}body.end #sound{border-color:var(--ink)}}
