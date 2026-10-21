@@ -130,3 +130,10 @@ body.end #sound .spk,body.menu-open #sound .spk{stroke:var(--ink)}body.end #soun
 .intro h1 .brand{display:block;width:min(86vw,1100px);height:auto;filter:drop-shadow(0 4px 0 rgba(10,14,30,.35)) drop-shadow(0 10px 30px rgba(10,14,30,.6))}
 body.end .logo img,body.menu-open .logo img{filter:drop-shadow(0 0 1px rgba(10,14,30,.9)) brightness(.55)}
 @media(max-width:767px){.logo img{width:118px}}
+
+/* Brush GOUAL ART logo */
+.logo img{width:104px;filter:drop-shadow(0 2px 6px rgba(10,14,30,.45))}
+.logo span{display:none}
+.intro h1 .brand{width:min(70vw,560px);max-height:44svh;object-fit:contain;filter:drop-shadow(0 8px 24px rgba(10,14,30,.45))}
+body.end .logo img,body.menu-open .logo img{filter:drop-shadow(0 2px 6px rgba(10,14,30,.45))}
+@media(max-width:767px){.logo img{width:86px}.intro h1 .brand{width:88vw}}
