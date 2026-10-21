@@ -626,7 +626,7 @@ lampAt(22.6, 2.4, 13); lampAt(27.4, FLOOR + 2.0, 13); lampAt(32, FLOOR + 2.0, 13
 const indoor = new THREE.Group(); indoor.visible = false; scene.add(indoor);
 {
   const H = 2.2, T = 0.1;
-  const wallMat = mat('#d6d1c8', { roughness: 0.85 }), floorMat = mat('#3a3f4b', { roughness: 0.7 }), ceilMat = mat('#f4f2ee', { roughness: 0.9 });
+  const wallMat = mat('#2b2e3a', { roughness: 0.8 }), floorMat = mat('#1d2029', { roughness: 0.45, metalness: 0.2 }), ceilMat = mat('#16181f', { roughness: 0.9 });
   const stripe = mat('#5b2a86', { roughness: 0.6 }), led = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fff6e0', emissiveIntensity: 1.4 });
   const add = (w, h, d, m, x, y, z) => box(w, h, d, m, indoor, x, y, z, { cast: false });
   const wallX = (x, z0, z1) => { add(T, H, z1 - z0, wallMat, x, FLOOR + H / 2, (z0 + z1) / 2); add(T * 1.2, 0.3, z1 - z0, stripe, x, FLOOR + 0.15, (z0 + z1) / 2); };
@@ -648,6 +648,57 @@ const indoor = new THREE.Group(); indoor.visible = false; scene.add(indoor);
   slab(38.5, -8.32, 39.8, -6.0, false); slab(34.42, -7.45, 38.5, -6.0, true);
   wallX(39.8, -8.32, -6.0); wallX(38.5, -8.32, -7.45); wallZ(-6.0, 34.42, 39.8); wallZ(-7.45, 34.42, 38.5);
   lampAt(37, FLOOR + 2, -6.7, '#fff1d6', 4);
+}
+
+/* -------------------------------------------------------- hall of fame */
+// Framed portraits along corridor A, each with a small spotlight and a name plate.
+// To change a photo or a name, edit this list (photos live in photos/).
+const hallLights = [];
+const HALL = [
+  // [file, wall: 's' (right when walking to the door) or 'n', x, name]
+  ['hall-01.webp', 's', 35.0, 'YAMAL'],
+  ['hall-02.webp', 's', 36.75, 'OLISE'],
+  ['hall-03.webp', 's', 38.5, 'KVARA'],
+  ['hall-04.webp', 's', 40.25, 'HARRY KANE'],
+  ['hall-05.webp', 's', 42.0, 'HAALAND'],
+  ['hall-06.webp', 'n', 35.6, 'RODRI'],
+  ['hall-07.webp', 'n', 37.35, 'MESSI'],
+  ['hall-08.webp', 'n', 39.1, 'DEMBÉLÉ'],
+  ['hall-09.webp', 'n', 40.85, 'MBAPPÉ'],
+];
+{
+  const loader = new THREE.TextureLoader();
+  const frameMat = mat('#101217', { roughness: 0.35, metalness: 0.4 }), brass = mat('#c9a24a', { roughness: 0.3, metalness: 0.8 });
+  const fixture = mat('#1b1d24', { roughness: 0.5, metalness: 0.6 });
+  // Soft pool of light on the wall around each frame.
+  const wash = canvasTex(128, 256, (c, w, h) => { const g = c.createRadialGradient(w / 2, h * 0.08, 4, w / 2, h * 0.35, h * 0.7); g.addColorStop(0, 'rgba(255,236,200,0.75)'); g.addColorStop(0.45, 'rgba(255,226,180,0.22)'); g.addColorStop(1, 'rgba(255,220,170,0)'); c.fillStyle = g; c.fillRect(0, 0, w, h); });
+  const washMat = new THREE.MeshBasicMaterial({ map: wash, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false });
+  HALL.forEach(([file, wall, x, name]) => {
+    const g = new THREE.Group(); indoor.add(g);
+    const south = wall === 's', z = south ? 14.44 - 0.05 - 0.02 : 11.56 + 0.05 + 0.02;
+    g.position.set(x, FLOOR + 1.3, z); g.rotation.y = south ? Math.PI : 0;
+    const photo = new THREE.MeshStandardMaterial({ color: '#404040', roughness: 0.45, emissive: '#ffffff', emissiveIntensity: 0.05 });
+    const myWash = washMat.clone(); myWash.opacity = 0;
+    hallLights.push({ x, photo, wash: myWash, v: 0, on: false, t: 0 });
+    const pic = mesh(new THREE.PlaneGeometry(1, 1), photo, g, 0, 0, 0.027, { cast: false });
+    const frame = box(1, 1, 0.04, frameMat, g, 0, 0, 0, { cast: false });
+    const plate = new THREE.Group(); g.add(plate);
+    loader.load('photos/' + file, t => {
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      photo.map = photo.emissiveMap = t; photo.needsUpdate = true;
+      const a = t.image.width / t.image.height, h = a < 0.8 ? 1.2 : 0.98, w = h * a;
+      pic.scale.set(w, h, 1); frame.scale.set(w + 0.09, h + 0.09, 1);
+      plate.position.y = -h / 2 - 0.16;
+      const top = h / 2 + 0.24;
+      box(0.16, 0.05, 0.05, fixture, g, 0, top, 0.05, { cast: false });
+      box(0.05, 0.05, 0.2, fixture, g, 0, top + 0.02, 0.14, { cast: false });
+      const wsh = mesh(new THREE.PlaneGeometry(w + 0.9, h + 1.1), myWash, g, 0, 0.05, 0.003, { cast: false, receive: false }); wsh.renderOrder = 1;
+    });
+    // Name plate (brass, engraved text).
+    box(0.62, 0.13, 0.015, brass, plate, 0, 0, 0.01, { cast: false });
+    const label = canvasTex(512, 108, (c, w, h) => { c.fillStyle = '#1a1405'; c.font = '800 54px Fredoka, "Arial Black", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(name, w / 2, h / 2 + 3); });
+    mesh(new THREE.PlaneGeometry(0.6, 0.126), new THREE.MeshStandardMaterial({ map: label, transparent: true, roughness: 0.4, metalness: 0.2 }), plate, 0, 0, 0.019, { cast: false });
+  });
 }
 
 /* ------------------------------------------------------------ arcade door */
@@ -904,8 +955,9 @@ const KEYS = [
   { pos: [23, 0.4, 13], look: [29, EYE - 0.1, 13] },                         // down the stairs
   { pos: [26, EYE, 13], look: [30, EYE - 0.1, 14] },
   { station: 2, pos: [29.6, EYE - 0.15, 11.95], look: [29.6, FLOOR + 1.3, 14.4] },
-  { pos: [33, EYE, 13], look: [40, EYE, 13] },
-  { game: true, pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13] },           // the arcade door (mini-game)
+  { pos: [33, EYE, 13], look: [40, EYE, 13], w: 2.2 },
+  { pos: [37.8, EYE, 13], look: [44, EYE - 0.1, 13], w: 2.8 },                 // hall of fame: slow
+  { game: true, pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13], w: 2.8 },           // the arcade door (mini-game)
   { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6] },                           // corner
   { pos: [44.3, EYE, 7.2], look: [43, EYE - 0.1, 2] },
   { pos: [44, EYE, 4.2], look: [37.5, FLOOR + 1.2, 0.5] },                    // into the locker room
@@ -1093,6 +1145,12 @@ const sound = {
     if (!this.on) return;
     const t = this.ctx.currentTime;
     this.noise(this.master, t, { freq: 300, sweepTo: 2200, q: 1.4, level: 0.2, attack: 0.2, decay: 0.6 });
+  },
+  click() {
+    if (!this.on) return;
+    const t = this.ctx.currentTime;
+    this.noise(this.master, t, { type: 'highpass', freq: 2500, level: 0.12, decay: 0.03 });
+    this.tone(this.master, t, { freq: 90, to: 60, level: 0.08, decay: 0.08 });
   },
   pop() {
     if (!this.on) return;
@@ -1354,6 +1412,16 @@ function frame() {
   tunnel.visible = inside || camera.position.distanceTo(V(26, 0, 13)) < 45;
   if (inside && coachHead && camera.position.x < 40 && camera.position.z < -5) lookAtCamera(dt);
   updateLamps(inside || tunnel.visible);
+  // Hall of fame: each frame lights up (with a little flicker and a click) as the camera reaches it.
+  if (inside) hallLights.forEach(L => {
+    const on = camera.position.x > L.x - 3.2 && Math.abs(camera.position.z - 13) < 2;
+    if (on && !L.on) { L.t = 0; sound.click(); }
+    L.on = on; L.t += dt;
+    const flick = L.on && L.t < 0.35 ? (Math.sin(L.t * 70) > 0 ? 1 : 0.25) : 1;
+    L.v += ((L.on ? 1 : 0) - L.v) * (1 - Math.exp(-dt * (L.on ? 5 : 2)));
+    const v = L.v * flick;
+    L.photo.color.setScalar(0.25 + 0.75 * v); L.photo.emissiveIntensity = 0.05 + 0.45 * v; L.wash.opacity = v;
+  });
   sun.intensity = inside ? 0 : 2.7;
 
   // Play only the films near the camera.
