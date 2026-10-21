@@ -373,7 +373,7 @@ function driveCars(dt) {
 }
 // The GOUAL ART logo as a 3D sign hanging in the sky in front of the first view; scrolling flies
 // the camera straight through it. Front face: the logo artwork; sides: glowing violet.
-const LOGO_FROM = V(0, 150, 14), LOGO_DIR = V(0, -150, -14).normalize(), LOGO_DIST = 32;
+const LOGO_FROM = new THREE.Vector3(0, 150, 14), LOGO_DIR = new THREE.Vector3(0, -150, -14).normalize(), LOGO_DIST = 32;
 const logo3d = new THREE.Group(); scene.add(logo3d);
 logo3d.position.copy(LOGO_FROM).addScaledVector(LOGO_DIR, LOGO_DIST);
 logo3d.up.set(0, 0, -1); logo3d.lookAt(LOGO_FROM);
