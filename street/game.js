@@ -1,12 +1,12 @@
-// GOUAL STREET — The Next Gem. A short third-person street football adventure in a Rio favela.
+// STREET FOOT — The Next Gem. A short third-person street football adventure in a Rio favela.
 // You play CR7: ask around, earn the street's respect, follow the tags over the rooftops and
 // find "O Fantasma", the kid nobody can take the ball off. Everything in English, with subtitles.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { buildWorld, buildBackdrop } from './world.js';
-import { Character, dress } from './rig.js';
-import { audio } from './audio.js';
+import { buildWorld, buildBackdrop } from './world.js?v=2';
+import { Character, dress } from './rig.js?v=2';
+import { audio } from './audio.js?v=2';
 
 const $ = s => document.querySelector(s);
 const V3 = THREE.Vector3;
@@ -330,7 +330,7 @@ function line(who, text) {
       if (done) return;
       shown = Math.min(text.length, Math.floor((performance.now() - t0) / 1000 * 42));
       lineEl.textContent = text.slice(0, shown);
-      if (IN.skip) { IN.skip = false; if (shown < text.length && performance.now() - t0 > 250) { shown = text.length; } else if (performance.now() - t0 > 250) { speechSynthesis?.cancel(); return finish(); } }
+      if (IN.skip) { IN.skip = false; if (shown < text.length && performance.now() - t0 > 250) { shown = text.length; } else if (performance.now() - t0 > 250) { audio.stopVoice(); return finish(); } }
       requestAnimationFrame(tick);
     };
     IN.skip = false; tick();
@@ -383,6 +383,7 @@ async function intro() {
   act(null, 0); P.action = null;
   $('#letterbox').classList.remove('on'); release(); popMode(); pushMode('free'); P.mode = 'free';
   if (TOUCH) $('#touch').classList.remove('hidden');
+  audio.base = 0; audio.carnival = 0;
   state.t0 = performance.now();
   hint(TOUCH ? 'Left thumb to move · drag to look · SHOOT, TRICK and SIUUU buttons' : 'WASD / ZQSD to move · mouse to look · Shift to sprint · Space to jump / climb', 7);
   setObjective('CHAPTER 1 · THE RUMOUR', 'Ask around at Bar do Zé', ze.root.position.clone().add(new V3(2, 0, 0)));
@@ -494,7 +495,7 @@ async function meetDavi() {
   endScreen();
 }
 function endScreen() {
-  state.stage = STAGES.END;
+  state.stage = STAGES.END; audio.base = 1; audio.carnival = 1;
   const t = Math.round(state.playTime); $('#eTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   $('#eCards').textContent = `${state.cards}/${cards.length}`; $('#eStyle').textContent = state.style.toLocaleString('en');
   $('#letterbox').classList.remove('on'); $('#end').classList.remove('hidden'); $('#hud').classList.add('hidden'); $('#touch').classList.add('hidden');
@@ -549,7 +550,7 @@ function finishJuggle(ok) {
   const J = state.juggle; state.juggle = null;
   $('#meter').classList.add('hidden'); $('#count').classList.add('hidden');
   ball.frozen = false; ball.vel.set(0, 3, 0.8);
-  toast('RESPECT!'); audio.cheer(1); kidsCheer = 2.5; addStyle(300, 'STREET RESPECT');
+  toast('RESPECT!'); audio.cheer(1); audio.shout(1, -0.4); setTimeout(() => audio.shout(1, 0.5), 300); audio.fiesta(4); kidsCheer = 2.5; addStyle(300, 'STREET RESPECT');
   kids.forEach(k => { k.watch = false; });
   thiago.root.position.set(0, 0, 15.6);
   act(null, 0); P.action = null; release(); popMode(); if (TOUCH) $('#touch').classList.remove('hidden');
@@ -642,7 +643,7 @@ function resolveShot() {
   const kx = davi.root.position.x, reach = 0.62 + (S.high ? -0.08 : 0.18);
   const saved = inGoal && Math.abs(to.x - kx) < reach && (to.y - W.laje.y < 1.6 + Math.abs(S.dive) * 0.5);
   const spans = $('#tally').children;
-  if (inGoal && !saved) { S.goals++; spans[S.shot].className = 'g'; spans[S.shot].textContent = '✓'; toast('GOOOL!'); audio.net(); audio.cheer(0.8); addStyle(400, 'PENALTY'); netKick = 0.5; S.after = dt => { ball.pos.z -= dt * 0.4; ball.pos.y = Math.max(W.laje.y + BALL_R, ball.pos.y - dt * 2); ball.mesh.position.copy(ball.pos); }; }
+  if (inGoal && !saved) { S.goals++; spans[S.shot].className = 'g'; spans[S.shot].textContent = '✓'; toast('GOOOL!'); audio.net(); audio.cheer(0.8); audio.fiesta(3); addStyle(400, 'PENALTY'); netKick = 0.5; S.after = dt => { ball.pos.z -= dt * 0.4; ball.pos.y = Math.max(W.laje.y + BALL_R, ball.pos.y - dt * 2); ball.mesh.position.copy(ball.pos); }; }
   else { spans[S.shot].className = 'm'; spans[S.shot].textContent = '✕'; toast(saved ? 'SAVED!' : 'MISSED!', '#ff2d55'); audio.ooh(); const v = new V3((Math.random() - 0.5) * 6, 3, 4); S.after = dt => { v.y -= 9.8 * dt; ball.pos.addScaledVector(v, dt); if (ball.pos.y < W.laje.y + BALL_R) { ball.pos.y = W.laje.y + BALL_R; v.y *= -0.4; v.x *= 0.8; v.z *= 0.8; } ball.mesh.position.copy(ball.pos); }; }
   S.phase = 'after'; S.at = 0;
 }
@@ -660,7 +661,7 @@ function siu(auto = false) {
   if (siuT >= 0) return;
   siuT = 0; act('siu', 1.9); P.vel.set(0, 0, 0);
   if (!auto) addStyle(200, 'SIUUU');
-  setTimeout(() => { audio.speak('CR7', 'Siiiuuuu!'); }, 380);
+  setTimeout(() => { audio.siu(); }, 380);
   setTimeout(() => { audio.cheer(1); kidsCheer = 2; cam.shake = 0.35; }, 1350);
 }
 
@@ -836,7 +837,7 @@ function updateBall(dt) {
   for (const g of W.goals) {
     const inMouth = Math.abs(ball.pos.z - g.z) < g.w / 2 - BALL_R && ball.pos.y < g.h;
     const crossed = g.dir > 0 ? ball.pos.x < g.x - 0.1 : ball.pos.x > g.x + 0.1;
-    if (crossed && inMouth && !g.scored) { g.scored = true; toast('GOOOL!'); audio.net(); audio.cheer(0.9); kidsCheer = 2; addStyle(250, 'STREET GOAL'); }
+    if (crossed && inMouth && !g.scored) { g.scored = true; toast('GOOOL!'); audio.net(); audio.cheer(0.9); audio.shout(1, -0.3); setTimeout(() => audio.shout(1, 0.4), 350); audio.fiesta(3.5); kidsCheer = 2; addStyle(250, 'STREET GOAL'); }
     if (!crossed) g.scored = false;
   }
 }
@@ -911,7 +912,7 @@ function togglePause(force) {
   if (!state.started || state.stage === STAGES.END) return;
   state.paused = force ?? !state.paused;
   $('#menu').classList.toggle('hidden', !state.paused); $('#menuKicker').textContent = 'PAUSED';
-  if (state.paused) { if (document.pointerLockElement) document.exitPointerLock(); speechSynthesis?.cancel(); audio.ctx?.suspend(); state.pauseAt = performance.now(); }
+  if (state.paused) { if (document.pointerLockElement) document.exitPointerLock(); audio.stopVoice(); audio.ctx?.suspend(); state.pauseAt = performance.now(); }
   else { audio.ctx?.resume(); state.t0 += performance.now() - state.pauseAt; clock.getDelta(); }
 }
 $('#pauseBtn').onclick = () => togglePause(true);
@@ -926,7 +927,7 @@ $('#againBtn').onclick = () => location.reload();
 $('#contactBtn').onclick = () => { if (EMBED) post('contact'); else location.href = '../#contact'; };
 $('#ctrlBtn').onclick = () => { $('#title').classList.add('hidden'); $('#menu').classList.remove('hidden'); $('#menuKicker').textContent = 'CONTROLS'; $('#resumeBtn').textContent = 'BACK'; $('#resumeBtn').onclick = () => { $('#menu').classList.add('hidden'); $('#title').classList.remove('hidden'); $('#resumeBtn').textContent = 'RESUME'; $('#resumeBtn').onclick = () => togglePause(false); }; };
 function post(action, data) { try { window.parent.postMessage({ type: 'goual-street', action, ...data }, '*'); } catch (e) { } }
-function close() { speechSynthesis?.cancel(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../'; }
+function close() { audio.stopVoice(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../'; }
 $('#playBtn').onclick = async () => {
   audio.init(); $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden');
   state.started = true; state.t0 = performance.now();
@@ -934,6 +935,10 @@ $('#playBtn').onclick = async () => {
 };
 
 // ================= go =================
+// Sound starts on the title screen if the browser allows it, otherwise at the first touch or key.
+try { audio.init(); } catch (e) { }
+const wake = () => { audio.init(); removeEventListener('pointerdown', wake); removeEventListener('keydown', wake); };
+addEventListener('pointerdown', wake); addEventListener('keydown', wake);
 $('#loading').classList.add('hidden');
 $('#title').classList.remove('hidden');
 cr7.root.position.copy(P.pos); cr7.root.rotation.y = P.yaw;
