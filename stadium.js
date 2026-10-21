@@ -1107,15 +1107,24 @@ let freeCam = null;   // debug only
 const mouse = new THREE.Vector2(), mouseSmooth = new THREE.Vector2();
 const blocked = () => state !== 'ready' || !lightbox.hidden;
 function addScroll(d) { if (!blocked()) target = clamp(target + d, 0, 1); }
+// Inside the contact page, let the page itself scroll; only leave it (back up the tour) from its top.
+const contactPage = $('.chapter.contact');
+function contactWants(e, forward) {
+  if (!contactPage.classList.contains('on') || !contactPage.contains(e.target)) return false;
+  return forward || contactPage.scrollTop > 0;      // forward: the tour is already at its end, so the page scrolls
+}
 addEventListener('wheel', e => {
   const k = e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? innerHeight : 1;
+  if (contactWants(e, e.deltaY > 0)) return;
   addScroll(e.deltaY * k * 0.00005);
 }, { passive: true });
 let touchY = null;
 addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, { passive: true });
 addEventListener('touchmove', e => {
   if (touchY == null) return;
-  const y = e.touches[0].clientY; addScroll((touchY - y) * 0.0003); touchY = y;
+  const y = e.touches[0].clientY, d = touchY - y; touchY = y;
+  if (contactWants(e, d > 0)) return;
+  addScroll(d * 0.0003);
 }, { passive: true });
 addEventListener('touchend', () => (touchY = null));
 addEventListener('keydown', e => {
