@@ -1267,19 +1267,23 @@ addEventListener('wheel', e => {
   if (contactWants(e, e.deltaY > 0)) return;
   addScroll(e.deltaY * k * 0.00005);
 }, { passive: true });
-let touchY = null;
-addEventListener('touchstart', e => { touchY = e.touches[0].clientY; }, { passive: true });
+let touchY = null, touchX = null;
+// In the hall of fame you can look left and right: mouse left/right, arrow keys, or a sideways swipe.
+let hallW = 0, hallYaw = 0, hallYawTarget = 0, pointerKind = 'mouse';
+addEventListener('touchstart', e => { touchY = e.touches[0].clientY; touchX = e.touches[0].clientX; pointerKind = 'touch'; }, { passive: true });
 addEventListener('touchmove', e => {
   if (touchY == null) return;
-  const y = e.touches[0].clientY, d = touchY - y; touchY = y;
+  const y = e.touches[0].clientY, x = e.touches[0].clientX, d = touchY - y, dx = x - touchX; touchY = y; touchX = x;
   if (contactWants(e, d > 0)) return;
+  if (hallW > 0.3 && !blocked()) { hallYawTarget = clamp(hallYawTarget + dx * 0.006, -1.35, 1.35); if (Math.abs(dx) > Math.abs(d)) return; }
   addScroll(d * 0.0003);
 }, { passive: true });
-addEventListener('touchend', () => (touchY = null));
+addEventListener('touchend', () => (touchY = touchX = null));
 addEventListener('keydown', e => {
   if (e.target.closest('form')) return;                       // typing in the contact form
   const step = { ArrowDown: 0.015, PageDown: 0.04, ArrowUp: -0.015, PageUp: -0.04, Space: e.shiftKey ? -0.03 : 0.03 }[e.code];
   if (step) { addScroll(step); e.preventDefault(); }
+  if (hallW > 0.3 && (e.code === 'ArrowLeft' || e.code === 'ArrowRight')) { pointerKind = 'keys'; hallYawTarget = clamp(hallYawTarget + (e.code === 'ArrowLeft' ? 0.45 : -0.45), -1.35, 1.35); e.preventDefault(); }
   if (e.code === 'Home') addScroll(-1);
   if (e.code === 'End') addScroll(1);
 });
@@ -1288,6 +1292,7 @@ document.querySelectorAll('[data-goto]').forEach(el => el.addEventListener('clic
   if (!blocked()) { target = parseFloat(el.dataset.goto); sound.whoosh(); }
 }));
 addEventListener('pointermove', e => {
+  if (e.pointerType === 'mouse' && pointerKind !== 'mouse' && Math.abs(e.movementX) > 2) pointerKind = 'mouse';
   mouse.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
   if (state === 'ready' && e.pointerType === 'mouse') canvas.classList.toggle('hot', screenAt(e.clientX, e.clientY) != null || doorAt(e.clientX, e.clientY));
 });
@@ -1398,7 +1403,14 @@ function frame() {
   }
   // Gentle hand-held drift with the pointer.
   mouseSmooth.lerp(mouse, 1 - Math.exp(-dt * 2.5));
-  camera.rotateY(-mouseSmooth.x * 0.04);
+  // Hall of fame (corridor A): free look left/right; up/down stays for scrolling.
+  const cp = camera.position, inHall = cp.y < 0.25 && Math.abs(cp.z - 13) < 1.2 && cp.x > 33.3 && cp.x < 42.4 && arcade.open < 0.01 && state === 'ready';
+  hallW += ((inHall ? 1 : 0) - hallW) * (1 - Math.exp(-dt * 3));
+  if (!inHall) hallYawTarget *= Math.exp(-dt * 3);
+  const want = pointerKind === 'mouse' ? -mouseSmooth.x * 1.3 : hallYawTarget;
+  hallYaw += (want - hallYaw) * (1 - Math.exp(-dt * 4));
+  body.classList.toggle('hall', hallW > 0.5 && inHall);
+  camera.rotateY(-mouseSmooth.x * 0.04 * (1 - hallW) + hallYaw * hallW);
   camera.rotateX(mouseSmooth.y * 0.025);
 
   // Living scene: clouds drift; the coach looks at the visitor.
