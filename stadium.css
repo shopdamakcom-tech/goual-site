@@ -55,7 +55,7 @@ body.ready .top{opacity:1}
 .station.right{justify-content:flex-end}
 
 .contact{display:grid;grid-template-columns:1fr minmax(320px,540px);gap:6vw;align-items:center;padding:90px 7vw 110px;color:var(--ink);background:radial-gradient(circle at 70% 30%,#fff 0,var(--cream) 60%);overflow-y:auto;touch-action:pan-y}
-.contact.on{transition:opacity 1s}
+.contact.on{transition:opacity 1s;pointer-events:auto}
 .contact-intro{display:flex;flex-direction:column}
 .contact h2{margin:14px 0 0;font:700 clamp(72px,11vw,190px)/.82 var(--round);color:var(--coral)}
 .contact .lead{margin:28px 0 0;max-width:440px;font:500 17px/1.5 Inter,sans-serif;opacity:.8}
