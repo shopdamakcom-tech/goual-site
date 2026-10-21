@@ -624,7 +624,8 @@ function autoRig(mesh) {
   const trunk = ['root', 'spine', 'chest', 'neck', 'head'].map(n => index[n]);
   const part = (x, y) => {
     if (y < -0.2) return ['hip', 'knee', 'ankle'].map(b => index[b + (x >= 0 ? 'L' : 'R')]).concat(index.root);
-    if (Math.abs(x) > 0.2 && y < 0.5 || Math.abs(x) > 0.28) return ['shoulder', 'elbow', 'wrist'].map(b => index[b + (x >= 0 ? 'L' : 'R')]).concat(index.chest);
+    // Arms hang away from the body: the lower the vertex, the further out it must be to count as arm.
+    if (Math.abs(x) > 0.24 + Math.max(0, 0.25 - y) * 0.45 && y < 0.62) return ['shoulder', 'elbow', 'wrist'].map(b => index[b + (x >= 0 ? 'L' : 'R')]).concat(index.chest);
     return trunk;
   };
   const pos = geo.getAttribute('position'), n = pos.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
@@ -658,8 +659,8 @@ const r9Ready = loadModel('models/r9.glb').then(m => {
 function animatePlayers(t) {
   players.forEach(p => {
     const b = p.bone, c = t * 7.5 + p.phase, s = Math.sin(c), up = Math.max(0, s), down = Math.max(0, -s);
-    b.hipL.rotation.x = -1.25 * up; b.kneeL.rotation.x = 1.9 * up;          // knee up, foot tucked under
-    b.hipR.rotation.x = -1.25 * down; b.kneeR.rotation.x = 1.9 * down;
+    b.hipL.rotation.x = -0.95 * up; b.kneeL.rotation.x = 1.5 * up;          // knee up, foot tucked under
+    b.hipR.rotation.x = -0.95 * down; b.kneeR.rotation.x = 1.5 * down;
     b.shoulderL.rotation.x = 0.7 * s; b.elbowL.rotation.x = -0.9;            // arms swing against the legs
     b.shoulderR.rotation.x = -0.7 * s; b.elbowR.rotation.x = -0.9;
     b.spine.rotation.x = 0.06; b.head.rotation.y = Math.sin(t * 0.8) * 0.25;
