@@ -137,3 +137,17 @@ body.end .logo img,body.menu-open .logo img{filter:drop-shadow(0 0 1px rgba(10,1
 .intro h1 .brand{width:min(70vw,560px);max-height:44svh;object-fit:contain;filter:drop-shadow(0 8px 24px rgba(10,14,30,.45))}
 body.end .logo img,body.menu-open .logo img{filter:drop-shadow(0 2px 6px rgba(10,14,30,.45))}
 @media(max-width:767px){.logo img{width:86px}.intro h1 .brand{width:88vw}}
+
+/* Arcade door (mini-game) */
+.arcade-stop .card{background:rgba(13,27,77,.94);color:#fff;border:2px solid #ffd400}
+.arcade-stop .place{color:#ffd400}
+.arcade-stop .pitch{margin:6px 0 0;font-size:14px;line-height:1.45;opacity:.85;max-width:340px}
+.arcade-stop .play{background:#ffd400;color:#111;box-shadow:0 5px 0 #b38f00}
+.arcade-stop .play:hover{box-shadow:0 3px 0 #b38f00}
+.arcade-stop .play i{color:#111}
+#arcade{position:fixed;inset:0;z-index:30;background:#0d1b4d;opacity:0;transform:scale(1.06);transition:opacity .6s ease,transform .7s cubic-bezier(.2,.8,.2,1)}
+#arcade.open{opacity:1;transform:none}
+#arcade[hidden]{display:none}
+#arcade iframe{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+body.arcade-on .top,body.arcade-on .bottom,body.arcade-on #chapters{opacity:0;pointer-events:none;transition:opacity .4s}
+@media (max-width:767px){.arcade-stop .pitch{display:none}}
