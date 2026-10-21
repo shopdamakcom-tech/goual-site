@@ -1,13 +1,13 @@
 :root{--ink:#1b1f3b;--cream:#fff8ec;--sun:#ffb400;--coral:#ff5a5f;--sky:#7cc4f5;--round:'Fredoka',system-ui,sans-serif}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0;overflow:hidden;background:var(--sky);color:#fff;font-family:Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
-body{touch-action:none;user-select:none;-webkit-user-select:none}
+body{user-select:none;-webkit-user-select:none}
 a,button{color:inherit;font:inherit;cursor:pointer}
 button{background:none;border:0;padding:0}
 
 /* Pre-WebGL backdrop: the same sky as the 3D scene, so there is no flash. */
 #bg{position:fixed;inset:0;z-index:0;background:linear-gradient(180deg,#4aa3f0 0%,#9fd3ff 55%,#ffe9c9 100%)}
-#webgl{position:fixed;inset:0;width:100%;height:100%;z-index:1;display:block}
+#webgl{position:fixed;inset:0;width:100%;height:100%;z-index:1;display:block;touch-action:none}
 #webgl.hot{cursor:pointer}
 #counter{position:fixed;z-index:3;left:2.2vw;bottom:3svh;font:700 17svh/1 var(--round);color:#fff;text-shadow:0 6px 0 rgba(27,31,59,.18);pointer-events:none;transition:opacity .6s,transform .6s}
 #counter.done{opacity:0;transform:translateY(6vh) scale(.9)}
@@ -123,3 +123,4 @@ body.menu-open .top{color:var(--ink);text-shadow:none;z-index:6;position:absolut
 #sound .spk .waves{display:none}#sound[aria-pressed=true] .spk .waves{display:inline}#sound[aria-pressed=true] .spk .mute{display:none}
 body.end #sound .spk,body.menu-open #sound .spk{stroke:var(--ink)}body.end #sound .spk .cone,body.menu-open #sound .spk .cone{fill:var(--ink)}
 @media(max-width:767px){#sound{width:44px;height:44px;justify-content:center;border-radius:50%;background:rgba(255,255,255,.18);border:2px solid #fff;backdrop-filter:blur(6px)}#sound .bars{display:none}#sound .spk{display:block}body.end #sound{border-color:var(--ink)}}
+.chapter.station,.chapter.intro,.top,.bottom,#counter{touch-action:none}
