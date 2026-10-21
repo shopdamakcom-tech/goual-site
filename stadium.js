@@ -595,6 +595,79 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
   rebuildCurves();
 });
 
+/* --------------------------------------------------------- players (auto-rig) */
+// Characters generated from images come as one static mesh. autoRig() gives them a simple humanoid
+// skeleton from a list of joint positions (in the model's own space) and skins every vertex to the
+// two nearest bones of its body part, so they can be animated in code.
+const RIG = {
+  root: [0, -0.22, 0, null], spine: [0, 0.12, 0, 'root'], chest: [0, 0.42, 0, 'spine'], neck: [0, 0.64, 0, 'chest'], head: [0, 0.76, 0, 'neck'],
+  shoulderL: [0.25, 0.52, 0, 'chest'], elbowL: [0.37, 0.21, 0, 'shoulderL'], wristL: [0.47, -0.08, 0, 'elbowL'],
+  shoulderR: [-0.25, 0.52, 0, 'chest'], elbowR: [-0.37, 0.21, 0, 'shoulderR'], wristR: [-0.47, -0.08, 0, 'elbowR'],
+  hipL: [0.11, -0.25, 0, 'root'], kneeL: [0.15, -0.56, 0.01, 'hipL'], ankleL: [0.16, -0.86, -0.02, 'kneeL'],
+  hipR: [-0.11, -0.25, 0, 'root'], kneeR: [-0.15, -0.56, 0.01, 'hipR'], ankleR: [-0.16, -0.86, -0.02, 'kneeR'],
+};
+// Where each bone's segment ends (its child joint, or the tip of the limb).
+const RIG_TIPS = { head: [0, 0.99, 0], wristL: [0.48, -0.2, 0], wristR: [-0.48, -0.2, 0], ankleL: [0.17, -0.97, 0.15], ankleR: [-0.17, -0.97, 0.15] };
+function autoRig(mesh) {
+  mesh.updateMatrixWorld(true);
+  const geo = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+  const names = Object.keys(RIG), index = Object.fromEntries(names.map((n, i) => [n, i]));
+  const bones = names.map(n => { const b = new THREE.Bone(); b.name = n; return b; });
+  names.forEach((n, i) => {
+    const [x, y, z, parent] = RIG[n], p = parent ? RIG[parent] : [0, 0, 0];
+    bones[i].position.set(x - p[0], y - p[1], z - p[2]);
+    if (parent) bones[index[parent]].add(bones[i]);
+  });
+  const child = n => names.find(c => RIG[c][3] === n && !/shoulder|hip/.test(c) || (n === 'chest' && c === 'neck'));
+  const seg = names.map(n => { const a = V(...RIG[n]); const t = RIG_TIPS[n] ? V(...RIG_TIPS[n]) : V(...RIG[child(n)]); return [a, t]; });
+  // Which bones may move a vertex: arms and legs by side, the trunk for the rest.
+  const trunk = ['root', 'spine', 'chest', 'neck', 'head'].map(n => index[n]);
+  const part = (x, y) => {
+    if (y < -0.2) return ['hip', 'knee', 'ankle'].map(b => index[b + (x >= 0 ? 'L' : 'R')]).concat(index.root);
+    // Arms hang away from the body: the lower the vertex, the further out it must be to count as arm.
+    if (Math.abs(x) > 0.24 + Math.max(0, 0.25 - y) * 0.45 && y < 0.62) return ['shoulder', 'elbow', 'wrist'].map(b => index[b + (x >= 0 ? 'L' : 'R')]).concat(index.chest);
+    return trunk;
+  };
+  const pos = geo.getAttribute('position'), n = pos.count, si = new Uint16Array(n * 4), sw = new Float32Array(n * 4);
+  const v = V(0, 0, 0), ab = V(0, 0, 0), av = V(0, 0, 0);
+  const segDist = (i) => { const [a, b] = seg[i]; ab.subVectors(b, a); av.subVectors(v, a); const t = clamp(av.dot(ab) / ab.lengthSq(), 0, 1); return av.addScaledVector(ab, -t).length(); };
+  for (let k = 0; k < n; k++) {
+    v.fromBufferAttribute(pos, k);
+    const best = part(v.x, v.y).map(i => [i, segDist(i)]).sort((p, q) => p[1] - q[1]).slice(0, 2);
+    const w = best.map(([, d]) => 1 / Math.pow(d + 0.02, 4)), sum = w[0] + (w[1] || 0);
+    si[k * 4] = best[0][0]; sw[k * 4] = w[0] / sum;
+    if (best[1]) { si[k * 4 + 1] = best[1][0]; sw[k * 4 + 1] = w[1] / sum; }
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(si, 4));
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
+  const skinned = new THREE.SkinnedMesh(geo, mesh.material);
+  skinned.add(bones[0]); skinned.bind(new THREE.Skeleton(bones));
+  skinned.castShadow = skinned.receiveShadow = true; skinned.frustumCulled = false;
+  return { mesh: skinned, bone: Object.fromEntries(names.map((nm, i) => [nm, bones[i]])) };
+}
+// R9 warming up on the pitch, by the path from the big screen to the bench: high knees and arm swings.
+const players = [];
+const r9Ready = loadModel('models/r9.glb').then(m => {
+  if (!m) return;
+  let src = null; m.traverse(o => { if (o.isMesh && !src) src = o; });
+  if (!src) return;
+  const rig = autoRig(src), S = 0.93;
+  const holder = new THREE.Group(); holder.position.set(10.5, 0.999 * S, 8.6); holder.rotation.y = -Math.PI * 0.3; holder.scale.setScalar(S);
+  holder.add(rig.mesh); scene.add(holder);
+  players.push({ holder, bone: rig.bone, phase: 0 });
+});
+function animatePlayers(t) {
+  players.forEach(p => {
+    const b = p.bone, c = t * 7.5 + p.phase, s = Math.sin(c), up = Math.max(0, s), down = Math.max(0, -s);
+    b.hipL.rotation.x = -0.95 * up; b.kneeL.rotation.x = 1.5 * up;          // knee up, foot tucked under
+    b.hipR.rotation.x = -0.95 * down; b.kneeR.rotation.x = 1.5 * down;
+    b.shoulderL.rotation.x = 0.7 * s; b.elbowL.rotation.x = -0.9;            // arms swing against the legs
+    b.shoulderR.rotation.x = -0.7 * s; b.elbowR.rotation.x = -0.9;
+    b.spine.rotation.x = 0.06; b.head.rotation.y = Math.sin(t * 0.8) * 0.25;
+    p.holder.children[0].position.y = Math.abs(Math.cos(c)) * 0.06;         // little bounce on each step
+  });
+}
+
 /* ----------------------------------------------------------------- tunnel */
 // "Tunnel" by local.yany (CC BY 4.0). Its stairs climb from the rooms to the pitch:
 // the top landing opens behind the benches, the lower end leads on to the locker room.
@@ -1147,7 +1220,7 @@ addEventListener('pointermove', e => {
 const counterEl = $('#counter');
 const loadStart = performance.now();
 let loaded = 0;
-const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, cityReady, playerReady, tunnelReady, lockerReady, gymReady, officeReady, coachReady, ...screens.filter(Boolean).map(s => new Promise(res => {
+const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, cityReady, playerReady, r9Ready, tunnelReady, lockerReady, gymReady, officeReady, coachReady, ...screens.filter(Boolean).map(s => new Promise(res => {
   if (s.video.readyState >= 1) return res();
   s.video.addEventListener('loadedmetadata', res, { once: true });
   s.video.addEventListener('error', res, { once: true });
@@ -1252,6 +1325,7 @@ function frame() {
   outdoor.visible = !inside; indoor.visible = inside || camera.position.x > 17.5 && Math.abs(camera.position.z - 13) < 4;
   if (stadiumModel) stadiumModel.visible = !inside;
   bench.visible = !inside;
+  players.forEach(p => (p.holder.visible = !inside)); if (!inside) animatePlayers(t);
   tunnel.visible = inside || camera.position.distanceTo(V(26, 0, 13)) < 45;
   if (inside && coachHead && camera.position.x < 40 && camera.position.z < -5) lookAtCamera(dt);
   updateLamps(inside || tunnel.visible);
