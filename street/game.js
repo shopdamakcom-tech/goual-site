@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { buildWorld, buildBackdrop } from './world.js?v=2';
-import { Character, dress } from './rig.js?v=2';
+import { Character, dress } from './rig.js?v=3';
 import { audio } from './audio.js?v=2';
 
 const $ = s => document.querySelector(s);
@@ -900,6 +900,18 @@ function update(dt) {
   if (hintTimer > 0) { hintTimer -= dt; if (hintTimer <= 0) $('#hint').style.opacity = 0; }
 }
 
+
+// Phones: ask to turn sideways; on Android, go full screen and lock landscape.
+if (TOUCH) document.body.classList.add('touch');
+const canLock = !!(document.documentElement.requestFullscreen && screen.orientation && screen.orientation.lock);
+function goLandscape() {
+  if (!TOUCH || !canLock || document.fullscreenElement) return;
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation.lock('landscape')).catch(() => {});
+}
+if (!canLock) $('#rotateFull').style.display = 'none';
+$('#rotateFull').onclick = () => goLandscape();
+$('#rotateSkip').onclick = () => document.body.classList.add('portrait-ok');
+const leaveFullscreen = () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); };
 // ================= menus =================
 function controlsHTML() {
   const rows = TOUCH
@@ -927,9 +939,9 @@ $('#againBtn').onclick = () => location.reload();
 $('#contactBtn').onclick = () => { if (EMBED) post('contact'); else location.href = '../#contact'; };
 $('#ctrlBtn').onclick = () => { $('#title').classList.add('hidden'); $('#menu').classList.remove('hidden'); $('#menuKicker').textContent = 'CONTROLS'; $('#resumeBtn').textContent = 'BACK'; $('#resumeBtn').onclick = () => { $('#menu').classList.add('hidden'); $('#title').classList.remove('hidden'); $('#resumeBtn').textContent = 'RESUME'; $('#resumeBtn').onclick = () => togglePause(false); }; };
 function post(action, data) { try { window.parent.postMessage({ type: 'goual-street', action, ...data }, '*'); } catch (e) { } }
-function close() { audio.stopVoice(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../'; }
+function close() { leaveFullscreen(); audio.stopVoice(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../'; }
 $('#playBtn').onclick = async () => {
-  audio.init(); $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden');
+  audio.init(); goLandscape(); $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden');
   state.started = true; state.t0 = performance.now();
   await intro();
 };

@@ -29,11 +29,11 @@ function fitCamera() { camera.aspect = innerWidth / innerHeight; camera.fov = ca
 addEventListener('resize', fitCamera); fitCamera();
 
 // ================= the club =================
-const CW = 3, CL = 10, NET = 0.88, GLASS_H = 3, MESH_H = 4;
+const CW = 5, CL = 10, NET = 0.88, GLASS_H = 3, MESH_H = 4;
 const tex = (w, h, draw, rep) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; if (rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...rep); } return t; };
 const noise = (g, w, h, n, a) => { for (let i = 0; i < n; i++) { g.fillStyle = `rgba(255,255,255,${Math.random() * a})`; g.fillRect(Math.random() * w, Math.random() * h, 1.5, 1.5); } };
 // Court: blue turf with sand, white lines.
-const courtTex = tex(600, 2000, (g, w, h) => {
+const courtTex = tex(1000, 2000, (g, w, h) => {
   g.fillStyle = '#2462c4'; g.fillRect(0, 0, w, h); noise(g, w, h, 60000, 0.12);
   for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(10,30,80,${Math.random() * 0.25})`; g.fillRect(Math.random() * w, Math.random() * h, 1, 3); }
   g.strokeStyle = '#f4f6ff'; g.lineWidth = 5;
@@ -75,12 +75,12 @@ const netTex = tex(128, 128, (g, w, h) => { g.strokeStyle = 'rgba(20,20,24,.95)'
   for (const sx of [-1, 1]) postAt(sx * (CW + 0.04), 0, 0.95); }
 // Floodlights: bars above the court, and lights.
 const lightBar = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#f4f8ff', emissiveIntensity: 3 });
-for (const sx of [-1, 1]) for (const z of [-6, 0, 6]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 2.2), lightBar); b.position.set(sx * 3.6, 7.6, z); scene.add(b); }
+for (const sx of [-1, 1]) for (const z of [-6, 0, 6]) { const b = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.08, 2.2), lightBar); b.position.set(sx * (CW + 0.6), 7.6, z); scene.add(b); }
 scene.add(new THREE.HemisphereLight('#c8d8ff', '#1a1d2a', 0.55));
 const key = new THREE.DirectionalLight('#ffffff', 2.4); key.position.set(4, 14, 6); key.castShadow = true; key.shadow.mapSize.set(TOUCH ? 1024 : 2048, TOUCH ? 1024 : 2048);
-Object.assign(key.shadow.camera, { left: -7, right: 7, top: 12, bottom: -12, near: 2, far: 30 }); key.shadow.bias = -0.0005; scene.add(key);
+Object.assign(key.shadow.camera, { left: -9, right: 9, top: 12, bottom: -12, near: 2, far: 30 }); key.shadow.bias = -0.0005; scene.add(key);
 const fill = new THREE.DirectionalLight('#9fb8ff', 0.7); fill.position.set(-5, 10, -8); scene.add(fill);
-for (const [x, z] of [[-3.6, -6], [3.6, 6], [-3.6, 6], [3.6, -6]]) { const p = new THREE.PointLight('#eef3ff', 9, 11, 1.8); p.position.set(x, 7.3, z); scene.add(p); }
+for (const [x, z] of [[-CW - 0.6, -6], [CW + 0.6, 6], [-CW - 0.6, 6], [CW + 0.6, -6], [0, 0]]) { const p = new THREE.PointLight('#eef3ff', 9, 11, 1.8); p.position.set(x, 7.3, z); scene.add(p); }
 // The hall: dark walls, stands with a crowd of silhouettes, a big LED scoreboard.
 const wallMat = new THREE.MeshStandardMaterial({ color: '#0d1122', roughness: 0.9 });
 for (const [w, h, x, z, ry] of [[40, 14, 0, -24, 0], [40, 14, 0, 24, Math.PI], [48, 14, -16, 0, Math.PI / 2], [48, 14, 16, 0, -Math.PI / 2]]) panel(w, h, wallMat, x, h / 2, z, ry);
@@ -89,8 +89,8 @@ for (const [w, h, x, z, ry] of [[40, 14, 0, -24, 0], [40, 14, 0, 24, Math.PI], [
   const fanGeo = new THREE.CapsuleGeometry(0.2, 0.45, 3, 6), headGeo = new THREE.SphereGeometry(0.15, 8, 6);
   const fans = [], cols = ['#5a2a2a', '#555a66', '#2a3550', '#5c5228', '#24402e', '#5a3048', '#3d5266', '#1c1d22'];
   for (const sx of [-1, 1]) for (let r = 0; r < 5; r++) {
-    const step = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5 + r * 0.5, 22), seatMat); step.position.set(sx * (5.2 + r * 1.1), (0.5 + r * 0.5) / 2, 0); step.receiveShadow = true; scene.add(step);
-    for (let z = -10; z <= 10; z += 0.75) if (Math.random() < 0.8) fans.push([sx * (5.2 + r * 1.1) + rnd(-0.15, 0.15), 0.5 + r * 0.5, z + rnd(-0.15, 0.15), cols[Math.floor(Math.random() * cols.length)]]);
+    const step = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.5 + r * 0.5, 22), seatMat); step.position.set(sx * (CW + 2.2 + r * 1.1), (0.5 + r * 0.5) / 2, 0); step.receiveShadow = true; scene.add(step);
+    for (let z = -10; z <= 10; z += 0.75) if (Math.random() < 0.8) fans.push([sx * (CW + 2.2 + r * 1.1) + rnd(-0.15, 0.15), 0.5 + r * 0.5, z + rnd(-0.15, 0.15), cols[Math.floor(Math.random() * cols.length)]]);
   }
   const body = new THREE.InstancedMesh(fanGeo, new THREE.MeshStandardMaterial({ color: '#3a3a3a', roughness: 0.95 }), fans.length), heads = new THREE.InstancedMesh(headGeo, new THREE.MeshStandardMaterial({ color: '#3a2a22', roughness: 0.9 }), fans.length);
   const m = new THREE.Matrix4();
@@ -361,7 +361,7 @@ function setupServe() {
 // Hit the ball: choose a target on the other side and solve the launch velocity.
 function strike(h, kind, aim, quality) {
   const dir = h === 0 ? -1 : 1;   // towards -z for the near player
-  let tx = clamp(aim * 2.4 + rnd(-1, 1) * (1 - quality) * 1.2, -2.7, 2.7), tz, T, minNet = 0.15;
+  let tx = clamp(aim * CW * 0.8 + rnd(-1, 1) * (1 - quality) * 1.6, -(CW - 0.3), CW - 0.3), tz, T, minNet = 0.15;
   const from = ball.p.clone(), dzMax = Math.abs(dir * CL - from.z);
   if (kind === 'serve') { tz = dir * rnd(3.5, 6.3); T = Math.abs(tz - from.z) / 13; }
   else if (kind === 'lob') { tz = dir * rnd(7.6, 9.2); T = rnd(1.6, 1.95); minNet = 1.8; }
@@ -427,12 +427,12 @@ function update(dt) {
     if (mv.m > 0.15) { h0.vel.set(mv.x * 5.4, 0, mv.y * 5.4); h0.target.copy(h0.pos); }
     else {
       if (myBall) { const right = 1; const fore = myBall.p.x >= h0.pos.x - 0.1; h0.target.set(myBall.p.x - (fore ? 0.55 : -0.55) * right, 0, clamp(myBall.p.z + 0.25, 0.6, 9.6)); }
-      else if (ball.live && sideOf(ball.p.z) === 1) h0.target.set(clamp(ball.p.x * 0.4, -1.6, 1.6), 0, 7.4);
+      else if (ball.live && sideOf(ball.p.z) === 1) h0.target.set(clamp(ball.p.x * 0.4, -2.6, 2.6), 0, 7.4);
       const d = h0.target.clone().sub(h0.pos); d.y = 0; const L = d.length();
       h0.vel.copy(L > 0.08 ? d.multiplyScalar(Math.min(4.3, L * 6) / L) : d.set(0, 0, 0));
     }
   } else h0.vel.set(0, 0, 0);
-  h0.pos.addScaledVector(h0.vel, dt); h0.pos.x = clamp(h0.pos.x, -2.75, 2.75); h0.pos.z = clamp(h0.pos.z, 0.5, 9.7);
+  h0.pos.addScaledVector(h0.vel, dt); h0.pos.x = clamp(h0.pos.x, -(CW - 0.25), CW - 0.25); h0.pos.z = clamp(h0.pos.z, 0.5, 9.7);
   // Hitting: press a bit early is fine (buffer); the ball must be in reach.
   if (IN.hit && state.phase === 'rally') { swingBuf = 0.32; lobWanted = false; if (!h0.swing) h0.swing = { type: swingType(h0, 0), t: 0, len: 0.5 }; }
   if (IN.lob && state.phase === 'rally') { swingBuf = 0.32; lobWanted = true; if (!h0.swing) h0.swing = { type: swingType(h0, 0), t: 0, len: 0.5 }; }
@@ -450,11 +450,11 @@ function update(dt) {
   const aiBall = ball.live && rally.lastHit === 0 ? predict(1, { volley: true }) : null;
   if (state.phase === 'rally' || state.phase === 'serve' && state.server === 0) {
     if (aiBall) { const fore = aiBall.p.x <= h1.pos.x + 0.1; h1.target.set(aiBall.p.x + (fore ? 0.55 : -0.55), 0, clamp(aiBall.p.z - 0.25, -9.6, -0.6)); }
-    else if (ball.live && sideOf(ball.p.z) === 0) h1.target.set(clamp(ball.p.x * 0.45, -1.6, 1.6), 0, -7.2);
+    else if (ball.live && sideOf(ball.p.z) === 0) h1.target.set(clamp(ball.p.x * 0.45, -2.6, 2.6), 0, -7.2);
     const d = h1.target.clone().sub(h1.pos); d.y = 0; const L = d.length();
     h1.vel.copy(L > 0.08 ? d.multiplyScalar(Math.min(3.9 + level * 0.9, L * 6) / L) : d.set(0, 0, 0));
   } else h1.vel.set(0, 0, 0);
-  h1.pos.addScaledVector(h1.vel, dt); h1.pos.x = clamp(h1.pos.x, -2.75, 2.75); h1.pos.z = clamp(h1.pos.z, -9.7, -0.5);
+  h1.pos.addScaledVector(h1.vel, dt); h1.pos.x = clamp(h1.pos.x, -(CW - 0.25), CW - 0.25); h1.pos.z = clamp(h1.pos.z, -9.7, -0.5);
   const r1 = reachable(1);
   h1.cool = Math.max(0, (h1.cool || 0) - dt);
   if (r1 && state.phase === 'rally' && !h1.cool && (r1 === 'smash' || Math.abs(ball.p.z - h1.pos.z) < 0.45 || ball.v.z > 0)) {
@@ -499,6 +499,18 @@ function updateCamera(dt) {
   camera.position.copy(camPos); camera.lookAt(camLook);
 }
 
+
+// Phones: ask to turn sideways; on Android, go full screen and lock landscape.
+if (TOUCH) document.body.classList.add('touch');
+const canLock = !!(document.documentElement.requestFullscreen && screen.orientation && screen.orientation.lock);
+function goLandscape() {
+  if (!TOUCH || !canLock || document.fullscreenElement) return;
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).then(() => screen.orientation.lock('landscape')).catch(() => {});
+}
+if (!canLock) $('#rotateFull').style.display = 'none';
+$('#rotateFull').onclick = () => goLandscape();
+$('#rotateSkip').onclick = () => document.body.classList.add('portrait-ok');
+const leaveFullscreen = () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); };
 // ================= loop, menus =================
 const clock = new THREE.Clock();
 function frame() {
@@ -522,7 +534,7 @@ function togglePause(force) {
   if (state.paused) audio.ctx?.suspend(); else { audio.ctx?.resume(); clock.getDelta(); }
 }
 function post(action, data) { try { window.parent.postMessage({ type: 'goual-arcade', game: 'padel', action, ...data }, '*'); } catch (e) { } }
-function close() { audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../'; }
+function close() { leaveFullscreen(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../'; }
 $('#pauseBtn').onclick = () => togglePause(true);
 $('#resumeBtn').onclick = () => togglePause(false);
 $('#soundBtn').onclick = () => { audio.setOn(!audio.on); $('#soundBtn').textContent = 'Sound: ' + (audio.on ? 'on' : 'off'); };
@@ -532,7 +544,7 @@ $('#againBtn').onclick = () => location.reload();
 $('#contactBtn').onclick = () => { if (EMBED) post('contact'); else location.href = '../#contact'; };
 $('#ctrlBtn').onclick = () => { $('#title').classList.add('hidden'); $('#menu').classList.remove('hidden'); $('#menuKicker').textContent = 'CONTROLS'; $('#resumeBtn').textContent = 'BACK'; $('#resumeBtn').onclick = () => { $('#menu').classList.add('hidden'); $('#title').classList.remove('hidden'); $('#resumeBtn').textContent = 'RESUME'; $('#resumeBtn').onclick = () => togglePause(false); }; };
 function start(pick) {
-  audio.init();
+  audio.init(); goLandscape();
   me = P[pick]; ai = P[pick === 'cr7' ? 'messi' : 'cr7'];
   $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden'); if (TOUCH) $('#touch').classList.remove('hidden');
   state.games = [0, 0]; state.points = [0, 0]; state.server = 0;

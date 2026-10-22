@@ -71,10 +71,33 @@
     #toast { font-size: 54px; }
     #hint { bottom: auto; top: 150px; font-size: 12px; }
   }
+
+  /* Ask phones in portrait to turn sideways (16:9). */
+  #rotate { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; align-content: center; gap: 16px; text-align: center; background: radial-gradient(ellipse at 50% 40%, #16224f, #070b1c); color: #fff; padding: 24px; }
+  #rotate p { margin: 6px 0 4px; font-size: 18px; line-height: 1.45; } #rotate small { opacity: .75; font-size: 13px; }
+  #rotate .phone { width: 58px; height: 100px; border: 4px solid #fff; border-radius: 12px; margin: 0 auto; position: relative; animation: turnphone 2.2s ease-in-out infinite; }
+  #rotate .phone i { position: absolute; left: 50%; bottom: 6px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: #fff; }
+  @keyframes turnphone { 0%, 20% { transform: rotate(0); } 50%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
+  #rotate button { border: 0; border-radius: 30px; padding: 12px 22px; font-weight: 700; min-width: 240px; }
+  #rotateFull { background: #d7ff3a; color: #111; }
+  #rotateSkip { background: transparent; color: rgba(255,255,255,.7); text-decoration: underline; }
+  @media (orientation: portrait) and (pointer: coarse) { body:not(.portrait-ok) #rotate { display: grid; } }
+  @media (orientation: portrait) { body.touch:not(.portrait-ok) #rotate { display: grid; } }
+
+  @media (max-height: 500px) {
+    #board { top: 8px; font-size: 16px; } #board > div { padding: 4px 9px; } #board .name { min-width: 80px; }
+    .topbtn { top: 8px; width: 36px; height: 36px; }
+    #hint { bottom: auto; top: 86px; font-size: 11px; }
+    #bHit { width: 78px; height: 78px; } #bLob { width: 56px; height: 56px; } #btns { bottom: 16px; }
+    #stick .base { top: calc(100% - 80px); left: 80px; }
+    #toast { font-size: 50px; } .logo { font-size: 60px; } .lede { font-size: 13px; margin: 10px 0 14px; } .screen { overflow: auto; }
+  }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="rotate" aria-live="polite"><div class="phone"><i></i></div><p><b>Turn your phone sideways</b><br><small>The game is made for 16:9 — it plays much better in landscape.</small></p><button id="rotateFull" type="button">Full screen in landscape</button><button id="rotateSkip" type="button">Play in portrait anyway</button></div>
+
 <div id="hud" class="hidden">
   <div id="board">
     <div class="name"><i class="srv" id="srv0"></i><span id="n0">CR7</span></div><div class="g" id="g0">0</div><div class="p" id="p0">0</div>
@@ -128,6 +151,6 @@
 </div>
 <div id="loading"><div style="text-align:center"><div class="logo" style="font-size:54px">PADEL CLASH</div><div class="bar"><i></i></div></div></div>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=1"></script>
+<script type="module" src="game.js?v=2"></script>
 </body>
 </html>
