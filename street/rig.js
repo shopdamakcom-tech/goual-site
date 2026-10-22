@@ -8,17 +8,17 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 const RIGS = {
   valve: {
     hips: /Bip01_Pelvis/, spine: /Bip01_Spine_/, spine1: /Bip01_Spine1_/, chest: /Bip01_Spine4_/, neck: /Bip01_Neck1_/, head: /Bip01_Head1_/,
-    lArm: /L_UpperArm_/, lFore: /L_Forearm_/, rArm: /R_UpperArm_/, rFore: /R_Forearm_/,
+    lArm: /L_UpperArm_/, lFore: /L_Forearm_/, rArm: /R_UpperArm_/, rFore: /R_Forearm_/, rHand: /R_Hand_/, lHand: /L_Hand_/,
     lThigh: /L_Thigh_/, lCalf: /L_Calf_/, lFoot: /L_Foot_/, rThigh: /R_Thigh_/, rCalf: /R_Calf_/, rFoot: /R_Foot_/,
   },
   mixamo: {
     hips: /^Hips_/, spine: /^Spine_\d/, spine1: /^Spine1_/, chest: /^Spine2_/, neck: /^Neck_/, head: /^Head_/,
-    lArm: /^LeftArm_/, lFore: /^LeftForeArm_\d/, rArm: /^RightArm_/, rFore: /^RightForeArm_\d/,
+    lArm: /^LeftArm_/, lFore: /^LeftForeArm_\d/, rArm: /^RightArm_/, rFore: /^RightForeArm_\d/, rHand: /^RightHand_\d/, lHand: /^LeftHand_\d/,
     lThigh: /^LeftUpLeg_/, lCalf: /^LeftLeg_/, lFoot: /^LeftFoot_/, rThigh: /^RightUpLeg_/, rCalf: /^RightLeg_/, rFoot: /^RightFoot_/,
   },
   cc: {
     hips: /^pelvis_/, spine: /^spine_01/, spine1: /^spine_02/, chest: /^spine_03/, neck: /^neck_01/, head: /^head_/,
-    lArm: /^upperarm_l_/, lFore: /^lowerarm_l_/, rArm: /^upperarm_r_/, rFore: /^lowerarm_r_/,
+    lArm: /^upperarm_l_/, lFore: /^lowerarm_l_/, rArm: /^upperarm_r_/, rFore: /^lowerarm_r_/, rHand: /^hand_r_/, lHand: /^hand_l_/,
     lThigh: /^thigh_l_/, lCalf: /^calf_l_/, lFoot: /^foot_l_/, rThigh: /^thigh_r_/, rCalf: /^calf_r_/, rFoot: /^foot_r_/,
   },
 };
@@ -125,7 +125,7 @@ export class Character {
     this.model.position.y = this.baseY + (Math.abs(Math.sin(p)) * 0.06 * W - 0.03 * W) * (1 + B.run);
   }
   overlay(a, t, o) {
-    const e = (x, a0, a1) => THREE.MathUtils.clamp((x - a0) / (a1 - a0), 0, 1);
+    const e = (x, a0, a1) => THREE.MathUtils.clamp((x - a0) / (a1 - a0), 0, 1), lerp = THREE.MathUtils.lerp;
     const sm = x => x * x * (3 - 2 * x);
     if (a === 'kick') {            // wind up (0..0.22), strike (0.22..0.34), follow through
       const wind = sm(e(t, 0, 0.22)) * (1 - sm(e(t, 0.22, 0.32)));
@@ -173,6 +173,29 @@ export class Character {
     } else if (a === 'phone') {    // phone at the right ear
       this.rot('rArm', X, -0.55); this.rot('rArm', Z, -0.35); this.rot('rFore', X, -2.35); this.rot('head', Z, -0.12);
       this.rot('lArm', Z, 0.05);
+    } else if (a === 'ready') {    // padel: knees bent, racket in front
+      this.rot('lThigh', X, -0.32); this.rot('rThigh', X, -0.32); this.rot('lCalf', X, 0.6); this.rot('rCalf', X, 0.6);
+      this.rot('lThigh', Z, 0.1); this.rot('rThigh', Z, -0.1); this.rot('spine', X, 0.22);
+      this.rot('rArm', X, -0.55); this.rot('rArm', Z, -0.25); this.rot('rFore', X, -0.9); this.rot('lArm', X, -0.45); this.rot('lFore', X, -0.8);
+    } else if (a === 'fore' || a === 'back') {   // padel groundstrokes, t = 0..1 (contact at 0.45)
+      const s = a === 'fore' ? 1 : -1;
+      const yaw = t < 0.45 ? lerp(-0.95, 0.3, sm(t / 0.45)) : lerp(0.3, 1.35, sm((t - 0.45) / 0.55));
+      const out = Math.sin(Math.PI * Math.min(1, t * 1.15));
+      this.rot('rArm', Z, (-1.25 * s) * (0.35 + 0.65 * out));
+      this.rot('rArm', Y, s * yaw * (0.35 + 0.65 * out));
+      this.rot('rFore', X, -0.35);
+      this.rot('chest', Y, s * yaw * 0.5); this.rot('hips', Y, s * yaw * 0.25);
+      this.rot('lArm', Z, 0.5 * out * s); this.rot('lArm', X, -0.3);
+      this.rot('lThigh', X, -0.3); this.rot('rThigh', X, -0.3); this.rot('lCalf', X, 0.55); this.rot('rCalf', X, 0.55); this.rot('spine', X, 0.18);
+    } else if (a === 'smash') {    // racket up behind the head, then down through the ball
+      const up = sm(e(t, 0, 0.35)), hit = sm(e(t, 0.35, 0.55)), rest = sm(e(t, 0.7, 1));
+      this.rot('rArm', X, (-2.85 * up + 2.1 * hit) * (1 - rest));
+      this.rot('rFore', X, (-1.5 * up + 1.3 * hit) * (1 - rest));
+      this.rot('lArm', X, -2.4 * up * (1 - hit)); this.rot('chest', X, (-0.25 * up + 0.45 * hit) * (1 - rest)); this.rot('chest', Y, 0.4 * up - 0.6 * hit);
+    } else if (a === 'serve') {    // underhand serve
+      const k = t < 0.45 ? lerp(0, 0.9, sm(t / 0.45)) : lerp(0.9, -1.25, sm((t - 0.45) / 0.4));
+      this.rot('rArm', X, k); this.rot('rArm', Z, -0.25); this.rot('rFore', X, -0.3);
+      this.rot('lArm', X, -0.9 * (1 - sm(e(t, 0.3, 0.6)))); this.rot('spine', X, 0.25); this.rot('lCalf', X, 0.3); this.rot('rCalf', X, 0.3);
     } else if (a === 'sit') {
       this.rot('lThigh', X, -1.5); this.rot('rThigh', X, -1.5); this.rot('lCalf', X, 1.5); this.rot('rCalf', X, 1.5);
       this.rot('lArm', X, -0.35); this.rot('rArm', X, -0.35); this.rot('lFore', X, -0.6); this.rot('rFore', X, -0.6);
