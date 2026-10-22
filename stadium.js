@@ -914,6 +914,9 @@ const officeReady = loadModel('models/office.glb').then(m => {
     if (o.material.name === 'Painting') o.visible = false;
   });
   cutHoles(m, [B(34.1, FLOOR - 0.2, -7.45, 34.8, FLOOR + 2.2, -6.0)]);
+  // Modesty panel on the visitor's side of the desk, so the coach's legs stay hidden.
+  const top = -1.43, bottom = FLOOR + 0.04;
+  box(0.03, top - bottom, 2.14, mat('#eeeeec', { roughness: 0.45 }), office, 31.3, (top + bottom) / 2, -6.8, { cast: false });
 });
 lampAt(31.2, FLOOR + 2.7, -6.8, '#ffe6c4', 6, 9); lampAt(33.4, FLOOR + 2.6, -7.6, '#ffe6c4', 3, 7);
 {
@@ -927,7 +930,7 @@ const coachReady = loadModel('models/coach.glb').then(m => {
   m.traverse(o => {
     if (!o.isMesh) return;
     if (/shadow|plane/i.test(o.name + o.parent.name)) o.visible = false;
-    if (o.material.name === 'Std_Skin_Leg') { o.material.map = null; o.material.color.set('#1b2233'); }   // dark suit trousers
+    if (o.material.name === 'Std_Skin_Leg') o.visible = false;                       // legs stay out of sight behind the desk panel
   });
   prepCharacter(m);
   const pose = poseSeated(m, { rig: 'unreal', seat: 0.42, arms: [38, 40, 75, 55], lean: 6, headDown: 4 });
