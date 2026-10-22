@@ -8,8 +8,9 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#050505;color:#fff;font-family:Inter,Arial,sans-serif;overflow-x:hidden}
-a{color:inherit;text-decoration:none}.hero{height:510px;min-height:0;position:relative;background:#050505 url("goual-hero.jpg") center center/cover no-repeat;overflow:hidden}
-.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08),transparent 55%,rgba(0,0,0,.28));pointer-events:none}
+a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:relative;background:#050505 url("goual-hero.jpg") center center/cover no-repeat;overflow:hidden}
+.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08),transparent 45%,rgba(0,0,0,.62));pointer-events:none}
+.hero-intro{position:absolute;z-index:5;left:4.2vw;bottom:28px;max-width:min(580px,58vw)}.hero-intro .kick{font-size:10px;font-weight:700;letter-spacing:.3em;color:#8fb8ff}.hero-intro p{margin:10px 0 14px;font-size:clamp(15px,1.3vw,19px);line-height:1.45;font-weight:600;text-shadow:0 2px 14px rgba(0,0,0,.85)}.chips{display:flex;flex-wrap:wrap;gap:8px}.chips span{font-size:10px;font-weight:700;letter-spacing:.16em;padding:7px 12px;border:1px solid rgba(255,255,255,.42);border-radius:30px;background:rgba(0,0,0,.38);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .nav{position:absolute;z-index:5;left:0;right:0;top:0;height:86px;display:flex;align-items:center;justify-content:space-between;padding:0 4.2vw}
 .nav-logo{display:block;width:110px}.nav-logo img{display:block;width:100%;height:auto;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6))}.nav-links{display:flex;gap:44px;font-size:11px;font-weight:700;letter-spacing:.22em}.nav-links a{opacity:.95}.talk{border:1px solid rgba(255,255,255,.7);border-radius:30px;padding:14px 22px;font-size:10px;font-weight:700;letter-spacing:.14em}
 .hero-hotspots{position:absolute;z-index:6;inset:0;pointer-events:none}.hero-hotspots a{pointer-events:auto;position:absolute}
@@ -24,7 +25,8 @@ a{color:inherit;text-decoration:none}.hero{height:510px;min-height:0;position:re
  .hero{height:520px;min-height:0;background-position:center center}
  .nav{height:70px;padding:0 18px}.nav-links,.talk{display:none}.mobile-menu{display:block;position:absolute;right:18px;top:18px;width:38px;height:38px;border:1px solid #fff;border-radius:50%;z-index:7;background:rgba(0,0,0,.25)}
  .mobile-menu:before,.mobile-menu:after{content:"";position:absolute;left:10px;right:10px;height:1px;background:#fff}.mobile-menu:before{top:15px}.mobile-menu:after{top:21px}
- .hero-hotspots{display:none}.scroll{right:18px;bottom:22px;font-size:8px}
+ .hero-hotspots{display:none}.scroll{right:18px;bottom:16px;font-size:8px}
+ .hero{height:600px;background-position:center 30%}.hero-intro{left:18px;right:18px;bottom:40px;max-width:none}.hero-intro .kick{font-size:9px;letter-spacing:.24em}.hero-intro p{font-size:14px;margin:8px 0 12px}.chips{gap:6px}.chips span{font-size:9px;padding:6px 10px;letter-spacing:.12em}
  .work{padding:38px 12px 60px}.statement{height:190px}.statement h2{font-size:30px;margin:0 18px}.statement h2:last-child{font-size:30px}
  .grid{grid-template-columns:1fr 1fr;gap:5px}.card{aspect-ratio:1/1.08}.meta{left:10px;right:10px;bottom:10px}.title{font-size:10px}.sub{font-size:7px}.num{left:10px;top:9px;font-size:8px}.play{width:30px;height:30px;font-size:9px}
  .about{grid-template-columns:1fr;gap:35px;padding:75px 20px}.about p{font-size:14px}.contact{min-height:520px;padding:55px 20px 25px}.contact{grid-template-columns:1fr;gap:30px}.goual-contact .row{grid-template-columns:1fr}.card.big{grid-column:span 2;grid-row:auto;aspect-ratio:1.48/1}.footer{padding:0 20px 25px}
@@ -44,6 +46,11 @@ a{color:inherit;text-decoration:none}.hero{height:510px;min-height:0;position:re
   <button class="mobile-menu" aria-label="Open menu" aria-expanded="false" onclick="const o=document.querySelector('.nav-links').classList.toggle('open');this.setAttribute('aria-expanded',o);document.body.classList.toggle('menu-open',o)"></button>
   <div class="hero-hotspots">
     <a class="hs-work" href="#work"></a><a class="hs-services" href="#services"></a><a class="hs-process" href="#process"></a><a class="hs-contact" href="#contact"></a><a class="hs-talk" href="#contact"></a>
+  </div>
+  <div class="hero-intro">
+    <div class="kick">ANIMATION STUDIO &amp; CREATIVE TECH</div>
+    <p>We create animated films, ads, video games, apps, websites and AI-powered content for brands, clubs and athletes.</p>
+    <div class="chips"><span>ANIMATION</span><span>VIDEO</span><span>GAMES</span><span>APPS</span><span>WEBSITES</span><span>AI</span></div>
   </div>
   <div class="scroll">SCROLL TO EXPLORE&nbsp;&nbsp; ↓</div>
 </header>
@@ -107,6 +114,7 @@ if(window.Motion&&!reduceMotion){
   const {animate,inView,scroll,stagger}=Motion,ease=[.22,1,.36,1];
   document.documentElement.classList.add('motion-on');
   animate('.nav, .scroll',{opacity:[0,1],y:[-14,0]},{duration:.9,delay:stagger(.15),ease});
+  animate('.hero-intro > *',{opacity:[0,1],y:[18,0]},{duration:.9,delay:stagger(.12,{startDelay:.35}),ease});
   scroll(animate('.hero',{backgroundPositionY:['50%','75%']},{ease:'linear'}),{target:document.querySelector('.hero'),offset:['start start','end start']});
   inView('.statement',el=>{animate(el,{opacity:[0,1],y:[40,0],clipPath:['inset(12% 0 12% 0)','inset(0% 0 0% 0)']},{duration:1.1,ease})},{amount:.2});
   inView('.grid',grid=>{animate(grid.querySelectorAll('.card'),{opacity:[0,1],y:[40,0],scale:[.96,1]},{duration:.9,delay:stagger(.08),ease})},{amount:.1});
