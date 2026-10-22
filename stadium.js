@@ -972,8 +972,8 @@ const KEYS = [
   { pos: [33, EYE, 13], look: [40, EYE, 13], w: 2.2 },
   { pos: [37.8, EYE, 13], look: [44, EYE - 0.1, 13], w: 2.8 },                 // hall of fame: slow
   { game: 'street', pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13], w: 2.8 },      // STREET FOOT door
-  { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6] },                           // corner
-  { game: 'padel', pos: [45.5, EYE - 0.05, 8.4], look: [42.85, FLOOR + 1.2, 8.4] },    // PADEL CLASH door (left wall)
+  { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6], w: 3.2 },                   // corner (slow between the two doors)
+  { game: 'padel', pos: [45.5, EYE - 0.05, 8.4], look: [42.85, FLOOR + 1.2, 8.4], w: 3.2 },    // PADEL CLASH door (left wall)
   { pos: [44.3, EYE, 7.0], look: [43, EYE - 0.1, 2], w: 2.2 },
   { pos: [44, EYE, 4.2], look: [37.5, FLOOR + 1.2, 0.5], w: 2.4 },            // into the locker room: slow
   { w: 2.2, station: 3, pos: [43.8, FLOOR + 1.45, 2.06], look: [45.86, FLOOR + 1.32, 2.06] },   // set from the TV on load
