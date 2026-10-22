@@ -19,9 +19,10 @@
       el.querySelector('.fxm-l').textContent = t; el.querySelector('.fxm-s').textContent = sub; el._t = t;
     });
     const head = document.createElement('div'); head.className = 'fxm-head'; head.innerHTML = 'GOUAL <b>//</b> NAVIGATION';
-    const foot = document.createElement('div'); foot.className = 'fxm-foot'; foot.innerHTML = '<span><i></i>SYSTEM ONLINE</span><span class="fxm-grad">AI · 3D · FILM · GAMES</span>';
+    const foot = document.createElement('div'); foot.className = 'fxm-foot'; foot.innerHTML = '<span><i></i>SYSTEM ONLINE</span><span class="socials" style="--soc:34px;color:#fff"></span>';
     const cv = document.createElement('canvas'); cv.className = 'fxm-rain'; cv.setAttribute('aria-hidden', 'true');
     nav.prepend(cv, head); nav.append(foot);
+    window.goualSocials?.();
 
     const g = cv.getContext('2d'); let W, H, F = 13, drops = [], run = false, last = 0, timers = [];
     const col = (x, a) => { let u = (x / W) * (STOPS.length - 1), i = Math.min(u | 0, STOPS.length - 2), f = u - i, A = STOPS[i], B = STOPS[i + 1];
