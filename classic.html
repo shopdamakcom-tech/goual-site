@@ -8,8 +8,8 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#050505;color:#fff;font-family:Inter,Arial,sans-serif;overflow-x:hidden}
-a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:relative;background:#050505 url("goual-hero.jpg") center center/cover no-repeat;overflow:hidden}
-.hero:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.08),transparent 45%,rgba(0,0,0,.62));pointer-events:none}
+a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:relative;background:radial-gradient(120% 90% at 15% 20%,#0a1a4a 0,transparent 55%),radial-gradient(90% 80% at 60% 70%,#3a0a3f 0,transparent 60%),radial-gradient(80% 90% at 95% 25%,#22094d 0,transparent 60%),#03020a;overflow:hidden}.hx{position:absolute;inset:0;width:100%;height:100%;display:block}.hero-hotspots{display:none!important}
+.hero:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.025) 0 1px,transparent 1px 3px),linear-gradient(180deg,rgba(3,2,10,.35),transparent 30%,transparent 50%,rgba(3,2,10,.85));pointer-events:none}
 .hm{--acc:#5aa8ff;position:absolute;z-index:5;left:4.2vw;right:4.2vw;bottom:30px;display:grid;grid-template-columns:1fr auto;align-items:end;gap:28px;pointer-events:none}.hm .kick{font-size:10px;font-weight:700;letter-spacing:.3em;color:rgba(255,255,255,.75)}.hm .kick b{color:var(--acc);transition:color .6s}.hm-words{position:relative;height:1.02em;overflow:hidden;font-size:clamp(40px,5.6vw,86px);font-weight:900;letter-spacing:-.045em;line-height:1;margin:8px 0 6px;text-transform:uppercase}.hm-w{position:absolute;left:0;top:0;white-space:nowrap}.hm-w i{display:inline-block;font-style:normal;transform:translateY(110%);transition:transform .7s cubic-bezier(.22,1,.36,1),opacity .5s;opacity:0}.hm-w.on i{transform:none;opacity:1}.hm-w.out i{transform:translateY(-110%);opacity:0;transition-duration:.3s,.2s;transition-delay:0s!important}.hm-w .dot{color:var(--acc);transition:color .6s}.hm-sub{height:22px;position:relative;font-size:clamp(13px,1.15vw,17px);font-weight:600;color:rgba(255,255,255,.85);margin-bottom:14px}.hm-sub span{position:absolute;left:0;top:0;white-space:nowrap;opacity:0;transform:translateX(-14px);transition:opacity .2s,transform .6s cubic-bezier(.22,1,.36,1)}.hm-sub span.on{transition:opacity .5s,transform .6s cubic-bezier(.22,1,.36,1)}.hm-sub span.on{opacity:1;transform:none;transition-delay:.25s}.hm-chips{display:flex;flex-wrap:wrap;gap:8px;pointer-events:auto}.hm-chips button{position:relative;overflow:hidden;font:700 10px Inter,Arial,sans-serif;letter-spacing:.16em;color:#fff;padding:8px 13px;border:1px solid rgba(255,255,255,.35);border-radius:30px;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);cursor:pointer;transition:border-color .4s,background .4s}.hm-chips button:after{content:"";position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--acc)}.hm-chips button.on{border-color:var(--acc);background:rgba(0,0,0,.6)}.hm-chips button.on:after{animation:hmbar var(--dur,2.8s) linear forwards}@keyframes hmbar{to{width:100%}}.hm-icon{width:150px;height:150px;margin-bottom:46px;filter:drop-shadow(0 0 14px var(--acc));transition:filter .6s}.hm-icon svg{width:100%;height:100%;overflow:visible;animation:hmfloat 3.4s ease-in-out infinite}.hm-icon g{opacity:0;transition:opacity .35s}.hm-icon g.on{opacity:1}.hm-icon g *{fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}.hm-icon g .acc{stroke:var(--acc)}.hm-icon g .fill{fill:var(--acc);stroke:none}.hm-icon g.on [pathLength]{stroke-dasharray:1;stroke-dashoffset:1;animation:hmdraw 1.1s cubic-bezier(.65,0,.35,1) forwards;animation-delay:calc(var(--i,0) * 90ms)}.hm-icon g.on .fill{animation:hmpop .5s .7s both}@keyframes hmdraw{to{stroke-dashoffset:0}}@keyframes hmpop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}@keyframes hmfloat{50%{transform:translateY(-7px) rotate(-2deg)}}.hm-icon .blink{animation:hmblink 1s steps(1) infinite}@keyframes hmblink{50%{opacity:0}}@media (prefers-reduced-motion:reduce){.hm-icon svg{animation:none}.hm-w i{transition:none}}
 .nav{position:absolute;z-index:5;left:0;right:0;top:0;height:86px;display:flex;align-items:center;justify-content:space-between;padding:0 4.2vw}
 .nav-logo{display:block;width:110px}.nav-logo img{display:block;width:100%;height:auto;filter:drop-shadow(0 1px 4px rgba(0,0,0,.6))}.nav-links{display:flex;gap:44px;font-size:11px;font-weight:700;letter-spacing:.22em}.nav-links a{opacity:.95}.talk{border:1px solid rgba(255,255,255,.7);border-radius:30px;padding:14px 22px;font-size:10px;font-weight:700;letter-spacing:.14em}
@@ -40,6 +40,7 @@ a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:re
 </head>
 <body>
 <header class="hero" id="top">
+  <canvas class="hx" aria-hidden="true"></canvas>
   <nav class="nav">
     <a class="nav-logo" href="#top" aria-label="GOUAL ART"><img src="goual-art-brush-small.webp" alt="GOUAL ART"></a>
     <div class="nav-links"><a href="#work">WORK</a><a href="#services">SERVICES</a><a href="#contact">CONTACT</a><a href="formation/">FORMATION</a><a href="index.html">3D SITE</a></div>
@@ -140,7 +141,6 @@ if(window.Motion&&!reduceMotion){
   document.documentElement.classList.add('motion-on');
   animate('.nav, .scroll',{opacity:[0,1],y:[-14,0]},{duration:.9,delay:stagger(.15),ease});
   animate('.hm',{opacity:[0,1],y:[24,0]},{duration:1,delay:.35,ease});
-  scroll(animate('.hero',{backgroundPositionY:['50%','75%']},{ease:'linear'}),{target:document.querySelector('.hero'),offset:['start start','end start']});
   inView('.statement',el=>{animate(el,{opacity:[0,1],y:[40,0],clipPath:['inset(12% 0 12% 0)','inset(0% 0 0% 0)']},{duration:1.1,ease})},{amount:.2});
   inView('.grid',grid=>{animate(grid.querySelectorAll('.card'),{opacity:[0,1],y:[40,0],scale:[.96,1]},{duration:.9,delay:stagger(.08),ease})},{amount:.1});
   inView('.about h3, .contact h2, .vhead',el=>{animate(el,{opacity:[0,1],y:[50,0]},{duration:1,ease})},{amount:.3});
@@ -192,6 +192,68 @@ lb.querySelector('.lb-close').addEventListener('click',closeLb);lb.addEventListe
   }
   // Only run while the hero is on screen.
   new IntersectionObserver(([e]) => { if (e.isIntersecting) { if (cur < 0) go(0); else if (!timer) go((cur + 1) % S.length); } else { clearTimeout(timer); timer = null; } }).observe(root);
+})();
+</script>
+<script>
+// Hero background: futuristic digital rain in a blue → electric pink → violet gradient,
+// with the GOUAL word glowing out of the rain.
+(() => {
+  const cv = document.querySelector('.hx'), hero = cv.parentElement, g = cv.getContext('2d');
+  const CH = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワン0123456789GOUALART<>/{}=+*#';
+  const STOPS = [[40, 120, 255], [0, 210, 255], [255, 43, 214], [138, 43, 255]];
+  const pick = () => CH[(Math.random() * CH.length) | 0];
+  let glow, W, H, F, cols, rows, drops, mask, word, t = 0, run = false, last = 0;
+  const col = (x, a) => { // colour along the gradient, drifting slowly
+    let u = ((x / W) + t * 0.00004) % 1 * (STOPS.length - 1), i = u | 0, f = u - i, A = STOPS[i], B = STOPS[i + 1] || STOPS[0];
+    return `rgba(${A[0] + (B[0] - A[0]) * f | 0},${A[1] + (B[1] - A[1]) * f | 0},${A[2] + (B[2] - A[2]) * f | 0},${a})`;
+  };
+  function size() {
+    const d = Math.min(devicePixelRatio || 1, 1.5), r = hero.getBoundingClientRect();
+    W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; g.setTransform(d, 0, 0, d, 0, 0);
+    F = W < 800 ? 10 : 14; cols = Math.ceil(W / F); rows = Math.ceil(H / F);
+    drops = Array.from({ length: cols }, () => ({ y: Math.random() * -rows, v: 0.35 + Math.random() * 0.8 }));
+    // Which cells belong to the big GOUAL word.
+    const m = document.createElement('canvas'); m.width = cols; m.height = rows; const mg = m.getContext('2d');
+    const fs = Math.min(cols * (W < 800 ? 0.255 : 0.29), rows * 0.42); mg.font = `900 ${fs}px Inter, Arial Black, sans-serif`; mg.textAlign = 'center'; mg.textBaseline = 'middle';
+    const wy = rows * (W < 800 ? 0.3 : 0.36); mg.fillText('GOUAL', cols / 2, wy);
+    glow = { font: `900 ${fs * F}px Inter, Arial Black, sans-serif`, x: W / 2, y: wy * F };
+    const px = mg.getImageData(0, 0, cols, rows).data; mask = []; word = [];
+    for (let i = 0; i < cols * rows; i++) if (px[i * 4 + 3] > 110) { mask.push(i); word[i] = pick(); }
+    g.fillStyle = '#03020a'; g.globalAlpha = 1; g.clearRect(0, 0, W, H);
+  }
+  function frame(now) {
+    if (!run) return; requestAnimationFrame(frame);
+    if (now - last < 33) return; last = now; step(now);
+  }
+  function step(now) {
+    t = now;
+    g.globalCompositeOperation = 'destination-out'; g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'source-over'; g.font = `600 ${F}px ui-monospace, Menlo, monospace`; g.textBaseline = 'top';
+    for (let c = 0; c < cols; c++) {
+      const d = drops[c], y = d.y | 0, x = c * F;
+      if (y >= 0) {
+        g.fillStyle = col(x, .9); g.fillText(pick(), x, (y - 1) * F);
+        g.fillStyle = 'rgba(235,245,255,.95)'; g.fillText(pick(), x, y * F);
+      }
+      d.y += d.v; if (d.y > rows + Math.random() * 20) { d.y = Math.random() * -12; d.v = 0.35 + Math.random() * 0.8; }
+    }
+    // A soft gradient fill under the word so it reads clearly.
+    const gr = g.createLinearGradient(0, 0, W, 0); gr.addColorStop(0, col(0, 1)); gr.addColorStop(.5, col(W * .5, 1)); gr.addColorStop(1, col(W * .99, 1));
+    g.font = glow.font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = gr; g.globalAlpha = .045; g.fillText('GOUAL', glow.x, glow.y); g.globalAlpha = 1;
+    g.textAlign = 'left'; g.textBaseline = 'top'; g.font = `600 ${F}px ui-monospace, Menlo, monospace`;
+    // The word: steady glowing glyphs that flicker and change.
+    g.shadowBlur = 8;
+    for (const i of mask) {
+      if (Math.random() < .03) word[i] = pick();
+      const x = (i % cols) * F, y = ((i / cols) | 0) * F, a = .55 + Math.random() * .35;
+      g.fillStyle = g.shadowColor = col(x, a); g.fillText(word[i], x, y);
+    }
+    g.shadowBlur = 0;
+  }
+  size(); addEventListener('resize', () => { clearTimeout(size.t); size.t = setTimeout(size, 150); });
+  document.fonts && document.fonts.ready.then(size);
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { for (let k = 0; k < 60; k++) step(k * 40); return; }
+  new IntersectionObserver(([e]) => { const on = e.isIntersecting; if (on && !run) { run = true; requestAnimationFrame(frame); } else if (!on) run = false; }).observe(hero);
 })();
 </script>
 </body>
