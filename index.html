@@ -19,7 +19,9 @@
   })();
 </script>
 <noscript><meta http-equiv="refresh" content="0;url=classic.html"></noscript>
-<link rel="stylesheet" href="stadium.css?v=14">
+<link rel="stylesheet" href="stadium.css?v=15">
+<link rel="stylesheet" href="fxmenu.css?v=1">
+<script defer src="fxmenu.js?v=1"></script>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"}}
 </script>
@@ -35,9 +37,9 @@
   <header class="top">
     <a class="logo" href="#" data-goto="0" aria-label="GOUAL ART Animation Studios"><img src="goual-art-brush-small.webp" alt="GOUAL ART"><span>ANIMATION STUDIOS</span></a>
     <nav class="links">
-      <button type="button" data-goto="0.2">WORK</button>
-      <button type="button" data-goto="1">CONTACT</button>
+      <a href="classic.html#work">WORK</a>
       <a href="formation/">FORMATION</a>
+      <button type="button" data-goto="1">CONTACT</button>
     </nav>
     <div class="right">
       <button type="button" id="sound" aria-pressed="false" aria-label="Sound"><span class="bars"><i></i><i></i><i></i><i></i></span><svg class="spk" viewBox="0 0 24 24" aria-hidden="true"><path class="cone" d="M4 9h4l5-4v14l-5-4H4z"/><path class="waves" d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16.5 9.5l5 5M21.5 9.5l-5 5"/></svg><span class="label">SOUND OFF</span></button>
@@ -45,11 +47,11 @@
       <button type="button" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu"><i></i><i></i><i></i></button>
     </div>
   </header>
-  <nav id="mobile-menu" aria-label="Menu" hidden>
-    <button type="button" data-goto="0.2">WORK</button>
-    <a href="classic.html">CLASSIC SITE</a>
-    <button type="button" data-goto="1">CONTACT</button>
-    <a href="formation/">FORMATION</a>
+  <nav id="mobile-menu" aria-label="Menu" data-fxm hidden>
+    <a href="classic.html" data-sub="Portfolio &amp; services">CLASSIC SITE</a>
+    <a href="classic.html#work" data-sub="Films, ads &amp; 3D">WORK</a>
+    <a href="formation/" data-sub="AI football training">FORMATION</a>
+    <button type="button" data-goto="1" data-sub="Let's talk">CONTACT</button>
   </nav>
 
   <div id="chapters">

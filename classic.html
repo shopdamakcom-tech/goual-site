@@ -21,12 +21,12 @@ a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:re
 .about{min-height:420px;padding:100px 4vw;display:grid;grid-template-columns:1fr 1.3fr;gap:80px;align-items:end;background:radial-gradient(circle at 50% 20%,#111 0,#050505 55%)}.eyebrow{font-size:10px;letter-spacing:.3em}.about h3{font-size:clamp(36px,6vw,92px);line-height:.88;letter-spacing:-.065em;margin:18px 0 0}.about p{max-width:650px;font-size:16px;line-height:1.7;color:#aaa}.contact{min-height:560px;padding:90px 4vw 70px;display:grid;grid-template-columns:1fr minmax(320px,560px);gap:6vw;align-items:start;background:#f2f2ef;color:#080808}.contact .lead{max-width:440px;font-size:16px;line-height:1.6;color:#444;margin:28px 0 0}.contact .mail{display:inline-block;margin-top:16px;font-weight:800;font-size:18px;text-decoration:underline;text-underline-offset:5px}.contact h2{font-size:clamp(64px,13vw,190px);line-height:.78;letter-spacing:-.08em;margin:0}.contact-row{display:flex;justify-content:space-between;align-items:end;gap:30px}.contact small{font-size:10px;letter-spacing:.2em}.goual-contact{display:flex;flex-direction:column;gap:16px}.goual-contact .row{display:grid;grid-template-columns:1fr 1fr;gap:16px}.goual-contact label{display:flex;flex-direction:column;gap:6px;font-size:10px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}.goual-contact label span{font-weight:500;letter-spacing:0;text-transform:none;opacity:.5}.goual-contact input,.goual-contact select,.goual-contact textarea{background:transparent;border:0;border-bottom:1px solid #111;padding:12px 0;font:inherit;font-size:15px;color:#080808;outline:0;border-radius:0}.goual-contact textarea{resize:vertical}.goual-contact .honey{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}.goual-contact button[type=submit]{align-self:flex-start;margin-top:6px;background:#080808;color:#fff;border:0;border-radius:30px;padding:16px 26px;font-weight:700;letter-spacing:.1em;cursor:pointer}.goual-contact button[disabled]{opacity:.5;cursor:wait}.form-status{margin:0;min-height:1.2em;font-size:13px}.form-status.ok{color:#227a3d}.form-status.err{color:#c0392b}.form-status a{color:inherit}.lightbox{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:60px 4vw 30px}.lightbox[hidden]{display:none}.lightbox video{max-width:100%;max-height:calc(100vh - 140px);background:#000}.lb-title{margin:0;font-weight:800;letter-spacing:.12em}.lb-close{position:absolute;top:18px;right:20px;width:44px;height:44px;border-radius:50%;border:1px solid #fff;background:none;color:#fff;font-size:16px;cursor:pointer}.footer{background:#f2f2ef;color:#080808;padding:0 4vw 30px;display:flex;justify-content:space-between;font-size:9px;letter-spacing:.18em}
 .reveal{opacity:0;transform:translateY(30px);transition:opacity .8s,transform .8s}.reveal.on{opacity:1;transform:none}
 .motion-on .reveal{transform:none;transition:none}
-.vgrid{grid-template-columns:repeat(7,1fr);margin-top:7px}@media(max-width:1200px){.vgrid{grid-template-columns:repeat(4,1fr)}}.vgrid .card{aspect-ratio:9/16}.vgrid .meta{left:12px;right:12px;bottom:12px}.vgrid .num{left:12px}.wrow{margin-top:7px}.wrow .card{display:block;width:100%;aspect-ratio:2640/560}.vcta{display:flex;align-items:flex-end;text-decoration:none;background:linear-gradient(160deg,#1f5bff,#ff2bd6 55%,#8a2bff);transition:filter .4s}.vcta:hover{filter:brightness(1.15)}.vcta-in{padding:16px;display:flex;flex-direction:column;gap:14px}.vcta-in span{font-size:clamp(20px,1.9vw,30px);font-weight:900;line-height:.95;letter-spacing:-.03em}.vcta-in b{font-size:10px;letter-spacing:.18em}
-@media(max-width:800px){.vgrid{grid-template-columns:1fr 1fr;margin-top:5px}.vgrid .card{aspect-ratio:9/16}.wrow{margin-top:5px}.wrow .card{aspect-ratio:3/1}
+.vgrid{grid-template-columns:repeat(7,1fr);margin-top:7px}@media(max-width:1200px){.vgrid{grid-template-columns:repeat(4,1fr)}}.vgrid .card{aspect-ratio:9/16}.vgrid .meta{left:12px;right:12px;bottom:12px}.vgrid .num{left:12px}.wrow{margin-top:7px}.wrow .card{display:block;width:100%;aspect-ratio:1600/560}.vcta{display:flex;align-items:flex-end;text-decoration:none;background:linear-gradient(160deg,#1f5bff,#ff2bd6 55%,#8a2bff);transition:filter .4s}.vcta:hover{filter:brightness(1.15)}.vcta-in{padding:16px;display:flex;flex-direction:column;gap:14px}.vcta-in span{font-size:clamp(20px,1.9vw,30px);font-weight:900;line-height:.95;letter-spacing:-.03em}.vcta-in b{font-size:10px;letter-spacing:.18em}
+@media(max-width:800px){.vgrid{grid-template-columns:1fr 1fr;margin-top:5px}.vgrid .card{aspect-ratio:9/16}.wrow{margin-top:5px}.wrow .card{aspect-ratio:2.4/1}
 
  .hero{height:520px;min-height:0;background-position:center center}
  .nav{height:70px;padding:0 18px}.nav-links,.talk{display:none}.mobile-menu{display:block;position:absolute;right:18px;top:18px;width:38px;height:38px;border:1px solid #fff;border-radius:50%;z-index:7;background:rgba(0,0,0,.25)}
- .mobile-menu:before,.mobile-menu:after{content:"";position:absolute;left:10px;right:10px;height:1px;background:#fff}.mobile-menu:before{top:15px}.mobile-menu:after{top:21px}
+ .mobile-menu:before,.mobile-menu:after{content:"";position:absolute;left:10px;right:10px;height:1px;background:#fff}.mobile-menu:before{top:15px}.mobile-menu:after{top:21px}.mobile-menu:before,.mobile-menu:after{transition:transform .3s,top .3s}.menu-open .mobile-menu:before{top:18px;transform:rotate(45deg)}.menu-open .mobile-menu:after{top:18px;transform:rotate(-45deg)}.menu-open .mobile-menu{background:rgba(0,0,0,.5);border-color:#ff2bd6;box-shadow:0 0 14px rgba(255,43,214,.6)}
  .hero-hotspots{display:none}.scroll{right:18px;bottom:16px;font-size:8px}
  .hero{height:600px;background-position:center 30%}.hm{left:18px;right:18px;bottom:40px;grid-template-columns:1fr;gap:0}.hm .k1{display:none}.hm .kick{font-size:9px;letter-spacing:.22em}.hm-words{font-size:min(8vw,36px);margin:6px 0 4px}.hm-sub{font-size:13px;height:20px;margin-bottom:10px}.hm-chips{gap:6px}.hm-chips button{font-size:9px;padding:6px 9px;letter-spacing:.1em}.hm-icon{position:absolute;right:0;top:-92px;width:76px;height:76px;margin:0}
  .work{padding:38px 12px 60px}.statement{height:190px}.statement h2{font-size:30px;margin:0 18px}.statement h2:last-child{font-size:30px}
@@ -37,6 +37,9 @@ a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:re
 @media(max-width:800px){.nav-links.open{display:flex;position:fixed;inset:0;z-index:6;flex-direction:column;justify-content:center;gap:6px;padding:90px 28px;background:#050505;font-size:34px;letter-spacing:.02em}.nav-links.open a{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.12)}.menu-open .mobile-menu{position:fixed;z-index:8}.menu-open .scroll{display:none}.menu-open .nav{z-index:20}.contact .formation-link{display:inline-block;margin-top:14px}}
 .contact .formation-link{display:inline-block;margin-top:14px;font-weight:700;border-bottom:1px solid currentColor;padding-bottom:2px}
 </style>
+<link rel="stylesheet" href="fxmenu.css?v=1">
+<style>#fxmenu.fxm{z-index:7}</style>
+<script defer src="fxmenu.js?v=1"></script>
 </head>
 <body>
 <header class="hero" id="top">
@@ -46,7 +49,14 @@ a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:re
     <div class="nav-links"><a href="#work">WORK</a><a href="#services">SERVICES</a><a href="#contact">CONTACT</a><a href="formation/">FORMATION</a><a href="index.html">3D SITE</a></div>
     <a class="talk" href="#contact">LET'S TALK&nbsp;&nbsp;→</a>
   </nav>
-  <button class="mobile-menu" aria-label="Open menu" aria-expanded="false" onclick="const o=document.querySelector('.nav-links').classList.toggle('open');this.setAttribute('aria-expanded',o);document.body.classList.toggle('menu-open',o)"></button>
+  <button class="mobile-menu" aria-label="Open menu" aria-expanded="false" aria-controls="fxmenu" onclick="const m=document.getElementById('fxmenu'),o=m.hidden;m.hidden=!o;this.setAttribute('aria-expanded',o);document.body.classList.toggle('menu-open',o)"></button>
+  <nav id="fxmenu" aria-label="Menu" data-fxm hidden>
+    <a href="index.html" data-sub="Enter the 3D stadium">3D SITE</a>
+    <a href="#work" data-sub="Films, ads &amp; 3D">WORK</a>
+    <a href="#services" data-sub="What we make">SERVICES</a>
+    <a href="formation/" data-sub="AI football training">FORMATION</a>
+    <a href="#contact" data-sub="Let's talk">CONTACT</a>
+  </nav>
   <div class="hero-hotspots">
     <a class="hs-work" href="#work"></a><a class="hs-services" href="#services"></a><a class="hs-process" href="#process"></a><a class="hs-contact" href="#contact"></a><a class="hs-talk" href="#contact"></a>
   </div>
@@ -74,7 +84,7 @@ a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:re
 <main>
 <section class="work" id="work">
   <div class="statement reveal">
-    <video src="banner.mp4" autoplay muted loop playsinline preload="metadata"></video>
+    <video src="ads/ova-sport-sign.mp4" autoplay muted loop playsinline preload="metadata"></video>
     <h2>THE WORLD<br>IS FULL OF<br>CONTENT.</h2>
     <h2>WE MAKE<br>YOU STOP.</h2>
   </div>
@@ -109,7 +119,7 @@ a{color:inherit;text-decoration:none}.hero{height:590px;min-height:0;position:re
     <button type="button" class="card vcard" data-src="ads/ova-sport-2.mp4" data-title="OVA SPORT"><video data-src="ads/ova-sport-2.mp4" poster="ads/ova-sport-2.webp" muted loop playsinline preload="none"></video><span class="num">26</span><div class="meta"><div><div class="title">OVA SPORT</div><div class="sub">3D / ADVERTISING</div></div><div class="play">▶</div></div></button>
     <a class="card vcard vcta" href="#contact"><span class="num">27</span><div class="vcta-in"><span>YOUR<br>BRAND<br>NEXT?</span><b>LET'S TALK →</b></div></a>
   </div>
-  <div class="wrow"><button type="button" class="card wcard" data-src="ads/ova-sport-sign.mp4" data-title="OVA SPORT"><video data-src="ads/ova-sport-sign.mp4" poster="ads/ova-sport-sign.webp" muted loop playsinline preload="none"></video><span class="num">28</span><div class="meta"><div><div class="title">OVA SPORT</div><div class="sub">STORE SIGN DISPLAY</div></div><div class="play">▶</div></div></button></div>
+  <div class="wrow"><button type="button" class="card wcard" data-src="banner.mp4" data-title="OVA SPORT"><video data-src="banner.mp4" poster="ads/banner.webp" muted loop playsinline preload="none"></video><span class="num">28</span><div class="meta"><div><div class="title">OVA SPORT</div><div class="sub">STORE SIGN DISPLAY</div></div><div class="play">▶</div></div></button></div>
 </section>
 
 <section class="about" id="services">
@@ -167,7 +177,7 @@ const closeLb=()=>{lbv.pause();lbv.removeAttribute('src');lbv.load();lb.hidden=t
 lb.querySelector('.lb-close').addEventListener('click',closeLb);lb.addEventListener('click',e=>{if(e.target===lb)closeLb();});addEventListener('keydown',e=>{if(e.key==='Escape'&&!lb.hidden)closeLb();});
 </script>
 <script defer src="contact.js?v=2"></script>
-<script>document.querySelectorAll('.nav-links a').forEach(a=>a.addEventListener('click',()=>{document.querySelector('.nav-links').classList.remove('open');document.body.classList.remove('menu-open');}));</script>
+<script>document.querySelectorAll('.nav-links a, #fxmenu a').forEach(a=>a.addEventListener('click',()=>{document.getElementById('fxmenu').hidden=true;document.querySelector('.mobile-menu').setAttribute('aria-expanded',false);document.querySelector('.nav-links').classList.remove('open');document.body.classList.remove('menu-open');}));addEventListener('keydown',e=>{const m=document.getElementById('fxmenu');if(e.key==='Escape'&&!m.hidden){m.hidden=true;document.body.classList.remove('menu-open');document.querySelector('.mobile-menu').setAttribute('aria-expanded',false);}});</script>
 <script>
 // Hero motion design: what GOUAL ART makes, one service at a time.
 (() => {
