@@ -552,29 +552,35 @@ const bench = new THREE.Group(); bench.position.set(16.4, 0, 6); bench.rotation.
   rbox(2.2, 0.5, 0.06, 0.03, seatMat, bench, 0, 0.72, -0.28);
   [-1, 1].forEach(s => { box(0.06, 0.43, 0.4, frame, bench, s * 1.02, 0.215, -0.04); box(0.06, 0.95, 0.06, frame, bench, s * 1.02, 0.475, -0.3); });
 }
-// The coach on the bench, reading his tablet (a static seated model, base removed). The film plays on
-// his tablet; ?player switches back to the rigged player.
-const BENCH_FIT = { scale: 0.8, z: 0.24 };
-const playerReady = !location.search.includes('player') ? loadModel('models/bench-coach.glb').then(m => {
+// A scanned person standing up, feet on the ground, centred, at a real height.
+function standUp(m, height) {
+  m.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
+  m.updateMatrixWorld(true);
+  let b = new THREE.Box3().setFromObject(m); m.scale.multiplyScalar(height / (b.max.y - b.min.y)); m.updateMatrixWorld(true);
+  b = new THREE.Box3().setFromObject(m); const c = b.getCenter(V(0, 0, 0));
+  m.position.x -= c.x; m.position.z -= c.z; m.position.y -= b.min.y;
+  const g = new THREE.Group(); g.add(m); return g;
+}
+// At the touchline by the bench: an analyst (3D scan) at a tactics tablet on a stand, where the film plays.
+const playerReady = !location.search.includes('player') ? loadModel('models/touchline-man.glb').then(m => {
   if (!m) return;
-  m.traverse(o => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
-  const S = BENCH_FIT.scale;
-  m.scale.setScalar(S); m.position.set(0, 0.86 * S + 0.02, BENCH_FIT.z);
-  bench.add(m); scene.updateMatrixWorld(true);
-  // Film on his tablet: the tablet's plane was measured from the model (centre, width axis, slope axis,
-  // normal toward his face), so the screen sits right on its glass.
-  const holder = new THREE.Group();
-  holder.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(V(-1, 0.021, 0.016).normalize(), V(0.025, 0.556, 0.831).normalize(), V(0.009, 0.831, -0.556).normalize()));
-  holder.position.set(-0.009, 0.029, 0.428).addScaledVector(V(0.009, 0.831, -0.556), 0.027);
-  m.add(holder);
-  makeScreen(1, 0.22, 0.27, holder, 0, 0, 0.002);
-  // Camera stop: just behind his right shoulder, looking down at the tablet.
+  const man = standUp(m, 1.8);
+  man.position.set(-1.55, 0, 0.35); man.rotation.y = 0.35; bench.add(man);          // faces the pitch, turned to the tablet
+  // Tablet on a stand in front of him, tilted toward his eyes.
+  const standMat = mat('#1b1f3b', { metalness: 0.6, roughness: 0.35 });
+  const foot = new THREE.Vector3(-1.32, 0, 1.0);
+  mesh(new THREE.CylinderGeometry(0.16, 0.2, 0.03, 20), standMat, bench, foot.x, 0.015, foot.z);
+  mesh(new THREE.CylinderGeometry(0.018, 0.018, 1.12, 10), standMat, bench, foot.x, 0.56, foot.z);
+  const tablet = new THREE.Group(); tablet.position.set(foot.x, 1.2, foot.z); bench.add(tablet); scene.updateMatrixWorld(true);
+  tablet.lookAt(bench.localToWorld(V(-1.55, 1.68, 0.35)));
+  rbox(0.36, 0.25, 0.016, 0.02, mat('#2c2c31', { metalness: 0.6, roughness: 0.35 }), tablet, 0, 0, -0.004);
+  makeScreen(1, 0.33, 0.22, tablet, 0, 0, 0.006);
+  // Camera stop: behind his right shoulder, looking at the tablet.
   scene.updateMatrixWorld(true);
-  const right = bench.localToWorld(V(-1, 0, 0)).sub(bench.getWorldPosition(V(0, 0, 0)));
-  const k = KEYS.find(k => k.station === 1);
-  const back = bench.localToWorld(V(0, 0, -1)).sub(bench.getWorldPosition(V(0, 0, 0)));
-  k.pos.copy(holder.getWorldPosition(V(0, 0, 0))).addScaledVector(right, 0.24).addScaledVector(back, 0.3).add(V(0, 0.5, 0));
-  k.look.copy(holder.getWorldPosition(V(0, 0, 0)));
+  const k = KEYS.find(k => k.station === 1), t = tablet.getWorldPosition(V(0, 0, 0));
+  k.pos.copy(bench.localToWorld(V(-2.15, 1.9, 0.0)));
+  const side = new THREE.Vector3().crossVectors(t.clone().sub(k.pos).normalize(), V(0, 1, 0)).normalize();
+  k.look.copy(t).addScaledVector(side, 0.3);                                         // tablet left of centre: the card is on the right
   rebuildCurves();
 }) : loadModel('models/player.glb').then(m => {
   if (!m) return;
@@ -922,19 +928,11 @@ lampAt(31.2, FLOOR + 2.7, -6.8, '#ffe6c4', 6, 9); lampAt(33.4, FLOOR + 2.6, -7.6
   rbox(2.3, 1.5, 0.05, 0.03, mat('#15171f', { roughness: 0.4 }), frame, 0, 0, 0);
   makeScreen(5, 2.22, 1.42, frame, 0, 0, 0.03);
 }
-const coachReady = loadModel('models/coach.glb').then(m => {
+// The man in the office (3D scan): standing behind his desk, facing whoever walks in.
+const coachReady = loadModel('models/office-man.glb').then(m => {
   if (!m) return;
-  m.traverse(o => {
-    if (!o.isMesh) return;
-    if (/shadow|plane/i.test(o.name + o.parent.name)) o.visible = false;
-    if (o.material.name === 'Std_Skin_Leg') { o.material.map = null; o.material.color.set('#1b2233'); }   // dark suit trousers
-  });
-  prepCharacter(m);
-  const pose = poseSeated(m, { rig: 'unreal', seat: 0.42, arms: [38, 40, 75, 55], lean: 6, headDown: 4 });
-  const seat = new THREE.Group(); seat.position.set(30.4, FLOOR, -6.8); seat.rotation.y = Math.PI / 2; office.add(seat); seat.add(m);
-  // He turns his head to whoever walks in.
-  const { head, neck } = pose.bones;
-  coachHead = { head, neck, h: head.quaternion.clone(), n: neck.quaternion.clone(), yaw: 0, pitch: 0 };
+  const man = standUp(m, 1.82);
+  man.position.set(29.75, FLOOR, -6.8); man.rotation.y = Math.PI / 2; office.add(man);
 });
 const headDir = new THREE.Vector3(), headPos = new THREE.Vector3();
 function lookAtCamera(dt) {
