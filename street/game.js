@@ -77,7 +77,7 @@ const manager = new THREE.LoadingManager();
 manager.onProgress = (u, a, b) => { $('#loading .bar i').style.width = (a / b * 100) + '%'; };
 const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
 const load = url => new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
-const [cr7Src, kidSrc, zeSrc] = await Promise.all([load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb')]);
+const [cr7Src, kidSrc, zeSrc, triondaSrc] = await Promise.all([load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null)]);
 
 // ================= characters =================
 const cr7 = new Character(cr7Src, { kind: 'valve', height: 1.87 });
@@ -113,7 +113,15 @@ const ballMat = new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.45 }
 const BALL_R = 0.11;
 class Ball {
   constructor(p) {
-    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 24, 16), ballMat); this.mesh.castShadow = true; scene.add(this.mesh);
+    // The official Trionda ball (3D model), sized to the physics ball; a plain textured sphere if it fails to load.
+    if (triondaSrc) {
+      const m = triondaSrc.clone(); m.updateMatrixWorld(true);
+      const b = new THREE.Box3().setFromObject(m), sz = b.getSize(new V3()), c = b.getCenter(new V3());
+      const k = (2 * BALL_R) / Math.max(sz.x, sz.y, sz.z); m.scale.multiplyScalar(k); m.position.sub(c.multiplyScalar(k));
+      m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material.side = THREE.FrontSide; } });
+      this.mesh = new THREE.Group(); this.mesh.add(m);
+    } else { this.mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 24, 16), ballMat); this.mesh.castShadow = true; }
+    scene.add(this.mesh);
     this.pos = p.clone(); this.vel = new V3(); this.ghost = 0; this.onGround = false; this.frozen = false;
   }
   update(dt) {
