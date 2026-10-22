@@ -953,6 +953,19 @@ function lookAtCamera(dt) {
   turnBone(c.head, V(-Math.sin(c.yaw), 0, -Math.cos(c.yaw)), -deg(c.pitch) * 0.8);
 }
 
+/* ---------------------------------------------------------- ballon d'or */
+// The golden ball on the green counter, next to the water bottles, under its own small spot.
+loadModel('models/ballon-dor.glb').then(m => {
+  if (!m) return;
+  m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material.metalness = 1; o.material.roughness = Math.max(0.18, o.material.roughness); o.material.envMapIntensity = 2.4; o.material.emissive = new THREE.Color('#5a3a08'); o.material.emissiveIntensity = 0.35; } });
+  const b = new THREE.Box3().setFromObject(m), s = 0.46 / (b.max.y - b.min.y);
+  m.scale.setScalar(s); m.updateMatrixWorld(true);
+  const b2 = new THREE.Box3().setFromObject(m), c = b2.getCenter(V(0, 0, 0));
+  const g = new THREE.Group(); g.position.set(41.45, -1.19, 0.2); g.rotation.y = 0.6; indoor.add(g);
+  m.position.set(-c.x, -b2.min.y, -c.z); g.add(m);
+});
+lampAt(41.9, FLOOR + 1.9, 0.6, '#ffe2a6', 4, 3);
+
 /* ------------------------------------------------------------ camera path */
 // Keyframes: camera position and look target. Timing comes from the distance between keys,
 // so the camera moves at an even pace; stations (films) get a short pause.
@@ -978,11 +991,13 @@ const KEYS = [
   { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6], w: 3.2 },                   // corner (slow between the two doors)
   { game: 'padel', pos: [45.5, EYE - 0.05, 8.4], look: [42.85, FLOOR + 1.2, 8.4], w: 3.2 },    // PADEL CLASH door (left wall)
   { pos: [44.3, EYE, 7.0], look: [43, EYE - 0.1, 2], w: 2.2 },
-  { pos: [44, EYE, 4.2], look: [37.5, FLOOR + 1.2, 0.5], w: 2.4 },            // into the locker room: slow
+  { pos: [44, EYE, 4.2], look: [45.86, FLOOR + 1.35, 2.3], w: 2.4 },            // into the locker room: the TV first
   { w: 2.2, station: 3, pos: [43.8, FLOOR + 1.45, 2.06], look: [45.86, FLOOR + 1.32, 2.06] },   // set from the TV on load
-  { pos: [42.6, EYE, -1.2], look: [44, EYE, -6] },
+  { pos: [42.85, EYE - 0.05, 1.15], look: [41.45, FLOOR + 1.05, 0.2], w: 2.2 },     // the Ballon d'Or by the water bottles
+  { pos: [42.6, EYE, -1.2], look: [44, EYE, -6], w: 1.6 },
   { pos: [44, EYE, -4.3], look: [44, EYE, -9] },
-  { pos: [44, EYE, -7.6], look: [41, EYE - 0.2, -12] },                       // into the gym
+  { pos: [44, EYE, -7.4], look: [44, EYE - 0.1, -12] },                        // straight through the gym door…
+  { pos: [43.95, EYE, -9.5], look: [41, EYE - 0.2, -12.5] },                  // …then turn into the gym
   { pos: [41.4, EYE, -10.2], look: [38.7, FLOOR + 1.5, -13.6] },
   { station: 4, pos: [41.2, FLOOR + 1.55, -13.59], look: [38.66, FLOOR + 1.55, -13.59] },
   { pos: [40.3, EYE, -11], look: [39.2, EYE, -7] },
