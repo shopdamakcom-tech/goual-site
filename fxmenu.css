@@ -8,7 +8,7 @@ nav.fxm:after{content:"";position:absolute;inset:0;background:repeating-linear-g
 .fxm-head,.fxm-foot{position:absolute;z-index:1;left:24px;font:600 10px/1.4 ui-monospace,Menlo,Consolas,monospace;letter-spacing:.28em;color:rgba(255,255,255,.6);text-transform:uppercase}
 .fxm-head{position:relative;left:auto;margin:0 0 14px}
 .fxm-head b,.fxm-grad{background:linear-gradient(90deg,#3d8bff,#ff2bd6,#a24bff);-webkit-background-clip:text;background-clip:text;color:transparent}
-.fxm-foot{right:24px;bottom:26px;display:flex;justify-content:space-between;gap:12px;letter-spacing:.2em}
+.fxm-foot{right:24px;bottom:22px;display:flex;justify-content:space-between;align-items:center;gap:12px;letter-spacing:.2em}
 .fxm-foot i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2bff9a;box-shadow:0 0 8px #2bff9a;margin-right:8px;vertical-align:1px;animation:fxm-blink 1.4s steps(1) infinite}
 @keyframes fxm-blink{50%{opacity:.25}}
 nav.fxm .fxm-item{position:relative;z-index:1;display:grid;grid-template-columns:34px 1fr auto;align-items:center;column-gap:10px;padding:15px 0;margin:0;border:0;background:none;color:#fff;text-decoration:none;text-align:left;font:inherit;cursor:pointer;opacity:0;transform:translateX(-26px);transition:opacity .45s,transform .6s cubic-bezier(.22,1,.36,1);-webkit-tap-highlight-color:transparent}

@@ -77,6 +77,8 @@ body.end .top,body.end .bottom{color:var(--ink);text-shadow:none}body.end .class
 
 .bottom{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px 2.4vw;font:600 12px/1 var(--round);letter-spacing:.16em;opacity:0;transition:opacity .8s;text-shadow:0 1px 8px rgba(27,31,59,.35)}
 body.ready .bottom{opacity:1}
+.bottom .bar-socials{margin-left:auto;margin-right:18px}.bottom .bar-socials a{background:rgba(10,12,22,.28)}.contact-intro .socials{display:flex;margin:18px 0 6px}
+@media(max-width:767px){.bottom .bar-socials{display:none}}
 .progress{flex:1;max-width:320px;height:4px;border-radius:4px;background:rgba(255,255,255,.35);position:relative;margin-left:auto;overflow:hidden}
 .progress i{position:absolute;inset:0;background:#fff;transform-origin:left;transform:scaleX(0)}
 #scroll-hint{animation:nudge 1.4s ease-in-out infinite}
