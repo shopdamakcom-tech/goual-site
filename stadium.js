@@ -1043,12 +1043,8 @@ const KEYS = [
   { pos: [40.3, EYE, -11], look: [39.2, EYE, -7] },
   { pos: [39.15, EYE, -8.6], look: [39.1, EYE, -5] },                         // out through the second door
   { pos: [39.1, EYE, -6.85], look: [34, EYE, -6.75] },                        // corner
-  { pause: 1, pos: [38.95, EYE - 0.05, -7.2], look: [37.75, FLOOR + 1.1, -6.05], w: 2.6 },   // reels: stop and watch each one
-  { pause: 1, pos: [38.3, EYE - 0.05, -6.25], look: [37.1, FLOOR + 1.1, -7.4], w: 2.6 },
-  { pause: 1, pos: [37.65, EYE - 0.05, -7.2], look: [36.45, FLOOR + 1.1, -6.05], w: 2.6 },
-  { pause: 1, pos: [37.0, EYE - 0.05, -6.25], look: [35.8, FLOOR + 1.1, -7.4], w: 2.6 },
-  { pause: 1, pos: [36.35, EYE - 0.05, -7.2], look: [35.15, FLOOR + 1.1, -6.05], w: 2.6 },
-  { pos: [35.2, EYE, -6.72], look: [30.6, FLOOR + 1.3, -6.8], w: 2 },
+  { pos: [37.6, EYE, -6.72], look: [33, EYE - 0.05, -6.72], w: 2.8 },        // reels corridor: straight and slow, look left/right
+  { pos: [35.6, EYE, -6.72], look: [30.6, FLOOR + 1.3, -6.8], w: 2.8 },
   { pos: [33.8, EYE, -6.7], look: [30.6, FLOOR + 1.25, -6.8] },               // the coach looks up
   { station: 5, pos: [32.9, FLOOR + 1.55, -6.2], look: [31, FLOOR + 1.6, -8.93] },
   { pos: [33.7, FLOOR + 1.65, -5.4], look: [30.6, FLOOR + 1.2, -7.2] },
@@ -1492,8 +1488,8 @@ function frame() {
   }
   // Gentle hand-held drift with the pointer.
   mouseSmooth.lerp(mouse, 1 - Math.exp(-dt * 2.5));
-  // Hall of fame (corridor A): free look left/right; up/down stays for scrolling.
-  const cp = camera.position, inHall = cp.y < 0.25 && Math.abs(cp.z - 13) < 1.2 && cp.x > 33.3 && cp.x < 42.4 && !anyArcadeOpen() && state === 'ready';
+  // Hall of fame (corridor A) and the reels corridor: free look left/right; up/down stays for scrolling.
+  const cp = camera.position, inHall = cp.y < 0.25 && (Math.abs(cp.z - 13) < 1.2 && cp.x > 33.3 && cp.x < 42.4 || cp.x > 35.2 && cp.x < 39.2 && cp.z > -7.3 && cp.z < -6.1) && !anyArcadeOpen() && state === 'ready';
   hallW += ((inHall ? 1 : 0) - hallW) * (1 - Math.exp(-dt * 3));
   if (!inHall) hallYawTarget *= Math.exp(-dt * 3);
   const want = pointerKind === 'mouse' ? -mouseSmooth.x * 1.3 : hallYawTarget;
