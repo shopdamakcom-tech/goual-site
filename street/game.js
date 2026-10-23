@@ -947,7 +947,7 @@ $('#againBtn').onclick = () => location.reload();
 $('#contactBtn').onclick = () => { if (EMBED) post('contact'); else location.href = '../#contact'; };
 $('#ctrlBtn').onclick = () => { $('#title').classList.add('hidden'); $('#menu').classList.remove('hidden'); $('#menuKicker').textContent = 'CONTROLS'; $('#resumeBtn').textContent = 'BACK'; $('#resumeBtn').onclick = () => { $('#menu').classList.add('hidden'); $('#title').classList.remove('hidden'); $('#resumeBtn').textContent = 'RESUME'; $('#resumeBtn').onclick = () => togglePause(false); }; };
 function post(action, data) { try { window.parent.postMessage({ type: 'goual-street', action, ...data }, '*'); } catch (e) { } }
-function close() { leaveFullscreen(); audio.stopVoice(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../'; }
+function close() { leaveFullscreen(); audio.stopVoice(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../?arcade=street'; }
 $('#playBtn').onclick = async () => {
   audio.init(); goLandscape(); $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden');
   state.started = true; state.t0 = performance.now();

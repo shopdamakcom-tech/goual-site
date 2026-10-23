@@ -1266,6 +1266,10 @@ function openArcade(id = 'street') {
   const A = ARCADES[id];
   if (!A || arcade.playing || state !== 'ready') return;
   arcade.playing = true; arcade.current = A; A.target = 1; sound.pop(); body.classList.add('arcade-on');
+  // Phones: load the game as its own page instead of on top of the stadium, so the phone never holds
+  // two 3D scenes in memory at once (iPhones reload the page when that happens). Closing the game
+  // brings you back here, in front of the same door.
+  if (matchMedia('(pointer: coarse)').matches) { setTimeout(() => { location.href = A.url.replace('?embed=1', '?from=tour'); }, 1150); return; }
   setTimeout(() => {
     arcadeFrame.src = A.url;
     arcadeEl.hidden = false; requestAnimationFrame(() => arcadeEl.classList.add('open'));
@@ -1355,6 +1359,9 @@ function updateLoader() {
     counterEl.classList.add('done');
     renderer.shadowMap.needsUpdate = true;
     state = 'ready'; body.classList.add('ready');
+    // Back from a game played on its own page: start the tour in front of that game's door.
+    const back = new URLSearchParams(location.search).get('arcade'), bk = back && KEYS.find(k => k.game === back);
+    if (bk) { target = progress = bk.p + 0.002; history.replaceState(null, '', location.pathname); }
   }
 }
 

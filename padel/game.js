@@ -534,7 +534,7 @@ function togglePause(force) {
   if (state.paused) audio.ctx?.suspend(); else { audio.ctx?.resume(); clock.getDelta(); }
 }
 function post(action, data) { try { window.parent.postMessage({ type: 'goual-arcade', game: 'padel', action, ...data }, '*'); } catch (e) { } }
-function close() { leaveFullscreen(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../'; }
+function close() { leaveFullscreen(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../?arcade=padel'; }
 $('#pauseBtn').onclick = () => togglePause(true);
 $('#resumeBtn').onclick = () => togglePause(false);
 $('#soundBtn').onclick = () => { audio.setOn(!audio.on); $('#soundBtn').textContent = 'Sound: ' + (audio.on ? 'on' : 'off'); };
