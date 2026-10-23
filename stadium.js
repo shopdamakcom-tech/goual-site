@@ -702,6 +702,46 @@ const HALL = [
   });
 }
 
+/* ------------------------------------------------- reels: corridor to the office */
+// Five vertical films in frames along the corridor from the gym to the coach's office. They play
+// muted in a loop (no click): the tour slows down and pauses in front of them. Files live in reels/.
+const REELS = [
+  // [file, wall: 'n' (left when walking to the office) or 's', x]
+  ['reel-1.mp4', 'n', 37.75],
+  ['reel-2.mp4', 's', 37.1],
+  ['reel-3.mp4', 'n', 36.45],
+  ['reel-4.mp4', 's', 35.8],
+  ['reel-5.mp4', 'n', 35.15],
+];
+const reels = [];
+{
+  const frameMat = mat('#101217', { roughness: 0.35, metalness: 0.4 }), brass = mat('#c9a24a', { roughness: 0.3, metalness: 0.8 });
+  const W = 0.56, H = W * 16 / 9;
+  REELS.forEach(([file, wall, x]) => {
+    const north = wall === 'n', z = north ? -6.0 - 0.05 - 0.02 : -7.45 + 0.05 + 0.02;
+    const g = new THREE.Group(); g.position.set(x, FLOOR + 1.12, z); g.rotation.y = north ? Math.PI : 0; indoor.add(g);
+    const video = document.createElement('video');
+    Object.assign(video, { src: 'reels/' + file, muted: true, loop: true, playsInline: true, preload: 'none', crossOrigin: 'anonymous' });
+    video.setAttribute('playsinline', ''); video.setAttribute('muted', '');
+    const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace;
+    box(W + 0.08, H + 0.08, 0.04, frameMat, g, 0, 0, 0, { cast: false });
+    box(W + 0.12, 0.018, 0.05, brass, g, 0, H / 2 + 0.05, 0.005, { cast: false });
+    box(W + 0.12, 0.018, 0.05, brass, g, 0, -H / 2 - 0.05, 0.005, { cast: false });
+    const black = new THREE.MeshBasicMaterial({ color: '#05060c' });
+    const film = mesh(new THREE.PlaneGeometry(W, H), black, g, 0, 0, 0.022, { cast: false, receive: false });
+    reels.push({ video, tex, film, filmMat: new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }), black, on: false });
+  });
+  lampAt(36.45, FLOOR + 2, -6.72, '#fff1d6', 3);
+}
+// Play the reels only while the camera is in that corridor (saves data and battery).
+function updateReels() {
+  const c = camera.position, near = c.y < 0.25 && c.x > 33.6 && c.x < 40.2 && c.z > -9 && c.z < -5.6 && indoor.visible;
+  for (const r of reels) {
+    if (near && !r.on) { r.on = true; r.video.play().then(() => { r.film.material = r.filmMat; }).catch(() => {}); }
+    else if (!near && r.on) { r.on = false; r.video.pause(); }
+  }
+}
+
 /* ----------------------------------------------------------- arcade doors */
 // Doors to the mini-games. The tour stops in front of each; PLAY swings it open onto the game's
 // world, and the game opens full screen. STREET FOOT ends corridor A; PADEL CLASH is on the left
@@ -993,8 +1033,8 @@ const KEYS = [
   { pos: [44.3, EYE, 7.0], look: [43, EYE - 0.1, 2], w: 2.2 },
   { pos: [44, EYE, 4.2], look: [45.86, FLOOR + 1.35, 2.3], w: 2.4 },            // into the locker room: the TV first
   { w: 2.2, station: 3, pos: [43.8, FLOOR + 1.45, 2.06], look: [45.86, FLOOR + 1.32, 2.06] },   // set from the TV on load
-  { pos: [42.85, EYE - 0.05, 1.15], look: [41.45, FLOOR + 1.05, 0.2], w: 2.2 },     // the Ballon d'Or by the water bottles
-  { pos: [42.6, EYE, -1.2], look: [44, EYE, -6], w: 1.6 },
+  { pause: 1, pos: [42.85, EYE - 0.05, 1.15], look: [41.45, FLOOR + 1.05, 0.2], w: 4.5 },     // the Ballon d'Or by the water bottles: slow, short stop
+  { pos: [42.6, EYE, -1.2], look: [44, EYE, -6], w: 3 },
   { pos: [44, EYE, -4.3], look: [44, EYE, -9] },
   { pos: [44, EYE, -7.4], look: [44, EYE - 0.1, -12] },                        // straight through the gym door…
   { pos: [43.95, EYE, -9.5], look: [41, EYE - 0.2, -12.5] },                  // …then turn into the gym
@@ -1003,7 +1043,12 @@ const KEYS = [
   { pos: [40.3, EYE, -11], look: [39.2, EYE, -7] },
   { pos: [39.15, EYE, -8.6], look: [39.1, EYE, -5] },                         // out through the second door
   { pos: [39.1, EYE, -6.85], look: [34, EYE, -6.75] },                        // corner
-  { pos: [36.2, EYE, -6.72], look: [30.6, FLOOR + 1.3, -6.8] },
+  { pause: 1, pos: [38.95, EYE - 0.05, -7.2], look: [37.75, FLOOR + 1.1, -6.05], w: 2.6 },   // reels: stop and watch each one
+  { pause: 1, pos: [38.3, EYE - 0.05, -6.25], look: [37.1, FLOOR + 1.1, -7.4], w: 2.6 },
+  { pause: 1, pos: [37.65, EYE - 0.05, -7.2], look: [36.45, FLOOR + 1.1, -6.05], w: 2.6 },
+  { pause: 1, pos: [37.0, EYE - 0.05, -6.25], look: [35.8, FLOOR + 1.1, -7.4], w: 2.6 },
+  { pause: 1, pos: [36.35, EYE - 0.05, -7.2], look: [35.15, FLOOR + 1.1, -6.05], w: 2.6 },
+  { pos: [35.2, EYE, -6.72], look: [30.6, FLOOR + 1.3, -6.8], w: 2 },
   { pos: [33.8, EYE, -6.7], look: [30.6, FLOOR + 1.25, -6.8] },               // the coach looks up
   { station: 5, pos: [32.9, FLOOR + 1.55, -6.2], look: [31, FLOOR + 1.6, -8.93] },
   { pos: [33.7, FLOOR + 1.65, -5.4], look: [30.6, FLOOR + 1.2, -7.2] },
@@ -1013,7 +1058,7 @@ const KEYS = [
 {
   const last = KEYS.length - 1;
   const cost = KEYS.map((k, i) => i ? Math.pow(k.pos.distanceTo(KEYS[i - 1].pos), 0.6) * (k.w || 1) : 0);
-  const holdOf = k => k.station != null ? HOLD : k.game ? HOLD * 1.5 : 0;
+  const holdOf = k => k.station != null ? HOLD : k.game ? HOLD * 1.5 : k.pause ? HOLD * 0.55 : 0;
   const sum = cost.slice(0, last).reduce((a, b) => a + b, 0), holds = KEYS.reduce((a, k) => a + holdOf(k), 0);
   let acc = 0;
   KEYS.forEach((k, i) => { acc += cost[i] / sum * (0.93 - holds); k.p = acc; acc += holdOf(k); k.hold = acc; });
@@ -1033,7 +1078,7 @@ function curveParam(p) {
     if (p <= a.hold) return U(i);
     if (p < b.p) {
       let t = (p - a.hold) / (b.p - a.hold);
-      const easeOut = a.station != null || a.game || i === 0, easeIn = b.station != null || b.game;
+      const easeOut = a.station != null || a.game || a.pause || i === 0, easeIn = b.station != null || b.game || b.pause;
       t = easeOut && easeIn ? t * t * (3 - 2 * t) : easeIn ? 1 - (1 - t) * (1 - t) : easeOut ? t * t : t;
       return U(i) + t * (U(i + 1) - U(i));
     }
@@ -1468,6 +1513,7 @@ function frame() {
   tunnel.visible = inside || camera.position.distanceTo(V(26, 0, 13)) < 45;
   if (inside && coachHead && camera.position.x < 40 && camera.position.z < -5) lookAtCamera(dt);
   updateLamps(inside || tunnel.visible);
+  updateReels();
   // Hall of fame: each frame lights up (with a little flicker and a click) as the camera reaches it.
   if (inside) hallLights.forEach(L => {
     const on = camera.position.x > L.x - 3.2 && Math.abs(camera.position.z - 13) < 2;
