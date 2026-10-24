@@ -33,10 +33,11 @@ const { T, meta } = await loadFavela(renderer);
 scene.add(makeSky(T, meta), makeClouds(T, meta));
 scene.fog = new THREE.Fog('#c3dcea', 80, 420);
 // light: warm low morning sun from the left, cool sky fill = bluish shadows
-scene.add(new THREE.HemisphereLight('#bfe0ff', '#d9a87c', 1.35));
+scene.add(new THREE.HemisphereLight('#bfe0ff', '#d9a87c', 1.1));
 const sun = new THREE.DirectionalLight('#ffdcae', 3.2); sun.position.set(-30, 26, -14); sun.target.position.set(0, 0, -20); sun.position.add(sun.target.position);
 sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 50, bottom: -50, near: 1, far: 160 }); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.05; sun.shadow.radius = 4;
 scene.add(sun, sun.target);
+const env0 = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; scene.environment = env0; scene.environmentIntensity = 0.35;
 const world = makeFavela(scene, T, meta);
 for (let i = -1; i < 6; i++) world.segment(i);
 // hero with the Ballon d'Or raised

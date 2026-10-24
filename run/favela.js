@@ -3,6 +3,7 @@
 // a horizon band, cloud cards, house fronts on rounded blocks climbing the hill, a graffiti wall,
 // shop signs, grass tufts, palms, poles and sagging electric wires.
 import * as THREE from 'three';
+import { Builder, kitMaterials, house, fusca, kombi, dog, clutter, laundry, roundedBox as rb } from './favela-kit.js';
 
 const V3 = THREE.Vector3;
 const ART = new URL('./art/favela/', import.meta.url).href;
@@ -122,108 +123,130 @@ const upNormals = g => { const n = g.attributes.normal; for (let i = 0; i < n.co
 
 // ---------------- the world, built in segments along -z ----------------
 export function makeFavela(scene, T, meta, { seg = 48 } = {}) {
-  const M = mats(T, meta);
-  const hillR = x => Math.max(0, x - FRONT - 5) * 0.36;           // right side climbs
-  const hillL = x => -Math.max(0, -x - FRONT - 2) * 0.85;         // left side drops toward the view
+  const M = mats(T, meta), K = kitMaterials();
+  const hillR = x => Math.max(0, x - FRONT - 4) * 0.42;           // right side climbs
+  const hillL = x => -Math.max(0, -x - FRONT - 2) * 0.8;          // left side drops toward the view
   const tuftGeo = upNormals(new THREE.PlaneGeometry(1, 0.85).translate(0, 0.42, 0));
   const signGeo = new THREE.PlaneGeometry(1, 0.83);
+  const stepGeo = roundedBox(1, 1, 1, 0.04, 1);
 
-  function house(g, R, x, z, y, face, scale = 1) {
-    const i = Math.floor(R() * meta.facades.length), f = meta.facades[i];
-    const H = 8.4 * scale, W = H * f.aspect, wallH = H * (1 - f.roof) * 0.985, D = 5.5 + R() * 2.5;
-    const h = new THREE.Group(); h.position.set(x, y, z); h.rotation.y = face; g.add(h);
-    const body = new THREE.Mesh(roundedBox(W * 0.97, wallH, D, 0.22), M.side[i]); body.position.set(0, wallH / 2, -D / 2 - 0.04); body.castShadow = body.receiveShadow = true; h.add(body);
-    const roof = new THREE.Mesh(roundedBox(W * 0.9, 0.35, D * 0.92, 0.12, 2), M.roof); roof.position.set(0, wallH + 0.1, -D / 2); roof.castShadow = true; h.add(roof);
-    const fr = new THREE.Mesh(new THREE.PlaneGeometry(W, H), M.facade[i]); fr.position.set(0, H / 2, 0.02); fr.castShadow = true; fr.receiveShadow = true; h.add(fr);
-    // a shop sign on some houses
-    if (R() < 0.35) { const s = new THREE.Mesh(signGeo, M.signs[Math.floor(R() * 6)]); const k = 1.1 + R() * 0.6; s.scale.set(k, k, 1); s.position.set((R() - 0.5) * W * 0.5, 2.6 + R() * 1.5, 0.12); h.add(s); }
-    return W;
-  }
-  function tuft(g, R, x, y, z, s = 1) {
-    const m = new THREE.Mesh(tuftGeo, M.tufts[Math.floor(R() * 8)]); const k = (0.8 + R() * 0.9) * s;
-    m.scale.set(k * 1.2, k, k); m.position.set(x, y - 0.05, z); m.rotation.y = (R() - 0.5) * 0.8; m.receiveShadow = true; g.add(m);
-  }
-  function palm(g, R, x, y, z) {
-    const grp = new THREE.Group(); grp.position.set(x, y, z); g.add(grp);
-    const h = 8 + R() * 4, lean = (R() - 0.5) * 0.5, pts = [];
-    for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(new V3(Math.sin(t * 1.3) * lean * h * 0.4, t * h, 0)); }
-    const curve = new THREE.CatmullRomCurve3(pts);
-    const tr = new THREE.Mesh(new THREE.TubeGeometry(curve, 16, 0.26, 7), M.trunk); tr.castShadow = true; grp.add(tr);
+  function tuft(b, R, x, y, z, s = 1) { const k = (0.8 + R() * 0.9) * s; b.add(tuftGeo, M.tufts[Math.floor(R() * 8)], x, y - 0.05, z, 0, (R() - 0.5) * 0.8, 0, k * 1.2, k, k); }
+  function palm(b, R, x, y, z) {
+    const h = 7 + R() * 4, lean = (R() - 0.5) * 0.5, pts = [];
+    for (let i = 0; i <= 6; i++) { const t = i / 6; pts.push(new V3(x + Math.sin(t * 1.3) * lean * h * 0.4, y + t * h, z)); }
+    const curve = new THREE.CatmullRomCurve3(pts); b.add(new THREE.TubeGeometry(curve, 14, 0.24, 7), M.trunk);
     const top = curve.getPoint(1);
     for (let i = 0; i < 10; i++) {
-      const L = 3.6 + R() * 1.4, geo = new THREE.PlaneGeometry(1.2, L, 1, 8), p = geo.attributes.position;
+      const L = 3.4 + R() * 1.4, geo = new THREE.PlaneGeometry(1.2, L, 1, 8), p = geo.attributes.position;
       for (let k = 0; k < p.count; k++) { const v = Math.max(0, (p.getY(k) + L / 2) / L); p.setY(k, v * L); p.setZ(k, -Math.pow(v, 1.7) * L * 0.6); p.setX(k, p.getX(k) * Math.sin(Math.min(1, v * 1.15) * Math.PI) * 0.9); }
-      geo.computeVertexNormals();
-      const lf = new THREE.Mesh(geo, M.leaf); lf.castShadow = true;
-      const hold = new THREE.Group(); hold.position.copy(top); hold.rotation.y = (i / 10) * Math.PI * 2; lf.rotation.x = -(0.85 + R() * 0.4); hold.add(lf); grp.add(hold);
+      geo.computeVertexNormals(); geo.rotateX(-(0.85 + R() * 0.4)); geo.rotateY((i / 10) * Math.PI * 2);
+      b.add(geo, M.leaf, top.x, top.y, top.z);
     }
   }
-  // sagging wire between two points
-  function wire(g, a, b, sag = 0.9, r = 0.018) {
-    const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12, p = a.clone().lerp(b, t); p.y -= Math.sin(t * Math.PI) * sag; pts.push(p); }
-    const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 16, r, 4), M.wire); g.add(m);
+  function wire(b, a, c, sag = 0.9, r = 0.018) {
+    const pts = []; for (let i = 0; i <= 12; i++) { const t = i / 12, p = a.clone().lerp(c, t); p.y -= Math.sin(t * Math.PI) * sag; pts.push(p); }
+    b.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 14, r, 4), M.wire);
+  }
+  // concrete steps climbing an alley from the pavement (side = +1 right / -1 left)
+  function stairs(b, R, x0, z, side, width, hill) {
+    for (let k = 0; k < 18; k++) {
+      const x = side * (x0 + k * 0.55), y = hill(x) + 0.16;
+      if (side > 0) { const h = Math.max(0.3, y + 0.3); b.add(stepGeo, K.concrete, x, h / 2 - 0.15, z, 0, 0, 0, 0.6, h, width); }
+      else b.add(stepGeo, K.concrete, x, y - 0.25, z, 0, 0, 0, 0.6, 0.6, width);
+    }
+  }
+
+
+  // one row of houses along the street; returns alley positions
+  function row(b, R, side, x, z0, z1, hill, opts = {}) {
+    let z = z0 - R() * 2; const alleys = [];
+    while (z > z1 + 2) {
+      const setback = opts.setback ? R() * opts.setback : 0, hx = side * (x + setback);
+      b.push(new V3(hx, 0, 0), 0);
+      const yb = hill(hx), face = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      const w = 4.6 + R() * 2.8, d = 5 + R() * 2;
+      const cz = z - w / 2;
+      b.pop();
+      b.push(new V3(hx, yb, cz), face);
+      const h = house(b, K, R, { w, d, floors: opts.floors ? opts.floors(R) : 1 + Math.floor(R() * 2.7) });
+      // foundation down the slope
+      if (opts.found) b.add(roundedBox(w, 8, d, 0.1), K.concrete, 0, -4, -d / 2);
+      if (opts.sign && R() < 0.3) b.add(signGeo, M.signs[Math.floor(R() * 6)], (R() - 0.5) * w * 0.4, 2.55, 0.2, 0, 0, 0, 1.2, 1.2, 1);
+      b.pop();
+      z -= w + 0.25 + R() * 0.6;
+      if (opts.alleys && R() < 0.28) { const aw = 1.8 + R() * 1.4; alleys.push({ z: z - aw / 2, w: aw, top: h.top }); z -= aw; }
+    }
+    return alleys;
   }
 
   function segment(index) {
-    const g = new THREE.Group(), R = rng(index * 7 + 11), z0 = -index * seg, z1 = z0 - seg;
+    const grp = new THREE.Group(), R = rng(index * 7 + 11), z0 = -index * seg, z1 = z0 - seg, b = new Builder();
     // street, pavements, curbs
     const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W * 2, seg), M.road); road.material.map.repeat.set(1.2, seg / 7);
-    road.rotation.x = -Math.PI / 2; road.position.set(0, 0, z0 - seg / 2); road.receiveShadow = true; g.add(road);
+    road.rotation.x = -Math.PI / 2; road.position.set(0, 0, z0 - seg / 2); road.receiveShadow = true; grp.add(road);
     for (const s of [-1, 1]) {
       const w = new THREE.Mesh(new THREE.PlaneGeometry(WALK_W, seg), M.walk); M.walk.map.repeat.set(1, seg / WALK_W);
-      w.rotation.x = -Math.PI / 2; w.position.set(s * (ROAD_W + WALK_W / 2), 0.16, z0 - seg / 2); w.receiveShadow = true; g.add(w);
-      const c = new THREE.Mesh(roundedBox(0.3, 0.2, seg, 0.06, 2), M.curb); c.position.set(s * (ROAD_W + 0.1), 0.06, z0 - seg / 2); c.receiveShadow = true; g.add(c);
+      w.rotation.x = -Math.PI / 2; w.position.set(s * (ROAD_W + WALK_W / 2), 0.16, z0 - seg / 2); w.receiveShadow = true; grp.add(w);
+      b.add(roundedBox(0.3, 0.2, seg, 0.06, 2), M.curb, s * (ROAD_W + 0.1), 0.06, z0 - seg / 2);
     }
-    // ground: right hill, left slope, both in red earth
+    // ground: right hill, left slope, red earth
     for (const s of [-1, 1]) {
       const geo = new THREE.PlaneGeometry(90, seg, 45, 8); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position;
       for (let k = 0; k < p.count; k++) { const x = s * (FRONT + 45) + p.getX(k); p.setY(k, (s > 0 ? hillR(x) : hillL(x)) + 0.14 + Math.sin(x * 0.4 + p.getZ(k) * 0.3) * 0.15 * Math.min(1, Math.abs(Math.abs(x) - FRONT))); p.setX(k, x); p.setZ(k, p.getZ(k) + z0 - seg / 2); }
       geo.computeVertexNormals(); const uv = geo.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, p.getX(k) / 9, p.getZ(k) / 9);
-      const m = new THREE.Mesh(geo, M.dirt); m.receiveShadow = true; g.add(m);
+      const m = new THREE.Mesh(geo, M.dirt); m.receiveShadow = true; grp.add(m);
     }
-    // right side: rows of houses climbing the hill, facing the street
-    for (let row = 0; row < 5; row++) {
-      let z = z0 - R() * 3 - row * 2.3;
-      const x = FRONT + 0.2 + row * 7.2;
-      while (z > z1) { const s = 0.92 + R() * 0.22, w = house(g, R, x + R() * 0.8, z - 4, hillR(x) + 0.1, -Math.PI / 2, s); z -= w + 0.15 + R() * 1.4; }
+    // RIGHT: a front row with setbacks and alleys, then rows climbing the hill behind
+    const alleys = row(b, R, 1, FRONT + 0.1, z0, z1, hillR, { setback: 1.6, alleys: true, sign: true });
+    for (const a of alleys) {
+      stairs(b, R, FRONT + 0.4, a.z, 1, a.w * 0.8, hillR);
+      laundry(b, K, R, new V3(FRONT + 2.5, 5.2, a.z + a.w / 2 + 0.1), new V3(FRONT + 2.8, 5.0, a.z - a.w / 2 - 0.1));
+      for (let k = 0; k < 4; k++) tuft(b, R, FRONT + 0.5 + R() * 2, hillR(FRONT + 1) + 0.2, a.z + (R() - 0.5) * a.w, 0.8);
     }
-    // left side: graffiti wall along the street, then houses stepping down the slope (rooftops in view)
-    const wallH = 1.7;
-    const wm = new THREE.Mesh(new THREE.BoxGeometry(0.36, wallH, seg), [M.wall, M.wall, M.cap, M.cap, M.wall, M.wall]);
-    wm.position.set(-FRONT + 0.2, wallH / 2 + 0.16, z0 - seg / 2); wm.castShadow = wm.receiveShadow = true;
-    // mural texture: tile along the wall's length
-    const muralGeo = wm.geometry; const uv = muralGeo.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setX(k, uv.getX(k) * seg / (wallH * 3)); g.add(wm);
-    const cap = new THREE.Mesh(roundedBox(0.5, 0.14, seg, 0.05, 2), M.cap); cap.position.set(-FRONT + 0.2, wallH + 0.2, z0 - seg / 2); cap.castShadow = true; g.add(cap);
-    for (let row = 1; row < 5; row++) {
-      let z = z0 - R() * 6; const x = -FRONT - 3 - row * 7;
-      while (z > z1) { const s = 0.9 + R() * 0.2, w = house(g, R, x - R(), z - 4, hillL(x), Math.PI / 2, s); z -= w + 0.3 + R() * 2; }
+    for (let r = 1; r < 5; r++) row(b, R, 1, FRONT + 1.5 + r * 8.2 + R() * 2, z0 - r * 1.7, z1, hillR, { setback: 3, floors: R => 1 + Math.floor(R() * 3) });
+    // LEFT: graffiti wall with gaps, houses stepping down the slope (rooftops below the street)
+    const wallH = 1.7; let wz = z0;
+    while (wz > z1) {
+      const len = Math.min(wz - z1, 9 + R() * 12);
+      const wm = new THREE.BoxGeometry(0.36, wallH, len); const uv = wm.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setX(k, uv.getX(k) * len / (wallH * 3));
+      b.add(wm, M.wall, -FRONT + 0.2, wallH / 2 + 0.16, wz - len / 2); b.add(roundedBox(0.5, 0.14, len, 0.05, 2), M.cap, -FRONT + 0.2, wallH + 0.2, wz - len / 2);
+      for (let k = 0; k < len / 2; k++) tuft(b, R, -FRONT + 0.75 + R() * 0.3, 0.16, wz - R() * len, 0.9);
+      wz -= len;
+      if (wz > z1 + 4 && R() < 0.5) { const gw = 2.2 + R(); stairs(b, R, FRONT - 0.2, wz - gw / 2, -1, gw * 0.85, hillL); wz -= gw; }
     }
+    for (let r = 0; r < 4; r++) row(b, R, -1, FRONT + 3 + r * 7.5 + R() * 2, z0 - r * 2.1, z1, hillL, { setback: 2.5, found: true });
     // poles every 16 m with wires along both pavements and across the street
     const poles = [];
     for (let z = z0 - 6; z > z1; z -= 16) for (const s of [-1, 1]) {
-      const x = s * (ROAD_W + 0.6), h = 7.2 + R() * 0.6;
-      const p = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.15, h, 8), M.pole); p.position.set(x, h / 2 + 0.16, z + (s > 0 ? 0 : -3)); p.castShadow = true; g.add(p);
-      const arm = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.1, 0.1), M.pole); arm.position.set(x, h - 0.4, p.position.z); g.add(arm);
-      poles.push({ s, top: new V3(x, h - 0.3, p.position.z) });
+      const x = s * (ROAD_W + 0.55), h = 7.2 + R() * 0.6, pz = z + (s > 0 ? 0 : -3);
+      b.add(new THREE.CylinderGeometry(0.11, 0.15, h, 8), M.pole, x, h / 2 + 0.16, pz); b.add(G1, M.pole, x, h - 0.4, pz, 0, 0, 0, 1.2, 0.1, 0.1);
+      poles.push({ s, top: new V3(x, h - 0.3, pz) });
     }
-    for (const s of [-1, 1]) { const ps = poles.filter(p => p.s === s); for (let i = 0; i < ps.length - 1; i++) for (let k = 0; k < 3; k++) wire(g, ps[i].top.clone().add(new V3((k - 1) * 0.45, -k * 0.12, 0)), ps[i + 1].top.clone().add(new V3((k - 1) * 0.45, -k * 0.12, 0)), 0.7 + k * 0.25); }
+    for (const s of [-1, 1]) { const ps = poles.filter(p => p.s === s); for (let i = 0; i < ps.length - 1; i++) for (let k = 0; k < 3; k++) wire(b, ps[i].top.clone().add(new V3((k - 1) * 0.45, -k * 0.12, 0)), ps[i + 1].top.clone().add(new V3((k - 1) * 0.45, -k * 0.12, 0)), 0.7 + k * 0.25); }
     const L = poles.filter(p => p.s < 0), Rr = poles.filter(p => p.s > 0);
-    for (let i = 0; i < Math.min(L.length, Rr.length); i++) { wire(g, L[i].top, Rr[i].top.clone().add(new V3(0, -0.2, 0)), 1.1); if (R() < 0.6) wire(g, L[i].top.clone().add(new V3(0, -0.4, 0)), Rr[i].top.clone().add(new V3(0, -0.5, -2)), 1.5); }
-    // to the houses
-    for (const p of Rr) for (let k = 0; k < 2; k++) wire(g, p.top, new V3(FRONT + 0.3, 5.6 + R(), p.top.z - 3 + R() * 6), 0.4, 0.02);
+    for (let i = 0; i < Math.min(L.length, Rr.length); i++) { wire(b, L[i].top, Rr[i].top.clone().add(new V3(0, -0.2, 0)), 1.1); if (R() < 0.6) wire(b, L[i].top.clone().add(new V3(0, -0.4, 0)), Rr[i].top.clone().add(new V3(0, -0.5, -2)), 1.5); }
+    for (const p of Rr) for (let k = 0; k < 2; k++) wire(b, p.top, new V3(FRONT + 0.3, 5.4 + R(), p.top.z - 3 + R() * 6), 0.4, 0.015);
+    // laundry high across the street now and then
+    if (R() < 0.6) { const z = z0 - 8 - R() * 30; laundry(b, K, R, new V3(-FRONT + 0.3, 5.6, z), new V3(FRONT + 0.2, 5.9, z - 1)); }
+    // parked cars half on the pavement, dogs, clutter by the doors
+    for (let z = z0 - 4 - R() * 8; z > z1 + 3; z -= 9 + R() * 14) {
+      const s = R() < 0.6 ? 1 : -1, isK = R() < 0.3;
+      b.push(new V3(s * (ROAD_W + 0.35), 0.08, z), R() < 0.5 ? 0 : Math.PI); (isK ? kombi : fusca)(b, K, R); b.pop();
+    }
+    if (index === 0) { b.push(new V3(ROAD_W + 1.3, 0.16, -13), -0.6); dog(b, K, R, 'stand'); b.pop(); b.push(new V3(-ROAD_W - 1.2, 0.16, -20), 2.2); dog(b, K, R, 'lie'); b.pop(); }
+    for (let i = 0; i < 3; i++) { const s = R() < 0.6 ? 1 : -1; b.push(new V3(s * (ROAD_W + 1.2 + R() * 1.0), 0.16, z0 - R() * seg), R() * 6.28); dog(b, K, R); b.pop(); }
+    for (let i = 0; i < 6; i++) { const kind = ['bags', 'gas', 'chairs', 'crates', 'bags', 'gas'][i]; b.push(new V3(FRONT - 0.8 - R() * 0.6, 0.16, z0 - R() * seg), R() * 6.28); clutter(b, K, R, kind); b.pop(); }
     // greenery
-    for (let i = 0; i < 26; i++) { const z = z0 - R() * seg; tuft(g, R, FRONT - 0.15 + R() * 0.3, 0.16, z, 0.9); }
-    for (let i = 0; i < 22; i++) { const z = z0 - R() * seg; tuft(g, R, -FRONT + 0.6 + R() * 0.4, 0.16, z, 0.9); }
-    for (let i = 0; i < 40; i++) { const x = FRONT + 4 + R() * 30, z = z0 - R() * seg; tuft(g, R, x, hillR(x) + 0.14, z, 1.4); }
-    for (let i = 0; i < 3; i++) { const x = FRONT + 5 + R() * 20; palm(g, R, x, hillR(x), z0 - R() * seg); }
-    for (let i = 0; i < 4; i++) { const x = -FRONT - 4 - R() * 22; palm(g, R, x, hillL(x), z0 - R() * seg); }
-    // a sign board and a few tufts on the pavement
-    if (R() < 0.8) { const s = new THREE.Mesh(signGeo, M.signs[4]); s.scale.setScalar(1.3); s.position.set(ROAD_W + 1.6, 0.16 + 0.55, z0 - 10 - R() * 20); s.rotation.y = -0.4; s.castShadow = true; g.add(s); }
-    g.traverse(o => { if (o.isMesh && o.castShadow === undefined) o.castShadow = true; });
-    scene.add(g); return g;
+    for (let i = 0; i < 30; i++) tuft(b, R, FRONT - 0.2 + R() * 0.4, 0.16, z0 - R() * seg, 0.9);
+    for (let i = 0; i < 40; i++) { const x = FRONT + 4 + R() * 34; tuft(b, R, x, hillR(x) + 0.14, z0 - R() * seg, 1.4); }
+    for (let i = 0; i < 3; i++) { const x = FRONT + 6 + R() * 22; palm(b, R, x, hillR(x), z0 - R() * seg); }
+    for (let i = 0; i < 4; i++) { const x = -FRONT - 3 - R() * 22; palm(b, R, x, hillL(x), z0 - R() * seg); }
+    b.build(grp); scene.add(grp); return grp;
   }
-  return { segment, M };
+  return { segment, M, K };
 }
+const G1 = new THREE.BoxGeometry(1, 1, 1);
+
 
 // ---------------- the Ballon d'Or (made in code: golden football on a small stand) ----------------
 export function makeBallonDor(envMap) {
