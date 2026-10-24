@@ -755,8 +755,8 @@ const ARCADES = {
     lines: ['PADEL', 'CLASH'], tag: 'CR7 VS MESSI', foot: 'MINI-GAME · INDOOR COURT', sign: 'ARCADE · PADEL CLASH', bg: '#0b1230', accent: '#d7ff3a', accent2: '#2a6fd1',
     card: ['PADEL CLASH', 'CR7 vs Messi on a glass court under the floodlights. First to 3 games.'] },
   run: { X: 39.15, Z: -6.0, rot: -Math.PI / 2, url: 'run/index.html?embed=1', cover: 'run/cover-small.jpg', view: 'run/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
-    lines: ['GOUAL', 'RUN'], tag: 'WORLD CUP RUN', foot: 'MINI-GAME · ENDLESS RUNNER', sign: 'ARCADE · GOUAL RUN', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff3d7f',
-    card: ['GOUAL RUN', 'Grab the World Cup and run! Dodge the police and the rival players through the city.'] },
+    lines: ['GOUAL', 'RUN'], tag: 'BALLON D\'OR RUN', foot: 'MINI-GAME · ENDLESS RUNNER', sign: 'ARCADE · GOUAL RUN', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff3d7f',
+    card: ['GOUAL RUN', 'Carry the Ballon d\'Or down a Rio favela! Jump, slide and dodge your way through.'] },
 };
 for (const [id, A] of Object.entries(ARCADES)) {
   Object.assign(A, { id, open: 0, target: 0 });

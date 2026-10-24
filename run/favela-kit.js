@@ -288,3 +288,59 @@ export function laundry(b, M, R, a, c) {
   b.add(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 12, 0.012, 3), M.string);
   for (let i = 1; i < n; i++) if (R() < 0.8) { const p = pts[i], dir = c.clone().sub(a); b.add(G.plane, M.cloth[Math.floor(R() * M.cloth.length)], p.x, p.y - 0.32, p.z, 0, Math.atan2(dir.x, dir.z) + Math.PI / 2, 0, rnd(R, 0.4, 0.7), rnd(R, 0.5, 0.75), 1); }
 }
+
+// ---------- obstacles for the run (each fits one 2.6 m lane, centred on x=0, facing +z) ----------
+// kind: 'jump' (go over), 'slide' (go under), 'block' (change lane)
+export function obstacle(name, M, R) {
+  const b = new Builder(), g = new THREE.Group();
+  let info;
+  if (name === 'crates') {             // fruit crates: jump
+    for (let k = 0; k < 3; k++) for (let r = 0; r < 2; r++) {
+      const x = -0.75 + k * 0.75 + rnd(R, -0.05, 0.05), y = r * 0.42;
+      if (r && k === 1 && R() < 0.5) continue;
+      b.add(roundedBox(0.7, 0.4, 0.5, 0.04), M.plastic[[0, 2, 3][(k + r) % 3]], x, y + 0.2, 0, 0, rnd(R, -0.1, 0.1));
+      const fruit = [M.plastic[3], M.car[2], M.leaf2][Math.floor(R() * 3)];
+      for (let f = 0; f < 5; f++) b.add(G.sph, fruit, x + rnd(R, -0.22, 0.22), y + 0.42, rnd(R, -0.14, 0.14), 0, 0, 0, 0.09, 0.09, 0.09);
+    }
+    info = { kind: 'jump', w: 2.2, h: 0.95, d: 0.7, label: 'the fruit crates' };
+  } else if (name === 'bricks') {      // pallet of bricks: jump
+    b.add(roundedBox(2.0, 0.14, 1.0, 0.03), M.rebar, 0, 0.07, 0);
+    const bm = M.wall[9];
+    for (let y = 0; y < 4; y++) for (let k = 0; k < 6; k++) b.add(roundedBox(0.3, 0.17, 0.85, 0.03), M.car[2], -0.8 + k * 0.32, 0.23 + y * 0.18, 0, 0, (y % 2) * 0.03);
+    info = { kind: 'jump', w: 2.1, h: 0.9, d: 1.0, label: 'the bricks' };
+  } else if (name === 'cart') {        // açaí / popcorn cart with a parasol: change lane
+    b.add(roundedBox(1.6, 0.9, 0.9, 0.12), M.car[4], 0, 0.95, 0);
+    b.add(roundedBox(1.62, 0.25, 0.92, 0.08), M.car[[0, 2, 1][Math.floor(R() * 3)]], 0, 1.35, 0);
+    for (const sx of [-1, 1]) { b.add(G.cyl, M.tyre, sx * 0.62, 0.32, 0, 0, 0, Math.PI / 2, 0.32, 0.12, 0.32); b.add(G.cyl, M.chrome, sx * 0.7, 0.32, 0, 0, 0, Math.PI / 2, 0.12, 0.02, 0.12); }
+    b.add(G.cyl, M.chrome, 0, 2.0, 0, 0, 0, 0, 0.03, 1.4, 0.03);
+    b.add(new THREE.ConeGeometry(1.25, 0.5, 10, 1, true), M.cloth[1], 0, 2.75, 0);
+    b.add(new THREE.ConeGeometry(1.26, 0.5, 10, 1, true), M.cloth[3], 0, 2.751, 0, 0, Math.PI / 10);
+    b.add(cap(0.04, 0.9), M.chrome, 0, 1.25, -0.6, 0, 0, Math.PI / 2);
+    info = { kind: 'block', w: 1.9, h: 3.0, d: 1.2, label: 'the açaí cart' };
+  } else if (name === 'tank') {        // a spare water tank on the street: change lane
+    b.add(G.cyl, M.tank, 0, 0.85, 0, 0, 0, 0, 0.95, 1.7, 0.95);
+    for (const y of [0.4, 0.9, 1.4]) b.add(G.torus, M.tank, 0, y, 0, Math.PI / 2, 0, 0, 0.96, 0.96, 0.96);
+    b.add(G.cyl, M.tank, 0, 1.75, 0, 0, 0, 0, 1.0, 0.12, 1.0);
+    info = { kind: 'block', w: 2.0, h: 1.9, d: 2.0, label: 'a water tank' };
+  } else if (name === 'line') {        // laundry line hanging low across the lane: slide
+    for (const sx of [-1, 1]) { b.add(G.cyl, M.pipe, sx * 1.25, 1.1, 0, 0, 0, 0, 0.05, 2.2, 0.05); b.add(G.cyl, M.concrete, sx * 1.25, 0.08, 0, 0, 0, 0, 0.18, 0.16, 0.18); }
+    b.add(G.cyl, M.string, 0, 2.05, 0, 0, 0, Math.PI / 2, 0.015, 2.5, 0.015);
+    for (let k = 0; k < 4; k++) b.add(G.plane, M.cloth[(k + Math.floor(R() * 6)) % 6], -0.9 + k * 0.6, 1.62, 0, 0, 0, 0, 0.55, 0.85, 1);
+    info = { kind: 'slide', w: 2.4, h: 2.1, d: 0.4, low: 1.15, label: 'the laundry' };
+  } else if (name === 'plank') {       // a painted plank on two barrels: slide
+    for (const sx of [-1, 1]) b.add(G.cyl, M.gas, sx * 1.0, 0.55, 0, 0, 0, 0, 0.32, 1.1, 0.32);
+    b.add(G.cyl, M.pipe, -1.0, 1.35, 0, 0, 0, 0, 0.05, 0.5, 0.05); b.add(G.cyl, M.pipe, 1.0, 1.35, 0, 0, 0, 0, 0.05, 0.5, 0.05);
+    b.add(roundedBox(2.6, 0.38, 0.12, 0.04), M.trim[0], 0, 1.75, 0);
+    info = { kind: 'slide', w: 2.5, h: 1.95, d: 0.5, low: 1.2, label: 'the plank' };
+  } else if (name === 'dog') {         // a caramel dog running at you: jump
+    dog(b, M, R, 'stand');
+    info = { kind: 'jump', w: 0.9, h: 0.9, d: 1.1, label: 'a dog', moving: true };
+  } else if (name === 'barrel') {      // a blue barrel rolling down the hill: jump
+    b.add(G.cyl, M.gas, 0, 0, 0, 0, 0, Math.PI / 2, 0.45, 1.3, 0.45);
+    for (const x of [-0.4, 0.4]) b.add(G.torus, M.gas, x, 0, 0, 0, Math.PI / 2, 0, 0.46, 0.46, 0.46);
+    info = { kind: 'jump', w: 1.4, h: 0.95, d: 1.0, label: 'a barrel', rolling: true };
+  }
+  b.build(g);
+  if (info.rolling) { const pivot = new THREE.Group(); pivot.add(g); g.position.y = 0; const out = new THREE.Group(); pivot.position.y = 0.46; out.add(pivot); out.userData.spin = pivot; return { obj: out, ...info }; }
+  return { obj: g, ...info };
+}

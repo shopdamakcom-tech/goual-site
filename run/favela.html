@@ -39,7 +39,7 @@ sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.sha
 scene.add(sun, sun.target);
 const env0 = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; scene.environment = env0; scene.environmentIntensity = 0.35;
 const world = makeFavela(scene, T, meta);
-for (let i = -1; i < 6; i++) world.segment(i);
+for (let i = -1; i < 6; i++) world.segment(i, { court: i === 1 });
 // hero with the Ballon d'Or raised
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const cr7 = await loader.loadAsync('../street/models/cr7.glb');
@@ -55,7 +55,7 @@ const rt = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { samples: 4, ty
 const composer = new EffectComposer(renderer, rt); composer.addPass(new RenderPass(scene, camera));
 composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth / 2, innerHeight / 2), 0.28, 0.5, 0.88)); composer.addPass(new OutputPass());
 if (q.has('orbit')) { camera.position.set(+q.get('x') || 0, +q.get('y') || 5.2, +q.get('z') || 10.5); camera.lookAt(+q.get('lx') || 0, +q.get('ly') || 2.6, +q.get('lz') || -18); }
-composer.render(); window.__ready = true;
+composer.render(); window.__scene = scene; window.__ready = true;
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); composer.render(); });
 </script>
 </body>

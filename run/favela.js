@@ -124,7 +124,13 @@ const upNormals = g => { const n = g.attributes.normal; for (let i = 0; i < n.co
 // ---------------- the world, built in segments along -z ----------------
 export function makeFavela(scene, T, meta, { seg = 48 } = {}) {
   const M = mats(T, meta), K = kitMaterials();
-  const hillR = x => Math.max(0, x - FRONT - 4) * 0.42;           // right side climbs
+  let court = null;   // { z0, z1 } of the football cage in the current segment: the hill steps back there
+  const hillR = (x, z = 1e9) => {
+    const h = Math.max(0, x - FRONT - 4) * 0.42;
+    if (!court) return h;
+    const k = THREE.MathUtils.smoothstep(Math.min(z - court.z1, court.z0 - z), -4, 2);     // 1 inside the court range
+    return THREE.MathUtils.lerp(h, Math.max(0, x - FRONT - 19) * 0.42, k);
+  };
   const hillL = x => -Math.max(0, -x - FRONT - 2) * 0.8;          // left side drops toward the view
   const tuftGeo = upNormals(new THREE.PlaneGeometry(1, 0.85).translate(0, 0.42, 0));
   const signGeo = new THREE.PlaneGeometry(1, 0.83);
@@ -163,10 +169,11 @@ export function makeFavela(scene, T, meta, { seg = 48 } = {}) {
     while (z > z1 + 2) {
       const setback = opts.setback ? R() * opts.setback : 0, hx = side * (x + setback);
       b.push(new V3(hx, 0, 0), 0);
-      const yb = hill(hx), face = side > 0 ? -Math.PI / 2 : Math.PI / 2;
+      const yb = hill(hx, z - 3), face = side > 0 ? -Math.PI / 2 : Math.PI / 2;
       const w = 4.6 + R() * 2.8, d = 5 + R() * 2;
       const cz = z - w / 2;
       b.pop();
+      if (opts.skip && opts.skip(z, z - w)) { z -= 1; continue; }
       b.push(new V3(hx, yb, cz), face);
       const h = house(b, K, R, { w, d, floors: opts.floors ? opts.floors(R) : 1 + Math.floor(R() * 2.7) });
       // foundation down the slope
@@ -179,8 +186,49 @@ export function makeFavela(scene, T, meta, { seg = 48 } = {}) {
     return alleys;
   }
 
-  function segment(index) {
+  // a small square with a caged football court (concrete pitch, chain-link fence, goals, benches, a mural)
+  const pitchTex = (() => { const c = document.createElement('canvas'); c.width = 512; c.height = 1024; const g = c.getContext('2d');
+    g.fillStyle = '#3f8f5a'; g.fillRect(0, 0, 512, 1024); g.fillStyle = '#c0533a'; g.fillRect(0, 0, 512, 40); g.fillRect(0, 984, 512, 40); g.fillRect(0, 0, 40, 1024); g.fillRect(472, 0, 40, 1024);
+    for (let i = 0; i < 4000; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; g.fillRect(Math.random() * 512, Math.random() * 1024, 3, 3); }
+    g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 8; g.strokeRect(60, 60, 392, 904); g.beginPath(); g.moveTo(60, 512); g.lineTo(452, 512); g.stroke();
+    g.beginPath(); g.arc(256, 512, 80, 0, 7); g.stroke(); g.strokeRect(156, 60, 200, 130); g.strokeRect(156, 834, 200, 130);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; })();
+  const meshTex = (() => { const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d'); g.strokeStyle = '#d6dadf'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(0, 32); g.lineTo(32, 0); g.lineTo(64, 32); g.lineTo(32, 64); g.closePath(); g.stroke();
+    const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; return t; })();
+  const pitchMat = new THREE.MeshStandardMaterial({ map: pitchTex, roughness: 0.9 });
+  const fenceMat = new THREE.MeshStandardMaterial({ map: meshTex, alphaTest: 0.4, side: THREE.DoubleSide, metalness: 0.5, roughness: 0.5, color: '#e8edf2' });
+  function footballCage(b, R, c) {
+    const x0 = FRONT + 0.6, x1 = FRONT + 16.5, za = c.z0, zb = c.z1, cx = (x0 + x1) / 2, cz = (za + zb) / 2, W = x1 - x0, L = za - zb;
+    const Y = 0.42; b.add(roundedBox(W + 2, 0.8, L + 2, 0.08), K.concrete, cx, Y - 0.4, cz);                       // the square
+    b.add(new THREE.PlaneGeometry(W - 1, L - 1).rotateX(-Math.PI / 2), pitchMat, cx, Y + 0.1, cz);
+    const H = 4.2;
+    // retaining wall behind, with the mural
+    const back = new THREE.BoxGeometry(0.5, 4, L + 2); const uv = back.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setX(k, uv.getX(k) * (L + 2) / 6);
+    b.add(back, M.wall, x1 + 1.2, 2, cz);
+    // fence: posts and chain-link panels on 3 sides (the street side has a gate gap)
+    const panel = (ax, az, bx, bz) => { const len = Math.hypot(bx - ax, bz - az), g = new THREE.PlaneGeometry(len, H); const u = g.attributes.uv; for (let k = 0; k < u.count; k++) u.setXY(k, u.getX(k) * len / 0.35, u.getY(k) * H / 0.35);
+      b.add(g, fenceMat, (ax + bx) / 2, H / 2 + Y, (az + bz) / 2, 0, Math.atan2(bx - ax, bz - az) + Math.PI / 2); };
+    for (const [ax, az, bx, bz] of [[x0, za, x1, za], [x0, zb, x1, zb], [x1, za, x1, zb], [x0, za, x0, cz + 2.5], [x0, cz - 2.5, x0, zb]]) {
+      panel(ax, az, bx, bz); const n = Math.ceil(Math.hypot(bx - ax, bz - az) / 3);
+      for (let k = 0; k <= n; k++) { const t = k / n; b.add(G1c, M.pole, ax + (bx - ax) * t, H / 2 + Y, az + (bz - az) * t - 0, 0, 0, 0, 0.07, H, 0.07); }
+      b.add(G1c, M.pole, (ax + bx) / 2, H + Y, (az + bz) / 2, 0, Math.atan2(bx - ax, bz - az), Math.PI / 2, 0.05, Math.hypot(bx - ax, bz - az), 0.05);
+    }
+    // goals at both ends
+    for (const [gz, dir] of [[za - 1.2, -1], [zb + 1.2, 1]]) {
+      for (const sx of [-1, 1]) b.add(G1c, K.chrome, cx + sx * 1.6, Y + 1.1, gz, 0, 0, 0, 0.07, 2.2, 0.07);
+      b.add(G1c, K.chrome, cx, Y + 2.2, gz, 0, 0, Math.PI / 2, 0.07, 3.3, 0.07);
+      const net = new THREE.PlaneGeometry(3.2, 2.2); const u = net.attributes.uv; for (let k = 0; k < u.count; k++) u.setXY(k, u.getX(k) * 14, u.getY(k) * 10);
+      b.add(net, fenceMat, cx, Y + 1.1, gz - dir * 0.8, -dir * 0.35);
+    }
+    // benches, a ball, some kids' things
+    for (let k = 0; k < 2; k++) b.add(roundedBox(2.2, 0.12, 0.5, 0.04), M.trunk, x1 - 0.2, Y + 0.5, cz + (k ? 5 : -5)), b.add(roundedBox(1.9, 0.5, 0.35, 0.04), K.concrete, x1 - 0.2, Y + 0.24, cz + (k ? 5 : -5));
+    for (let k = 0; k < 10; k++) tuft(b, R, x0 + R() * W, Y, za + 0.3, 0.9);
+    b.add(G1s, K.plastic[1], cx + 2, Y + 0.18, cz - 3, 0, 0, 0, 0.18, 0.18, 0.18);
+  }
+  function segment(index, opts = {}) {
     const grp = new THREE.Group(), R = rng(index * 7 + 11), z0 = -index * seg, z1 = z0 - seg, b = new Builder();
+    court = opts.court ? { z0: z0 - 8, z1: z0 - 34 } : null;
     // street, pavements, curbs
     const road = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_W * 2, seg), M.road); road.material.map.repeat.set(1.2, seg / 7);
     road.rotation.x = -Math.PI / 2; road.position.set(0, 0, z0 - seg / 2); road.receiveShadow = true; grp.add(road);
@@ -191,19 +239,21 @@ export function makeFavela(scene, T, meta, { seg = 48 } = {}) {
     }
     // ground: right hill, left slope, red earth
     for (const s of [-1, 1]) {
-      const geo = new THREE.PlaneGeometry(90, seg, 45, 8); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position;
-      for (let k = 0; k < p.count; k++) { const x = s * (FRONT + 45) + p.getX(k); p.setY(k, (s > 0 ? hillR(x) : hillL(x)) + 0.14 + Math.sin(x * 0.4 + p.getZ(k) * 0.3) * 0.15 * Math.min(1, Math.abs(Math.abs(x) - FRONT))); p.setX(k, x); p.setZ(k, p.getZ(k) + z0 - seg / 2); }
+      const geo = new THREE.PlaneGeometry(90, seg, 45, 16); geo.rotateX(-Math.PI / 2); const p = geo.attributes.position;
+      for (let k = 0; k < p.count; k++) { const x = s * (FRONT + 45) + p.getX(k), wz = p.getZ(k) + z0 - seg / 2; p.setY(k, (s > 0 ? hillR(x, wz) : hillL(x)) + 0.14 + Math.sin(x * 0.4 + p.getZ(k) * 0.3) * 0.15 * Math.min(1, Math.abs(Math.abs(x) - FRONT))); p.setX(k, x); p.setZ(k, p.getZ(k) + z0 - seg / 2); }
       geo.computeVertexNormals(); const uv = geo.attributes.uv; for (let k = 0; k < uv.count; k++) uv.setXY(k, p.getX(k) / 9, p.getZ(k) / 9);
       const m = new THREE.Mesh(geo, M.dirt); m.receiveShadow = true; grp.add(m);
     }
     // RIGHT: a front row with setbacks and alleys, then rows climbing the hill behind
-    const alleys = row(b, R, 1, FRONT + 0.1, z0, z1, hillR, { setback: 1.6, alleys: true, sign: true });
+    const inCourt = (za, zb) => court && za > court.z1 - 1 && zb < court.z0 + 1;
+    const alleys = row(b, R, 1, FRONT + 0.1, z0, z1, hillR, { setback: 1.6, alleys: true, sign: true, skip: inCourt });
+    if (court) footballCage(b, R, court);
     for (const a of alleys) {
-      stairs(b, R, FRONT + 0.4, a.z, 1, a.w * 0.8, hillR);
+      stairs(b, R, FRONT + 0.4, a.z, 1, a.w * 0.8, x => hillR(x, a.z));
       laundry(b, K, R, new V3(FRONT + 2.5, 5.2, a.z + a.w / 2 + 0.1), new V3(FRONT + 2.8, 5.0, a.z - a.w / 2 - 0.1));
-      for (let k = 0; k < 4; k++) tuft(b, R, FRONT + 0.5 + R() * 2, hillR(FRONT + 1) + 0.2, a.z + (R() - 0.5) * a.w, 0.8);
+      for (let k = 0; k < 4; k++) tuft(b, R, FRONT + 0.5 + R() * 2, hillR(FRONT + 1, a.z) + 0.2, a.z + (R() - 0.5) * a.w, 0.8);
     }
-    for (let r = 1; r < 5; r++) row(b, R, 1, FRONT + 1.5 + r * 8.2 + R() * 2, z0 - r * 1.7, z1, hillR, { setback: 3, floors: R => 1 + Math.floor(R() * 3) });
+    for (let r = 1; r < 5; r++) row(b, R, 1, FRONT + 1.5 + r * 8.2 + R() * 2, z0 - r * 1.7, z1, hillR, { setback: 3, floors: R => 1 + Math.floor(R() * 3), skip: r < 2 ? inCourt : null });
     // LEFT: graffiti wall with gaps, houses stepping down the slope (rooftops below the street)
     const wallH = 1.7; let wz = z0;
     while (wz > z1) {
@@ -228,24 +278,20 @@ export function makeFavela(scene, T, meta, { seg = 48 } = {}) {
     for (const p of Rr) for (let k = 0; k < 2; k++) wire(b, p.top, new V3(FRONT + 0.3, 5.4 + R(), p.top.z - 3 + R() * 6), 0.4, 0.015);
     // laundry high across the street now and then
     if (R() < 0.6) { const z = z0 - 8 - R() * 30; laundry(b, K, R, new V3(-FRONT + 0.3, 5.6, z), new V3(FRONT + 0.2, 5.9, z - 1)); }
-    // parked cars half on the pavement, dogs, clutter by the doors
-    for (let z = z0 - 4 - R() * 8; z > z1 + 3; z -= 9 + R() * 14) {
-      const s = R() < 0.6 ? 1 : -1, isK = R() < 0.3;
-      b.push(new V3(s * (ROAD_W + 0.35), 0.08, z), R() < 0.5 ? 0 : Math.PI); (isK ? kombi : fusca)(b, K, R); b.pop();
-    }
+    // dogs and clutter by the doors
     if (index === 0) { b.push(new V3(ROAD_W + 1.3, 0.16, -13), -0.6); dog(b, K, R, 'stand'); b.pop(); b.push(new V3(-ROAD_W - 1.2, 0.16, -20), 2.2); dog(b, K, R, 'lie'); b.pop(); }
     for (let i = 0; i < 3; i++) { const s = R() < 0.6 ? 1 : -1; b.push(new V3(s * (ROAD_W + 1.2 + R() * 1.0), 0.16, z0 - R() * seg), R() * 6.28); dog(b, K, R); b.pop(); }
-    for (let i = 0; i < 6; i++) { const kind = ['bags', 'gas', 'chairs', 'crates', 'bags', 'gas'][i]; b.push(new V3(FRONT - 0.8 - R() * 0.6, 0.16, z0 - R() * seg), R() * 6.28); clutter(b, K, R, kind); b.pop(); }
+    for (let i = 0; i < 6; i++) { const kind = ['bags', 'gas', 'chairs', 'crates', 'bags', 'gas'][i], z = z0 - R() * seg; if (inCourt(z + 1, z - 1)) continue; b.push(new V3(FRONT - 0.8 - R() * 0.6, 0.16, z), R() * 6.28); clutter(b, K, R, kind); b.pop(); }
     // greenery
     for (let i = 0; i < 30; i++) tuft(b, R, FRONT - 0.2 + R() * 0.4, 0.16, z0 - R() * seg, 0.9);
-    for (let i = 0; i < 40; i++) { const x = FRONT + 4 + R() * 34; tuft(b, R, x, hillR(x) + 0.14, z0 - R() * seg, 1.4); }
-    for (let i = 0; i < 3; i++) { const x = FRONT + 6 + R() * 22; palm(b, R, x, hillR(x), z0 - R() * seg); }
+    for (let i = 0; i < 40; i++) { const x = FRONT + 4 + R() * 34, z = z0 - R() * seg; tuft(b, R, x, hillR(x, z) + 0.14, z, 1.4); }
+    for (let i = 0; i < 3; i++) { const x = FRONT + 6 + R() * 22, z = z0 - R() * seg; if (inCourt(z + 1, z - 1) && x < FRONT + 20) continue; palm(b, R, x, hillR(x, z), z); }
     for (let i = 0; i < 4; i++) { const x = -FRONT - 3 - R() * 22; palm(b, R, x, hillL(x), z0 - R() * seg); }
     b.build(grp); scene.add(grp); return grp;
   }
   return { segment, M, K };
 }
-const G1 = new THREE.BoxGeometry(1, 1, 1);
+const G1 = new THREE.BoxGeometry(1, 1, 1), G1c = new THREE.CylinderGeometry(1, 1, 1, 8), G1s = new THREE.SphereGeometry(1, 16, 12);
 
 
 // ---------------- the Ballon d'Or (made in code: golden football on a small stand) ----------------
