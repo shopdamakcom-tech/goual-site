@@ -647,7 +647,8 @@ const indoor = new THREE.Group(); indoor.visible = false; scene.add(indoor);
   slab(43.3, -8.32, 44.7, -4.87, false); wallX(43.3, -8.32, -4.87); wallX(44.7, -8.32, -4.87);
   // C: gym → office.
   slab(38.5, -8.32, 39.8, -6.0, false); slab(34.42, -7.45, 38.5, -6.0, true);
-  wallX(39.8, -8.32, -6.0); wallX(38.5, -8.32, -7.45); wallZ(-6.0, 34.42, 39.8); wallZ(-7.45, 34.42, 38.5);
+  wallX(39.8, -8.32, -6.0); wallX(38.5, -8.32, -7.45); wallZ(-6.0, 34.42, 38.62); wallZ(-6.0, 39.68, 39.8); wallZ(-7.45, 34.42, 38.5);
+  add(1.06, H - 2.02, T, wallMat, 39.15, FLOOR + 2.02 + (H - 2.02) / 2, -6.0);          // lintel over the GOUAL RUN door
   lampAt(37, FLOOR + 2, -6.7, '#fff1d6', 4);
 }
 
@@ -753,6 +754,9 @@ const ARCADES = {
   padel: { X: 42.85, Z: 8.4, rot: Math.PI, url: 'padel/index.html?embed=1', cover: 'padel/cover-small.jpg', view: 'padel/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
     lines: ['PADEL', 'CLASH'], tag: 'CR7 VS MESSI', foot: 'MINI-GAME · INDOOR COURT', sign: 'ARCADE · PADEL CLASH', bg: '#0b1230', accent: '#d7ff3a', accent2: '#2a6fd1',
     card: ['PADEL CLASH', 'CR7 vs Messi on a glass court under the floodlights. First to 3 games.'] },
+  run: { X: 39.15, Z: -6.0, rot: -Math.PI / 2, url: 'run/index.html?embed=1', cover: 'run/cover-small.jpg', view: 'run/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
+    lines: ['GOUAL', 'RUN'], tag: 'WORLD CUP RUN', foot: 'MINI-GAME · ENDLESS RUNNER', sign: 'ARCADE · GOUAL RUN', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff3d7f',
+    card: ['GOUAL RUN', 'Grab the World Cup and run! Dodge the police and the rival players through the city.'] },
 };
 for (const [id, A] of Object.entries(ARCADES)) {
   Object.assign(A, { id, open: 0, target: 0 });
@@ -1041,7 +1045,7 @@ const KEYS = [
   { pos: [41.4, EYE, -10.2], look: [38.7, FLOOR + 1.5, -13.6] },
   { station: 4, pos: [41.2, FLOOR + 1.55, -13.59], look: [38.66, FLOOR + 1.55, -13.59] },
   { pos: [40.3, EYE, -11], look: [39.2, EYE, -7] },
-  { pos: [39.15, EYE, -8.6], look: [39.1, EYE, -5] },                         // out through the second door
+  { game: 'run', pos: [39.15, EYE, -8.1], look: [39.15, FLOOR + 1.12, -6.0], w: 3 },    // GOUAL RUN door, facing you out of the gym
   { pos: [39.1, EYE, -6.85], look: [34, EYE, -6.75] },                        // corner
   { pos: [37.6, EYE, -6.72], look: [33, EYE - 0.05, -6.72], w: 2.8 },        // reels corridor: straight and slow, look left/right
   { pos: [35.6, EYE, -6.72], look: [30.6, FLOOR + 1.3, -6.8], w: 2.8 },
