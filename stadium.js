@@ -745,18 +745,20 @@ function updateReels() {
 
 /* ----------------------------------------------------------- arcade doors */
 // Doors to the mini-games. The tour stops in front of each; PLAY swings it open onto the game's
-// world, and the game opens full screen. STREET FOOT ends corridor A; PADEL CLASH is on the left
+// world, and the game opens full screen. GOUAL RUN ends corridor A; PADEL CLASH is on the left
 // wall of the short corridor down to the locker room.
+// STREET FOOT is parked for later: its door by the gym shows "coming soon" and does not open.
+const STREET_FOOT = { url: 'street/index.html?embed=1', cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
+  lines: ['STREET', 'FOOT'], tag: 'THE NEXT GEM', foot: 'MINI-GAME · RIO DE JANEIRO', sign: 'ARCADE · STREET FOOT', bg: '#0d1b4d', accent: '#ffd400', accent2: '#ff2d78',
+  card: ['STREET FOOT', 'Play CR7 in the favelas of Rio and find the next Brazilian gem.'] };
 const ARCADES = {
-  street: { X: 45.75, Z: 13, rot: 0, url: 'street/index.html?embed=1', cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
-    lines: ['STREET', 'FOOT'], tag: 'THE NEXT GEM', foot: 'MINI-GAME · RIO DE JANEIRO', sign: 'ARCADE · STREET FOOT', bg: '#0d1b4d', accent: '#ffd400', accent2: '#ff2d78',
-    card: ['STREET FOOT', 'Play CR7 in the favelas of Rio and find the next Brazilian gem.'] },
+  run: { X: 45.75, Z: 13, rot: 0, url: 'run/index.html?embed=1', cover: 'run/cover-small.jpg', view: 'run/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
+    lines: ['GOUAL', 'RUN'], tag: 'BALLON D\'OR', foot: 'MINI-GAME · RIO FAVELA RUN', sign: 'ARCADE · GOUAL RUN', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff3d7f',
+    card: ['GOUAL RUN', 'Carry the Ballon d\'Or down a Rio favela! Jump, slide and dodge your way through.'] },
   padel: { X: 42.85, Z: 8.4, rot: Math.PI, url: 'padel/index.html?embed=1', cover: 'padel/cover-small.jpg', view: 'padel/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
     lines: ['PADEL', 'CLASH'], tag: 'CR7 VS MESSI', foot: 'MINI-GAME · INDOOR COURT', sign: 'ARCADE · PADEL CLASH', bg: '#0b1230', accent: '#d7ff3a', accent2: '#2a6fd1',
     card: ['PADEL CLASH', 'CR7 vs Messi on a glass court under the floodlights. First to 3 games.'] },
-  run: { X: 39.15, Z: -6.0, rot: -Math.PI / 2, url: 'run/index.html?embed=1', cover: 'run/cover-small.jpg', view: 'run/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
-    lines: ['GOUAL', 'RUN'], tag: 'BALLON D\'OR RUN', foot: 'MINI-GAME · ENDLESS RUNNER', sign: 'ARCADE · GOUAL RUN', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff3d7f',
-    card: ['GOUAL RUN', 'Carry the Ballon d\'Or down a Rio favela! Jump, slide and dodge your way through.'] },
+  soon: { ...STREET_FOOT, X: 39.15, Z: -6.0, rot: -Math.PI / 2, url: null, tag: 'COMING SOON', foot: 'NEXT MINI-GAME · STAY TUNED', sign: 'ARCADE · COMING SOON' },
 };
 for (const [id, A] of Object.entries(ARCADES)) {
   Object.assign(A, { id, open: 0, target: 0 });
@@ -1031,7 +1033,7 @@ const KEYS = [
   { station: 2, pos: [29.6, EYE - 0.15, 11.95], look: [29.6, FLOOR + 1.3, 14.4] },
   { pos: [33, EYE, 13], look: [40, EYE, 13], w: 2.2 },
   { pos: [37.8, EYE, 13], look: [44, EYE - 0.1, 13], w: 2.8 },                 // hall of fame: slow
-  { game: 'street', pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13], w: 2.8 },      // STREET FOOT door
+  { game: 'run', pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13], w: 2.8 },      // GOUAL RUN door
   { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6], w: 3.2 },                   // corner (slow between the two doors)
   { game: 'padel', pos: [45.5, EYE - 0.05, 8.4], look: [42.85, FLOOR + 1.2, 8.4], w: 3.2 },    // PADEL CLASH door (left wall)
   { pos: [44.3, EYE, 7.0], look: [43, EYE - 0.1, 2], w: 2.2 },
@@ -1045,7 +1047,7 @@ const KEYS = [
   { pos: [41.4, EYE, -10.2], look: [38.7, FLOOR + 1.5, -13.6] },
   { station: 4, pos: [41.2, FLOOR + 1.55, -13.59], look: [38.66, FLOOR + 1.55, -13.59] },
   { pos: [40.3, EYE, -11], look: [39.2, EYE, -7] },
-  { game: 'run', pos: [39.15, EYE, -8.1], look: [39.15, FLOOR + 1.12, -6.0], w: 3 },    // GOUAL RUN door, facing you out of the gym
+  { pos: [39.15, EYE, -8.1], look: [39.15, FLOOR + 1.12, -6.0], w: 2 },    // the next game's door, facing you out of the gym (coming soon)
   { pos: [39.1, EYE, -6.85], look: [34, EYE, -6.75] },                        // corner
   { pos: [37.6, EYE, -6.72], look: [33, EYE - 0.05, -6.72], w: 2.8 },        // reels corridor: straight and slow, look left/right
   { pos: [35.6, EYE, -6.72], look: [30.6, FLOOR + 1.3, -6.8], w: 2.8 },
@@ -1252,6 +1254,7 @@ STATIONS.forEach((st, i) => {
   contactEl.before(el);
 });
 for (const A of Object.values(ARCADES)) {
+  if (!A.url) continue;
   const k = KEYS.find(k => k.game === A.id), el = document.createElement('section');
   el.className = 'chapter station arcade-stop arcade-' + A.id + (A.id === 'padel' ? ' right' : ''); el.dataset.range = `${k.p - 0.015},${k.hold + 0.015}`;
   el.innerHTML = `<div class="card"><div class="place">MINI-GAME — THE ARCADE DOOR</div><h2>${A.card[0]}</h2><p class="pitch">${A.card[1]}</p><button type="button" class="play" data-arcade="${A.id}"><i>▶</i>PLAY</button><span class="hint">or click the door</span></div>`;
@@ -1307,9 +1310,9 @@ canvas.addEventListener('pointerup', e => {
 
 /* ----------------------------------------------------------------- arcade */
 const arcadeEl = $('#arcade'), arcadeFrame = $('#arcade iframe');
-function openArcade(id = 'street') {
+function openArcade(id = 'run') {
   const A = ARCADES[id];
-  if (!A || arcade.playing || state !== 'ready') return;
+  if (!A || !A.url || arcade.playing || state !== 'ready') return;
   arcade.playing = true; arcade.current = A; A.target = 1; sound.pop(); body.classList.add('arcade-on');
   // Phones: load the game as its own page instead of on top of the stadium, so the phone never holds
   // two 3D scenes in memory at once (iPhones reload the page when that happens). Closing the game
@@ -1325,14 +1328,14 @@ function closeArcade(then) {
   arcade.covered = false; arcadeEl.classList.remove('open'); if (arcade.current) arcade.current.target = 0;
   setTimeout(() => { arcadeEl.hidden = true; arcadeFrame.removeAttribute('src'); arcade.playing = false; body.classList.remove('arcade-on'); then && then(); }, 600);
 }
-document.addEventListener('click', e => { const b = e.target.closest('[data-arcade]'); if (b) openArcade(b.dataset.arcade || 'street'); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-arcade]'); if (b) openArcade(b.dataset.arcade || 'run'); });
 addEventListener('message', e => {
   if (e.origin !== location.origin || (e.data?.type !== 'goual-street' && e.data?.type !== 'goual-arcade')) return;
   if (e.data.action === 'close') closeArcade();
   if (e.data.action === 'contact') closeArcade(() => { target = 1; sound.whoosh(); });
   if (e.data.action === 'ready') arcadeFrame.focus();
 });
-const atArcade = id => { const k = KEYS.find(k => k.game === id); return progress >= k.p - 0.015 && progress <= k.hold + 0.015; };
+const atArcade = id => { const k = KEYS.find(k => k.game === id); return !!k && progress >= k.p - 0.015 && progress <= k.hold + 0.015; };
 
 /* ------------------------------------------------------------- navigation */
 let state = 'loading', progress = 0, target = 0;

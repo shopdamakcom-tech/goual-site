@@ -44,7 +44,7 @@ for (let i = -1; i < 6; i++) world.segment(i, { court: i === 1 });
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const cr7 = await loader.loadAsync('../street/models/cr7.glb');
 const ch = new Character(cr7.scene, { kind: 'valve', height: 1.87 });
-ch.model.traverse(o => { if (o.isMesh) { o.castShadow = true; const col = { texture_6: '#f2f2f2', texture_7: '#1b1b1b', texture_8: '#f2f2f2' }[o.material.name]; if (col) { o.material = o.material.clone(); o.material.map = null; o.material.color.set(col); } } });
+ch.model.traverse(o => { if (o.isMesh) { o.castShadow = true; const col = { texture_6: '#c8102e', texture_7: '#0b6b3a', texture_8: '#c8102e' }[o.material.name]; if (col) { o.material = o.material.clone(); o.material.map = null; o.material.color.set(col); } } });
 scene.add(ch.root); ch.root.rotation.y = Math.PI;
 for (let i = 0; i < 40; i++) ch.animate({ dt: 1 / 60, speed: 11, grounded: true });
 ch.rot('rArm', new V3(1, 0, 0), -2.75); ch.rot('rFore', new V3(1, 0, 0), -0.35); ch.root.updateMatrixWorld(true);
