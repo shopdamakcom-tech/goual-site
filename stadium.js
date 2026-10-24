@@ -752,7 +752,7 @@ const STREET_FOOT = { url: 'street/index.html?embed=1', cover: 'street/cover-sma
   lines: ['STREET', 'FOOT'], tag: 'THE NEXT GEM', foot: 'MINI-GAME · RIO DE JANEIRO', sign: 'ARCADE · STREET FOOT', bg: '#0d1b4d', accent: '#ffd400', accent2: '#ff2d78',
   card: ['STREET FOOT', 'Play CR7 in the favelas of Rio and find the next Brazilian gem.'] };
 const ARCADES = {
-  run: { X: 45.75, Z: 13, rot: 0, url: 'run/index.html?embed=1', cover: 'run/cover-small.jpg', view: 'run/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
+  run: { X: 45.75, Z: 13, rot: 0, url: 'run/index.html?embed=1', poster: 'run/poster.jpg', logo: 'goual-art-brush-small.webp', cover: 'run/cover-small.jpg', view: 'run/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
     lines: ['GOUAL', 'RUN'], tag: 'BALLON D\'OR', foot: 'MINI-GAME · RIO FAVELA RUN', sign: 'ARCADE · GOUAL RUN', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff3d7f',
     card: ['GOUAL RUN', 'Carry the Ballon d\'Or down a Rio favela! Jump, slide and dodge your way through.'] },
   padel: { X: 42.85, Z: 8.4, rot: Math.PI, url: 'padel/index.html?embed=1', cover: 'padel/cover-small.jpg', view: 'padel/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
@@ -779,10 +779,31 @@ for (const [id, A] of Object.entries(ARCADES)) {
     c.fillStyle = 'rgba(255,255,255,.75)'; c.font = '700 24px Arial, sans-serif'; c.fillText(A.foot, w / 2, h - 26);
     c.strokeStyle = A.accent; c.lineWidth = 10; c.strokeRect(5, 5, w - 10, h - 10);
   };
+  // Full-bleed poster art (when the game has one): the picture fills the door, the GOUAL ART logo
+  // sits in the sky at the top, the PLAY button at the bottom.
+  const drawArt = (c, w, h, img, logo) => {
+    c.fillStyle = A.bg; c.fillRect(0, 0, w, h);
+    // logo band on top, then the picture at full width, fading into the band
+    const top = 150, ih = w * img.height / img.width; c.drawImage(img, 0, top, w, ih);
+    let gr = c.createLinearGradient(0, top, 0, top + 70); gr.addColorStop(0, A.bg); gr.addColorStop(1, 'rgba(30,91,216,0)'); c.fillStyle = gr; c.fillRect(0, top, w, 70);
+    gr = c.createLinearGradient(0, h * 0.8, 0, h); gr.addColorStop(0, 'rgba(10,20,60,0)'); gr.addColorStop(1, 'rgba(10,20,60,.85)'); c.fillStyle = gr; c.fillRect(0, h * 0.8, w, h * 0.2);
+    if (logo) { const lh = 128, lw = lh * logo.width / logo.height; c.save(); c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = 14; c.shadowOffsetY = 3; c.drawImage(logo, (w - lw) / 2, 14, lw, lh); c.restore(); }
+    c.textAlign = 'center';
+    c.fillStyle = A.accent; c.beginPath(); c.roundRect(w / 2 - 150, h - 150, 300, 84, 42); c.fill();
+    c.fillStyle = '#111'; c.font = '900 50px Impact, "Arial Black", sans-serif'; c.fillText('▶ PLAY', w / 2, h - 90);
+    c.fillStyle = 'rgba(255,255,255,.85)'; c.font = '700 24px Arial, sans-serif'; c.fillText(A.foot, w / 2, h - 26);
+    c.strokeStyle = A.accent; c.lineWidth = 10; c.strokeRect(5, 5, w - 10, h - 10);
+  };
   const posterTex = canvasTex(512, 1024, (c, w, h) => drawPoster(c, w, h, null));
-  const cover = new Image();
-  cover.onload = () => { drawPoster(posterTex.image.getContext('2d'), 512, 1024, cover); posterTex.needsUpdate = true; };
-  cover.src = A.cover;
+  if (A.poster) {
+    const art = new Image(), logo = new Image(); let n = 0;
+    const ready = () => { if (++n < 2) return; drawArt(posterTex.image.getContext('2d'), 512, 1024, art, logo.naturalWidth ? logo : null); posterTex.needsUpdate = true; };
+    art.onload = ready; logo.onload = ready; logo.onerror = ready; art.src = A.poster; logo.src = A.logo;
+  } else {
+    const cover = new Image();
+    cover.onload = () => { drawPoster(posterTex.image.getContext('2d'), 512, 1024, cover); posterTex.needsUpdate = true; };
+    cover.src = A.cover;
+  }
   // Door leaf on a hinge, swinging away from the visitor.
   const hinge = A.hinge = new THREE.Group(); hinge.position.set(0.02, 0, -W / 2); g.add(hinge);
   box(0.05, H, W, mat('#1b2140', { roughness: 0.35, metalness: 0.5 }), hinge, 0, H / 2, W / 2, { cast: false });
