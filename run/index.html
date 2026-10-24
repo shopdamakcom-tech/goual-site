@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>GOUAL RUN — World Cup Run</title>
+<meta name="description" content="GOUAL RUN: grab the World Cup and run through the city, dodge the police and the rival players. A GOUAL ART mini-game.">
+<meta name="theme-color" content="#1e5bd8">
+<link rel="icon" href="../favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Lilita+One&family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+  :root { --y: #ffd400; --g: #00a859; --b: #1e5bd8; --p: #ff3d7f; --ink: #fff; --glass: rgba(12, 22, 52, 0.55); }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #8fd3ff; color: var(--ink); font-family: Inter, system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+  canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .hidden { display: none !important; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .shadowtxt { text-shadow: 0 3px 0 rgba(0,0,0,.25), 0 6px 18px rgba(0,0,0,.25); }
+  /* HUD */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 3; }
+  #score { position: absolute; right: max(16px, env(safe-area-inset-right)); top: 14px; text-align: right; font: 44px 'Lilita One', sans-serif; line-height: 1; }
+  #score small { display: block; font: 15px 'Lilita One'; opacity: .85; letter-spacing: .04em; }
+  #coins { position: absolute; left: max(16px, env(safe-area-inset-left)); top: 16px; display: flex; align-items: center; gap: 8px; font: 30px 'Lilita One'; background: var(--glass); padding: 4px 14px 4px 6px; border-radius: 30px; }
+  #coins i { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff, #e8e8e8 55%, #9a9a9a); box-shadow: inset 0 0 0 3px #222; position: relative; }
+  #coins i::after { content: ''; position: absolute; inset: 9px; background: #222; clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%); }
+  #mult { position: absolute; left: max(16px, env(safe-area-inset-left)); top: 62px; font: 20px 'Lilita One'; color: var(--y); }
+  .topbtn { position: absolute; top: 72px; right: max(16px, env(safe-area-inset-right)); width: 44px; height: 44px; border-radius: 12px; border: 0; background: var(--glass); pointer-events: auto; font-size: 17px; display: grid; place-items: center; }
+  #ability { position: absolute; right: max(16px, env(safe-area-inset-right)); bottom: max(18px, env(safe-area-inset-bottom)); width: 86px; height: 86px; border-radius: 50%; border: 0; pointer-events: auto; display: grid; place-items: center; background: conic-gradient(var(--y) calc(var(--p, 0) * 1turn), rgba(12,22,52,.55) 0); box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+  #ability span { width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; background: #13204a; font: 14px 'Lilita One'; line-height: 1.05; text-align: center; letter-spacing: .02em; }
+  #ability span b { display: block; font-size: 24px; }
+  #ability.ready { animation: pulse 1s ease-in-out infinite; } #ability.ready span { background: var(--p); }
+  @keyframes pulse { 50% { transform: scale(1.08); } }
+  #power { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); font: 22px 'Lilita One'; color: var(--y); background: var(--glass); padding: 4px 16px; border-radius: 20px; }
+  #danger { position: absolute; inset: 0; box-shadow: inset 0 0 120px rgba(255, 30, 60, var(--d, 0)); transition: box-shadow .2s; }
+  #toast { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%); font: 64px 'Lilita One'; color: var(--y); white-space: nowrap; opacity: 0; text-shadow: 0 4px 0 #c43a00, 0 8px 24px rgba(0,0,0,.3); }
+  #toast.go { animation: pop 1.3s ease-out; }
+  @keyframes pop { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 15% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } 25% { transform: translate(-50%, -50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -70%); } }
+  #count { position: fixed; left: 50%; top: 42%; transform: translate(-50%, -50%); font: 150px 'Lilita One'; color: #fff; text-shadow: 0 6px 0 var(--b), 0 12px 30px rgba(0,0,0,.3); z-index: 4; pointer-events: none; }
+  #help { position: absolute; left: 50%; bottom: 120px; transform: translateX(-50%); background: var(--glass); padding: 10px 18px; border-radius: 14px; font-size: 14px; text-align: center; line-height: 1.5; transition: opacity .6s; width: max-content; max-width: 90vw; }
+  /* screens */
+  .screen { position: fixed; inset: 0; display: grid; place-items: center; z-index: 5; padding: 20px; }
+  .panel { width: min(520px, 100%); }
+  #title { background: linear-gradient(180deg, rgba(10,40,120,.15), rgba(10,30,90,.55)); }
+  #title .panel { justify-self: start; margin-left: clamp(0px, 6vw, 110px); }
+  .logo { margin: 0; font: clamp(76px, 15vw, 150px) 'Lilita One', sans-serif; line-height: .82; color: #fff; text-shadow: 0 6px 0 var(--b), 0 12px 0 #0c2a6e, 0 20px 40px rgba(0,0,0,.35); transform: rotate(-3deg); }
+  .logo em { font-style: normal; color: var(--y); text-shadow: 0 6px 0 #c43a00, 0 12px 0 #7a2400, 0 20px 40px rgba(0,0,0,.35); }
+  .tag { display: inline-block; margin-top: 18px; background: var(--p); color: #fff; font: 22px 'Lilita One'; padding: 6px 16px; border-radius: 12px; transform: rotate(-2deg); }
+  .lede { line-height: 1.55; max-width: 460px; margin: 18px 0 22px; font-weight: 600; text-shadow: 0 1px 6px rgba(0,0,0,.45); }
+  .menu { display: grid; gap: 10px; max-width: 340px; }
+  .menu button { text-align: left; padding: 14px 18px; border-radius: 14px; border: 0; background: rgba(12,22,52,.6); font-weight: 700; }
+  .menu button.primary { background: var(--y); color: #13204a; font: 30px 'Lilita One'; padding: 12px 20px 10px; box-shadow: 0 6px 0 #c48f00; }
+  .menu button.primary:active { transform: translateY(4px); box-shadow: 0 2px 0 #c48f00; }
+  .best { margin-top: 14px; font: 18px 'Lilita One'; opacity: .9; }
+  #select { background: linear-gradient(180deg, transparent 40%, rgba(10,30,90,.75)); place-items: end center; padding-bottom: max(22px, env(safe-area-inset-bottom)); }
+  #select .panel { text-align: center; width: min(560px, 100%); }
+  #select h2 { margin: 0; font: clamp(44px, 8vw, 70px) 'Lilita One'; line-height: .9; }
+  #select .role { font: 18px 'Lilita One'; color: var(--y); letter-spacing: .05em; margin: 4px 0 8px; }
+  #select .ab { background: rgba(12,22,52,.6); border-radius: 14px; padding: 10px 14px; margin: 0 auto 12px; max-width: 460px; font-size: 14px; line-height: 1.45; }
+  #select .ab b { color: var(--y); font: 18px 'Lilita One'; letter-spacing: .03em; }
+  .pick { display: flex; gap: 14px; align-items: center; justify-content: center; margin-bottom: 10px; }
+  .pick button.arrow { width: 52px; height: 52px; border-radius: 50%; border: 0; background: rgba(12,22,52,.6); font-size: 20px; }
+  .dots { display: flex; gap: 8px; } .dots i { width: 30px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.35); } .dots i.on { background: var(--y); }
+  #select .menu { margin: 0 auto; }
+  #select .menu button.primary { text-align: center; }
+  @media (min-aspect-ratio: 1/1) {
+    #select { background: linear-gradient(90deg, transparent 38%, rgba(10,30,90,.8) 68%); place-items: center end; padding-right: clamp(16px, 6vw, 90px); }
+    #select .panel { text-align: left; width: min(420px, 48vw); } #select .pick { justify-content: flex-start; } #select .ab { margin-left: 0; } #select .menu { margin: 0; }
+  }
+  #over { background: rgba(10,30,90,.55); }
+  #over h2 { margin: 0; font: clamp(64px, 12vw, 110px) 'Lilita One'; line-height: .85; color: #fff; text-shadow: 0 6px 0 #c4002f, 0 14px 30px rgba(0,0,0,.35); transform: rotate(-2deg); }
+  #over p.why { font: 20px 'Lilita One'; color: var(--y); margin: 10px 0 16px; }
+  .scores { display: flex; gap: 10px; margin: 0 0 20px; flex-wrap: wrap; }
+  .scores div { background: rgba(12,22,52,.6); border-radius: 14px; padding: 10px 16px; min-width: 100px; }
+  .scores b { display: block; font: 34px 'Lilita One'; color: var(--y); line-height: 1; }
+  .scores small { opacity: .8; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+  .scores .rec { color: var(--p); font: 14px 'Lilita One'; }
+  .credits { margin-top: 18px; font-size: 11px; opacity: .7; line-height: 1.5; max-width: 460px; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 9; background: linear-gradient(180deg, #4fb4ff, #1e5bd8); }
+  #loading .bar { width: 220px; height: 8px; background: rgba(255,255,255,.3); border-radius: 4px; overflow: hidden; margin: 18px auto 0; }
+  #loading .bar i { display: block; height: 100%; width: 0; background: var(--y); transition: width .3s; }
+  #closeBtn { position: fixed; z-index: 8; top: 14px; right: max(16px, env(safe-area-inset-right)); width: 44px; height: 44px; border-radius: 12px; border: 0; background: var(--glass); font-size: 17px; display: none; }
+  body.menuing #closeBtn { display: grid; place-items: center; }
+  #fade { position: fixed; inset: 0; background: #fff; opacity: 0; pointer-events: none; transition: opacity .25s; z-index: 6; }
+  @media (max-width: 700px) {
+    #score { font-size: 36px; } #coins { font-size: 24px; } #coins i { width: 24px; height: 24px; } #coins i::after { inset: 7px; }
+    #toast { font-size: 44px; } #count { font-size: 110px; }
+    #title .panel { margin-left: 0; } .lede { font-size: 14px; }
+  }
+  @media (max-height: 500px) {
+    .logo { font-size: 70px; } .lede { font-size: 13px; margin: 10px 0 14px; } .screen { overflow: auto; }
+    #select h2 { font-size: 38px; } #select .ab { font-size: 12px; padding: 6px 10px; margin-bottom: 8px; } .pick button.arrow { width: 42px; height: 42px; }
+    #select .menu button.primary { font-size: 22px; padding: 8px 14px 6px; }
+    #ability { width: 70px; height: 70px; } #ability span { width: 58px; height: 58px; font-size: 11px; } #ability span b { font-size: 18px; }
+    #help { bottom: 90px; font-size: 12px; }
+  }
+</style>
+</head>
+<body class="menuing">
+<canvas id="game"></canvas>
+<div id="hud" class="hidden">
+  <div id="danger"></div>
+  <div id="coins"><i></i><span id="coinN">0</span></div>
+  <div id="mult"></div>
+  <div id="score" class="shadowtxt"><span id="scoreN">0</span><small id="distN">0 m</small></div>
+  <div id="power" class="hidden"></div>
+  <div id="toast"></div>
+  <div id="help"></div>
+  <button class="topbtn" id="pauseBtn" aria-label="Pause">❚❚</button>
+  <button id="ability" aria-label="Special ability"><span><b>⚡</b><em id="abName">SIUUU</em></span></button>
+</div>
+<div id="count" class="hidden"></div>
+<button id="closeBtn" aria-label="Close the game">✕</button>
+<div id="title" class="screen hidden">
+  <div class="panel">
+    <h1 class="logo shadowtxt">GOUAL<br><em>RUN</em></h1>
+    <div class="tag">WORLD CUP RUN</div>
+    <p class="lede">You just grabbed the World Cup. Now the whole city wants it back: the police, the rival players, everybody. Run!</p>
+    <div class="menu">
+      <button class="primary" id="playBtn">▶ PLAY</button>
+      <button id="soundBtn">Sound: on</button>
+    </div>
+    <div class="best" id="bestT"></div>
+    <p class="credits">City, cars and mini characters: Kenney (CC0). CR7 model: “3D Rigged Cristiano Ronaldo Al Nassr” by Lean_Lo1786 (Sketchfab), CC BY 4.0. World Cup trophy: “FIFA World Cup Trophy” by PixForge (Sketchfab), CC BY 4.0. Music and sound made in code by GOUAL ART. Unofficial fan game.</p>
+  </div>
+</div>
+<div id="select" class="screen hidden">
+  <div class="panel">
+    <div class="pick"><button class="arrow" id="prevBtn" aria-label="Previous">◀</button><div class="dots"><i></i><i></i><i></i></div><button class="arrow" id="nextBtn" aria-label="Next">▶</button></div>
+    <h2 class="shadowtxt" id="sName"></h2>
+    <div class="role" id="sRole"></div>
+    <div class="ab"><b id="sAb"></b><br><span id="sAbTxt"></span></div>
+    <div class="menu"><button class="primary" id="goBtn">RUN!</button></div>
+  </div>
+</div>
+<div id="over" class="screen hidden">
+  <div class="panel">
+    <h2>CAUGHT!</h2>
+    <p class="why" id="why"></p>
+    <div class="scores"><div><b id="oScore">0</b><small>Score</small><div class="rec" id="oRec"></div></div><div><b id="oDist">0 m</b><small>Distance</small></div><div><b id="oCoins">0</b><small>Balls</small></div><div><b id="oBest">0</b><small>Best</small></div></div>
+    <div class="menu">
+      <button class="primary" id="againBtn">↻ RUN AGAIN</button>
+      <button id="changeBtn">Change player</button>
+      <button id="tourBtn">Back to the GOUAL ART tour</button>
+    </div>
+  </div>
+</div>
+<div id="fade"></div>
+<div id="loading"><div style="text-align:center"><div class="logo" style="font-size:64px;transform:none">GOUAL <em>RUN</em></div><div class="bar"><i></i></div></div></div>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
+<script type="module" src="game.js?v=1"></script>
+</body>
+</html>
