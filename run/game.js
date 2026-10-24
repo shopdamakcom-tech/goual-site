@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Character, dress } from '../street/rig.js?v=3';
 import { audio } from './audio.js?v=1';
 
@@ -68,7 +69,7 @@ const KIT = {
 const T = {};   // name -> gltf
 const jobs = [];
 for (const [dir, names] of Object.entries(KIT)) for (const n of names) jobs.push(load(`assets/${dir}/${n}.glb`).then(g => { T[n] = g; }));
-const [cr7Src, kidSrc, zeSrc] = await Promise.all([load('../street/models/cr7.glb'), load('../street/models/kid.glb'), load('../street/models/ze.glb'), ...jobs]).then(r => r.slice(0, 3).map(g => g.scene));
+const [cr7Src, kidSrc, zeSrc, cupSrc] = await Promise.all([load('../street/models/cr7.glb'), load('../street/models/kid.glb'), load('../street/models/ze.glb'), load('assets/world-cup.glb').catch(() => null), ...jobs]).then(r => r.slice(0, 4).map(g => g && g.scene));
 // Static clone with shadows; s = uniform scale.
 function prop(name, s = 1, { cast = true } = {}) {
   const o = T[name].scene.clone(true); o.scale.setScalar(s);
@@ -119,7 +120,22 @@ const HEROES = [
     make: () => { const c = new Character(zeSrc, { kind: 'cc', height: 1.78 }); outfit(c, { Std_Skin_Leg: ['#1f3b8a', true], Std_Skin_Body: ['#1f3b8a', true], Fit_shirts: ['#f2f2f2', true] }); return c; } },
 ];
 const heroes = HEROES.map(h => { const c = h.make(); scene.add(c.root); c.root.visible = false; return c; });
-const cup = makeCup(); scene.add(cup);
+// The real trophy model when it loads (stood upright, base at the hand), else the one made in code.
+function realCup(src) {
+  const g = new THREE.Group(), m = src.clone(true);
+  // Shiny gold: a small reflection map just for the trophy.
+  const env = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+  m.traverse(o => { if (o.isMesh) { o.castShadow = true; const mt = o.material = o.material.clone(); mt.side = THREE.FrontSide; mt.envMap = env; mt.envMapIntensity = 1.6; mt.metalness = 1; mt.roughness = Math.min(mt.roughness ?? 0.4, 0.32); mt.color.multiplyScalar(1.35); } });
+  g.add(m); g.updateMatrixWorld(true);
+  let b = new THREE.Box3().setFromObject(m), sz = b.getSize(new V3());
+  // Some exports lie on their side: stand the longest axis up.
+  if (sz.z > sz.y * 1.2) { m.rotation.x = -Math.PI / 2; } else if (sz.x > sz.y * 1.2) { m.rotation.z = Math.PI / 2; }
+  g.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(m); sz = b.getSize(new V3());
+  const s = 0.62 / sz.y; m.scale.multiplyScalar(s); g.updateMatrixWorld(true); b = new THREE.Box3().setFromObject(m);
+  const c = b.getCenter(new V3()); m.position.x -= c.x; m.position.z -= c.z; m.position.y -= b.min.y;
+  return g;
+}
+const cup = cupSrc ? realCup(cupSrc) : makeCup(); scene.add(cup);
 
 // ================= animated mini characters (cops, rivals) =================
 function miniChar(name, clip = 'sprint', s = S.char) {
@@ -389,7 +405,7 @@ function holdCup(h, raised = true) {
     h.rot('rArm', X_AXIS, -2.75); h.rot('rFore', X_AXIS, -0.35);
     h.root.updateMatrixWorld(true);
     const r = h.bones.rHand.getWorldPosition(new V3());
-    cup.position.copy(r); cup.position.y += 0.02; cup.rotation.set(0, h.root.rotation.y, 0);
+    cup.position.copy(r); cup.position.y -= 0.07; cup.rotation.set(0, h.root.rotation.y, 0);
   } else {
     h.rot('lArm', X_AXIS, -0.75); h.rot('rArm', X_AXIS, -0.75); h.rot('lFore', X_AXIS, -1.15); h.rot('rFore', X_AXIS, -1.15);
     h.root.updateMatrixWorld(true);
@@ -553,4 +569,4 @@ try { audio.init(); } catch (e) { }
 const wake = () => { audio.init(); removeEventListener('pointerdown', wake); removeEventListener('keydown', wake); };
 addEventListener('pointerdown', wake); addEventListener('keydown', wake);
 // Test hooks.
-window.__run = { P, state, obstacles, coins, segments, scene, camera, renderer, start, toSelect, showSel, move, jump, slide, useAbility, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }, setSel: i => { sel = i; } };
+window.__run = { cup, P, state, obstacles, coins, segments, scene, camera, renderer, start, toSelect, showSel, move, jump, slide, useAbility, step: (n = 1, dt = 1 / 60) => { for (let i = 0; i < n; i++) update(dt); }, setSel: i => { sel = i; } };
