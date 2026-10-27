@@ -492,7 +492,7 @@ export function buildWorld(scene, { quality = 1, logoUrl } = {}) {
 }
 
 // ---------- the bay of Rio, far away ----------
-export function buildBackdrop(scene, sunDir) {
+export function buildBackdrop(scene, sunDir, { painted = false } = {}) {
   // Sky dome with a warm late-afternoon gradient and a sun glow.
   const skyMat = new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, fog: false,
@@ -507,7 +507,7 @@ export function buildBackdrop(scene, sunDir) {
         if (vd.y < 0.0) c = mix(c, vec3(0.62,0.62,0.62), smoothstep(0.0,-0.15,vd.y));
         gl_FragColor = vec4(c, 1.0); }`,
   });
-  const sky = new THREE.Mesh(new THREE.SphereGeometry(4000, 32, 16), skyMat); scene.add(sky);
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(4000, 32, 16), skyMat); if (!painted) scene.add(sky);
   // Sea.
   const sea = new THREE.Mesh(new THREE.PlaneGeometry(9000, 9000), new THREE.MeshStandardMaterial({ color: 0x2d6f97, roughness: 0.18, metalness: 0.35 }));
   sea.rotation.x = -Math.PI / 2; sea.position.set(0, -60, 0); scene.add(sea);
@@ -515,6 +515,7 @@ export function buildBackdrop(scene, sunDir) {
   const green = new THREE.MeshStandardMaterial({ color: 0x4b6b3c, roughness: 1 });
   // Sugarloaf: a bulbous granite dome, and its little brother.
   const lathe = (h, r) => { const pts = []; for (let i = 0; i <= 24; i++) { const t = i / 24; pts.push(new THREE.Vector2(r * Math.pow(Math.sin(Math.PI * (1 - t) * 0.5 + 0.0001), 0.55) * (1 + 0.15 * Math.sin(t * 3)), t * h)); } return new THREE.LatheGeometry(pts, 40); };
+  if (!painted) {
   const sl = new THREE.Mesh(lathe(390, 150), rock); sl.position.set(620, -60, 1250); sl.rotation.z = 0.06; scene.add(sl);
   const sl2 = new THREE.Mesh(lathe(220, 140), rock); sl2.position.set(380, -60, 1180); scene.add(sl2);
   // Corcovado with the statue on top.
@@ -524,6 +525,7 @@ export function buildBackdrop(scene, sunDir) {
   const arms = new THREE.Mesh(new THREE.BoxGeometry(56, 4.5, 5), sm); arms.position.y = 30; st.add(arms);
   const head = new THREE.Mesh(new THREE.SphereGeometry(3.4, 10, 8), sm); head.position.y = 36.5; st.add(head);
   st.position.set(-1150, 660, -150); st.rotation.y = 0.9; scene.add(st);
+  }
   // Other hills around, covered with favela houses (instanced tiny boxes).
   const hills = [[-420, -60, -380, 340, 180], [380, -60, -420, 380, 210], [-650, -60, 300, 300, 150], [650, -60, 200, 280, 140], [0, -60, -700, 520, 260], [160, -60, -190, 160, 72]];
   const boxes = []; const cols = ['#e88aa8', '#f1c84b', '#5fc4c0', '#7fb0e0', '#f2efe6', '#f08a4b', '#b5643c', '#c0704a', '#a65a3a', '#d9d2c2'].map(c => new THREE.Color(c));
@@ -543,7 +545,7 @@ export function buildBackdrop(scene, sunDir) {
     const px = (RR() - 0.5) * 600, pz = 52 + RR() * 260, py = Math.max(-60, -(pz - 44) * 0.235) - 1.5;
     boxes.push([px, py, pz, 4 + RR() * 6, 3 + RR() * 7, 4 + RR() * 6, cols[Math.floor(RR() * cols.length)]]);
   }
-  for (let i = 0; i < 260; i++) { const px = (RR() - 0.5) * 1400, pz = 340 + RR() * 300; boxes.push([px, -60, pz, 14 + RR() * 16, 30 + RR() * 70, 14 + RR() * 14, new THREE.Color(RR() < 0.7 ? '#e9e5dc' : '#c9d4dc')]); }
+  if (!painted) for (let i = 0; i < 260; i++) { const px = (RR() - 0.5) * 1400, pz = 340 + RR() * 300; boxes.push([px, -60, pz, 14 + RR() * 16, 30 + RR() * 70, 14 + RR() * 14, new THREE.Color(RR() < 0.7 ? '#e9e5dc' : '#c9d4dc')]); }
   // North behind our favela: more houses climbing.
   for (let i = 0; i < 700; i++) { const px = (RR() - 0.5) * 240, pz = -66 - RR() * 160, py = 9 + (-66 - pz) * 0.32 + RR(); boxes.push([px, py - 2, pz, 4 + RR() * 5, 3 + RR() * 6, 4 + RR() * 5, cols[Math.floor(RR() * cols.length)]]); }
   for (let i = 0; i < 500; i++) { const side = RR() < 0.5 ? -1 : 1, px = side * (55 + RR() * 140), pz = -60 + RR() * 110, py = -10 + RR() * 18 - (Math.abs(px) - 55) * 0.25; boxes.push([px, py, pz, 4 + RR() * 5, 3 + RR() * 6, 4 + RR() * 5, cols[Math.floor(RR() * cols.length)]]); }

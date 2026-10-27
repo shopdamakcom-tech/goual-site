@@ -4,6 +4,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { Character } from './street/rig.js?v=4';
 
 /* ------------------------------------------------------------------ data */
 // Each stop on the tour shows one film on a screen in the scene.
@@ -595,6 +596,66 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
   rebuildCurves();
 });
 
+/* ------------------------------------------------------------- the trio */
+// Mbappé, Yamal and Kane warm up on the pitch in front of the bench: each one juggles a few touches,
+// then passes along the triangle. Models made by GOUAL ART with Meshy; the motion is procedural.
+const trio = { ready: false, players: [], holder: 0, phase: 'juggle', t: 0, ball: null, from: V(0, 0, 0), to: V(0, 0, 0) };
+{
+  const SPOTS = [V(9.6, 0, 1.6), V(13.4, 0, 3.6), V(9.2, 0, 6.2)];   // south of the camera's line to the bench
+  const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
+  g.fillStyle = '#f4f4f4'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#151515';
+  for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) { const x = i * 43 + (j % 2) * 21 + 10, y = j * 45 + 18; g.beginPath(); for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + k * 1.2566; g.lineTo(x + Math.cos(a) * 10, y + Math.sin(a) * 10); } g.fill(); }
+  const bt = new THREE.CanvasTexture(c); bt.colorSpace = THREE.SRGBColorSpace;
+  trio.ball = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 14), new THREE.MeshStandardMaterial({ map: bt, roughness: 0.45 }));
+  trio.ball.castShadow = true; trio.ball.visible = false; scene.add(trio.ball);
+  Promise.all([['mbappe', 1.78], ['yamal', 1.80], ['kane', 1.88]].map(([n, h]) => new Promise(res => gltfLoader.load(`street/models/${n}.glb`, gl => res([gl.scene, h]), undefined, () => res(null)))))
+    .then(list => {
+      if (list.some(x => !x)) return;
+      trio.players = list.map(([src, h], i) => { const ch = new Character(src, { kind: 'meshy', height: h }); ch.root.position.copy(SPOTS[i]); scene.add(ch.root); return ch; });
+      trio.ready = true; trio.ball.visible = true;
+    });
+}
+const JUG_TAP = 0.5;
+function updateTrio(dt) {
+  if (!trio.ready) return;
+  const near = camera.position.distanceTo(V(10, 0, 6)) < 90 && camera.position.y > -0.5;
+  trio.players.forEach(p => { p.root.visible = near; }); trio.ball.visible = near;
+  if (!near) return;
+  const P = trio.players, n = P.length, h = trio.holder, next = (h + 1) % n;
+  trio.t += dt;
+  // Everyone faces the ball (the holder faces the next player before passing).
+  const face = (ch, tgt, k = 6) => { const d = tgt.clone().sub(ch.root.position); const yaw = Math.atan2(d.x, d.z); let a = yaw - ch.root.rotation.y; a = Math.atan2(Math.sin(a), Math.cos(a)); ch.root.rotation.y += a * (1 - Math.exp(-dt * k)); };
+  const ballPos = trio.ball.position;
+  P.forEach((ch, i) => {
+    if (i === h && trio.phase !== 'pass') return;
+    face(ch, i === h ? P[next].root.position : ballPos);
+    ch.animate({ dt, speed: 0, grounded: true, action: i === next && trio.phase === 'pass' && trio.t > 0.6 ? 'trap' : null, actionT: trio.t });
+  });
+  const H = P[h];
+  if (trio.phase === 'juggle') {
+    // Keepy-uppies in front of the holder, about six touches.
+    const f = V(Math.sin(H.root.rotation.y), 0, Math.cos(H.root.rotation.y));
+    const ph = (trio.t % JUG_TAP) / JUG_TAP;
+    H.animate({ dt, speed: 0, grounded: true, action: 'juggle', actionT: trio.t % JUG_TAP, tapLen: JUG_TAP });
+    ballPos.copy(H.root.position).addScaledVector(f, 0.38); ballPos.y = 0.35 + Math.sin(ph * Math.PI) * 1.0;
+    trio.ball.rotation.x += dt * 8;
+    if (trio.t > JUG_TAP * 6) { trio.phase = 'turn'; trio.t = 0; }
+  } else if (trio.phase === 'turn') {
+    // Let the ball drop to the feet while turning to the next player, then strike.
+    face(H, P[next].root.position, 9);
+    H.animate({ dt, speed: 0, grounded: true, action: trio.t > 0.35 ? 'kick' : null, actionT: trio.t - 0.35 });
+    const f = V(Math.sin(H.root.rotation.y), 0, Math.cos(H.root.rotation.y));
+    ballPos.lerp(H.root.position.clone().addScaledVector(f, 0.42).setY(0.11), 1 - Math.exp(-dt * 10));
+    if (trio.t > 0.58) { trio.phase = 'pass'; trio.t = 0; trio.from.copy(ballPos); trio.to.copy(P[next].root.position).addScaledVector(P[next].root.position.clone().sub(ballPos).setY(0).normalize(), -0.45).setY(0.11); trio.chip = Math.random() < 0.35; }
+  } else if (trio.phase === 'pass') {
+    H.animate({ dt, speed: 0, grounded: true, action: 'kick', actionT: trio.t + 0.23 });
+    const dur = trio.chip ? 1.15 : 0.95, k = Math.min(1, trio.t / dur);
+    ballPos.lerpVectors(trio.from, trio.to, k); ballPos.y = 0.11 + (trio.chip ? Math.sin(k * Math.PI) * 1.6 : 0);
+    trio.ball.rotation.x -= dt * 14;
+    if (k >= 1) { trio.holder = next; trio.phase = 'juggle'; trio.t = 0; }
+  }
+}
+
 /* ----------------------------------------------------------------- tunnel */
 // "Tunnel" by local.yany (CC BY 4.0). Its stairs climb from the rooms to the pitch:
 // the top landing opens behind the benches, the lower end leads on to the locker room.
@@ -745,20 +806,17 @@ function updateReels() {
 
 /* ----------------------------------------------------------- arcade doors */
 // Doors to the mini-games. The tour stops in front of each; PLAY swings it open onto the game's
-// world, and the game opens full screen. GOUAL RUN ends corridor A; PADEL CLASH is on the left
-// wall of the short corridor down to the locker room.
-// STREET FOOT is parked for later: its door by the gym shows "coming soon" and does not open.
-const STREET_FOOT = { url: 'street/index.html?embed=1', cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
-  lines: ['STREET', 'FOOT'], tag: 'THE NEXT GEM', foot: 'MINI-GAME · RIO DE JANEIRO', sign: 'ARCADE · STREET FOOT', bg: '#0d1b4d', accent: '#ffd400', accent2: '#ff2d78',
-  card: ['STREET FOOT', 'Play CR7 in the favelas of Rio and find the next Brazilian gem.'] };
+// world, and the game opens full screen. STREET FOOT ends corridor A; PADEL CLASH is on the left
+// wall of the short corridor down to the locker room; the door by the gym is the next game (coming soon).
 const ARCADES = {
-  run: { X: 45.75, Z: 13, rot: 0, url: 'run/index.html?embed=1', poster: 'run/poster.jpg', logo: 'goual-art-brush-small.webp', cover: 'run/cover-small.jpg', view: 'run/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
-    lines: ['GOUAL', 'RUN'], tag: 'BALLON D\'OR', foot: 'MINI-GAME · RIO FAVELA RUN', sign: 'ARCADE · GOUAL RUN', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff3d7f',
-    card: ['GOUAL RUN', 'Carry the Ballon d\'Or down a Rio favela! Jump, slide and dodge your way through.'] },
+  street: { X: 45.75, Z: 13, rot: 0, url: 'street/index.html?embed=1', poster: 'street/poster.jpg', logo: 'goual-art-brush-small.webp', cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
+    lines: ['STREET', 'FOOT'], tag: 'BALLON D\'OR', foot: 'MINI-GAME · RIO DE JANEIRO', sign: 'ARCADE · STREET FOOT', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff2d78',
+    card: ['STREET FOOT', 'The Ballon d\'Or has gone missing in the favelas of Rio. Play Mbappé, Yamal or Kane and bring it back.'] },
   padel: { X: 42.85, Z: 8.4, rot: Math.PI, url: 'padel/index.html?embed=1', cover: 'padel/cover-small.jpg', view: 'padel/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
     lines: ['PADEL', 'CLASH'], tag: 'CR7 VS MESSI', foot: 'MINI-GAME · INDOOR COURT', sign: 'ARCADE · PADEL CLASH', bg: '#0b1230', accent: '#d7ff3a', accent2: '#2a6fd1',
     card: ['PADEL CLASH', 'CR7 vs Messi on a glass court under the floodlights. First to 3 games.'] },
-  soon: { ...STREET_FOOT, X: 39.15, Z: -6.0, rot: -Math.PI / 2, url: null, tag: 'COMING SOON', foot: 'NEXT MINI-GAME · STAY TUNED', sign: 'ARCADE · COMING SOON' },
+  soon: { X: 39.15, Z: -6.0, rot: -Math.PI / 2, url: null, cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
+    lines: ['NEXT', 'GAME'], tag: 'COMING SOON', foot: 'NEXT MINI-GAME · STAY TUNED', sign: 'ARCADE · COMING SOON', bg: '#0d1b4d', accent: '#ffd400', accent2: '#ff2d78', card: ['', ''] },
 };
 for (const [id, A] of Object.entries(ARCADES)) {
   Object.assign(A, { id, open: 0, target: 0 });
@@ -1054,7 +1112,7 @@ const KEYS = [
   { station: 2, pos: [29.6, EYE - 0.15, 11.95], look: [29.6, FLOOR + 1.3, 14.4] },
   { pos: [33, EYE, 13], look: [40, EYE, 13], w: 2.2 },
   { pos: [37.8, EYE, 13], look: [44, EYE - 0.1, 13], w: 2.8 },                 // hall of fame: slow
-  { game: 'run', pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13], w: 2.8 },      // GOUAL RUN door
+  { game: 'street', pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13], w: 2.8 },      // STREET FOOT door
   { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6], w: 3.2 },                   // corner (slow between the two doors)
   { game: 'padel', pos: [45.5, EYE - 0.05, 8.4], look: [42.85, FLOOR + 1.2, 8.4], w: 3.2 },    // PADEL CLASH door (left wall)
   { pos: [44.3, EYE, 7.0], look: [43, EYE - 0.1, 2], w: 2.2 },
@@ -1331,7 +1389,7 @@ canvas.addEventListener('pointerup', e => {
 
 /* ----------------------------------------------------------------- arcade */
 const arcadeEl = $('#arcade'), arcadeFrame = $('#arcade iframe');
-function openArcade(id = 'run') {
+function openArcade(id = 'street') {
   const A = ARCADES[id];
   if (!A || !A.url || arcade.playing || state !== 'ready') return;
   arcade.playing = true; arcade.current = A; A.target = 1; sound.pop(); body.classList.add('arcade-on');
@@ -1349,7 +1407,7 @@ function closeArcade(then) {
   arcade.covered = false; arcadeEl.classList.remove('open'); if (arcade.current) arcade.current.target = 0;
   setTimeout(() => { arcadeEl.hidden = true; arcadeFrame.removeAttribute('src'); arcade.playing = false; body.classList.remove('arcade-on'); then && then(); }, 600);
 }
-document.addEventListener('click', e => { const b = e.target.closest('[data-arcade]'); if (b) openArcade(b.dataset.arcade || 'run'); });
+document.addEventListener('click', e => { const b = e.target.closest('[data-arcade]'); if (b) openArcade(b.dataset.arcade || 'street'); });
 addEventListener('message', e => {
   if (e.origin !== location.origin || (e.data?.type !== 'goual-street' && e.data?.type !== 'goual-arcade')) return;
   if (e.data.action === 'close') closeArcade();
@@ -1538,6 +1596,7 @@ function frame() {
   if (inside && coachHead && camera.position.x < 40 && camera.position.z < -5) lookAtCamera(dt);
   updateLamps(inside || tunnel.visible);
   updateReels();
+  updateTrio(dt);
   // Hall of fame: each frame lights up (with a little flicker and a click) as the camera reaches it.
   if (inside) hallLights.forEach(L => {
     const on = camera.position.x > L.x - 3.2 && Math.abs(camera.position.z - 13) < 2;
@@ -1595,4 +1654,4 @@ const setMenu = open => { mobileMenu.hidden = !open; burger.setAttribute('aria-e
 burger.addEventListener('click', () => setMenu(mobileMenu.hidden));
 mobileMenu.addEventListener('click', e => { if (e.target.closest('a,button')) setMenu(false); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !mobileMenu.hidden) setMenu(false); });
-if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, sound, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
+if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, sound, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), trio, keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };

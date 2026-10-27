@@ -15,23 +15,23 @@ const FRONT = ROAD_W + WALK_W + 0.1;
 // seeded random so a segment always looks the same
 function rng(seed) { let s = (seed * 9301 + 49297) % 233280 || 1; return () => ((s = (s * 16807) % 2147483647) / 2147483647); }
 
-export async function loadFavela(renderer) {
+export async function loadFavela(renderer, only) {
   const tl = new THREE.TextureLoader();
   const get = (n, srgb = true) => new Promise(res => tl.load(ART + n, t => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = renderer.capabilities.getMaxAnisotropy(); res(t); }));
   const meta = await (await fetch(ART + 'meta.json')).json();
-  const names = ['plate', 'band', 'clouds', 'tufts', 'signs', 'road', 'sidewalk', 'dirt', 'dirt2', 'wall', 'facade-1', 'facade-2', 'facade-3', 'facade-4', 'facade-5'];
+  const names = only || ['plate', 'band', 'clouds', 'tufts', 'signs', 'road', 'sidewalk', 'dirt', 'dirt2', 'wall', 'facade-1', 'facade-2', 'facade-3', 'facade-4', 'facade-5'];
   const T = Object.fromEntries(await Promise.all(names.map(async n => [n, await get(n + '.webp')])));
-  for (const n of ['road', 'sidewalk', 'dirt', 'dirt2', 'wall']) T[n].wrapS = T[n].wrapT = THREE.RepeatWrapping;
+  for (const n of ['road', 'sidewalk', 'dirt', 'dirt2', 'wall']) if (T[n]) T[n].wrapS = T[n].wrapT = THREE.RepeatWrapping;
   return { T, meta };
 }
 
 // ---------------- the sky: gradient + painted panorama + horizon band ----------------
-export function makeSky(T, meta) {
+export function makeSky(T, meta, { turn = 0.625, low = -0.09, high = 0.3 } = {}) {
   const top = new THREE.Color().setRGB(...meta.plateTop.map(v => v / 255), THREE.SRGBColorSpace);
   const u = {
     zenith: { value: new THREE.Color('#2f7fe0') }, plateTopCol: { value: top }, haze: { value: new THREE.Color('#cfe3ec') },
     plate: { value: T.plate }, band: { value: T.band }, sunDir: { value: new V3(-0.75, 0.32, -0.6).normalize() }, sunCol: { value: new THREE.Color('#ffd9a0') },
-    plateLow: { value: -0.09 }, plateHigh: { value: 0.3 }, bandLow: { value: -0.04 }, bandHigh: { value: 0.16 }, turn: { value: 0.625 },
+    plateLow: { value: low }, plateHigh: { value: high }, bandLow: { value: -0.04 }, bandHigh: { value: 0.16 }, turn: { value: turn },
   };
   const mat = new THREE.ShaderMaterial({
     uniforms: u, side: THREE.BackSide, depthWrite: false, fog: false,

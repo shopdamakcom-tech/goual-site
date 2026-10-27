@@ -1,11 +1,15 @@
-// STREET FOOT — The Next Gem. A short third-person street football adventure in a Rio favela.
-// You play CR7: ask around, earn the street's respect, follow the tags over the rooftops and
-// find "O Fantasma", the kid nobody can take the ball off. Everything in English, with subtitles.
+// STREET FOOT — The Ballon d'Or. A short third-person street football adventure in a Rio favela.
+// You play Mbappé, Yamal or Kane: the Ballon d'Or has vanished on Morro da Goual. Ask around, earn the
+// street's respect, cross paths with Ronaldo and Messi, follow the tags over the rooftops and win it
+// back from "O Fantasma" in a penalty shoot-out. Everything in English, with subtitles.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { buildWorld, buildBackdrop } from './world.js?v=2';
-import { Character, dress } from './rig.js?v=3';
+import { buildWorld, buildBackdrop } from './world.js?v=3';
+import { Character, dress } from './rig.js?v=4';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=3';
+import { Builder, kitMaterials, dog, clutter, laundry } from './favela-kit.js';
 import { audio } from './audio.js?v=2';
 
 const $ = s => document.querySelector(s);
@@ -25,7 +29,7 @@ renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
 renderer.shadowMap.enabled = !params.has('test'); if (params.has('test')) renderer.setPixelRatio(0.35); renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0xe7cdb2, 70, 1300);
+scene.fog = new THREE.Fog(0xc9dce6, 90, 1500);
 const camera = new THREE.PerspectiveCamera(TOUCH ? 66 : 58, innerWidth / innerHeight, 0.1, 6000);
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
 
@@ -37,7 +41,7 @@ Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, n
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04;
 scene.add(sun, sun.target);
 
-buildBackdrop(scene, sunDir);
+buildBackdrop(scene, sunDir, { painted: true });
 const W = buildWorld(scene, { logoUrl: '../goual-art-brush-small.webp' });
 const colliders = W.colliders;
 
@@ -77,11 +81,41 @@ const manager = new THREE.LoadingManager();
 manager.onProgress = (u, a, b) => { $('#loading .bar i').style.width = (a / b * 100) + '%'; };
 const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
 const load = url => new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
-const [cr7Src, kidSrc, zeSrc, triondaSrc] = await Promise.all([load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null)]);
+const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), load('models/mbappe.glb'), load('models/yamal.glb'), load('models/kane.glb')]);
 
 // ================= characters =================
-const cr7 = new Character(cr7Src, { kind: 'valve', height: 1.87 });
-scene.add(cr7.root);
+// The three playable stars (models made by GOUAL ART with Meshy). `me` is the one you picked.
+const HEROES = {
+  mbappe: { id: 'mbappe', name: 'Mbappé', label: 'MBAPPÉ', color: '#4da3ff', ch: new Character(mbappeSrc, { kind: 'meshy', height: 1.78 }) },
+  yamal: { id: 'yamal', name: 'Yamal', label: 'YAMAL', color: '#ff5a4a', ch: new Character(yamalSrc, { kind: 'meshy', height: 1.80 }) },
+  kane: { id: 'kane', name: 'Kane', label: 'KANE', color: '#f2f2f2', ch: new Character(kaneSrc, { kind: 'meshy', height: 1.88 }) },
+};
+let hero = HEROES[params.get('hero')] || HEROES.mbappe, me = hero.ch;
+for (const h of Object.values(HEROES)) { scene.add(h.ch.root); h.ch.root.visible = h === hero; }
+function pickHero(id) { hero = HEROES[id] || hero; me = hero.ch; for (const h of Object.values(HEROES)) h.ch.root.visible = h === hero; }
+// Ronaldo and Messi are on the hill too, hunting for the same trophy.
+const ronaldo = new Character(cr7Src, { kind: 'valve', height: 1.87 });
+ronaldo.root.position.set(16.5, 6, -25.2); ronaldo.root.rotation.y = -Math.PI / 2; scene.add(ronaldo.root);
+const messi = new Character(kidSrc, { kind: 'mixamo', height: 1.70 }); dress(messi, { top: '#75b6e8', bottom: '#151515', shoes: '#f2f2f2', skin: '#d9a982' });
+messi.root.position.set(12.5, 3, -8.6); messi.root.rotation.y = Math.PI / 2; scene.add(messi.root);
+// The Ballon d'Or, on a crate next to the Ghost on the rooftop.
+const ENV = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+const trophy = makeBallonDor(ENV); trophy.scale.setScalar(1.25); scene.add(trophy);
+// The painted Rio sky (panorama, horizon band and clouds made by GOUAL ART), facing the bay to the south.
+scene.add(makeSky(art.T, art.meta, { turn: 0.125, low: -0.16, high: 0.26 }));
+const clouds = makeClouds(art.T, art.meta, 18); clouds.scale.setScalar(1.6); scene.add(clouds);
+// Street life from the favela kit: caramel dogs, plastic chairs, gas bottles, crates and laundry.
+{
+  const K = kitMaterials(), b = new Builder(), RR = (() => { let x = 11; return () => ((x = (x * 16807) % 2147483647) / 2147483647); })();
+  const at = (x, z, yMax = 30) => new V3(x, groundAt(x, z, yMax), z);
+  const put = (p, rot, fn) => { b.push(p, rot); fn(); b.pop(); };
+  for (const [x, z, y, r, pose] of [[-12.6, 21, 0.6, 0.8, 'lie'], [-16.5, 30.5, 0.6, 2.4, 'stand'], [14.5, 30, 0.6, -1.2, 'lie'], [-3.5, -8.2, 3.6, 1.4, 'stand'], [9, -23.6, 6.6, -2, 'lie'], [-20, -9, 3.6, 0.3, 'lie']]) put(at(x, z, y), r, () => dog(b, K, RR, pose));
+  for (const [x, z, y, r] of [[-17.5, 31.5, 0.6, 0.4], [16, 33, 0.6, 1.2], [-8, -12.6, 3.6, 2.1]]) put(at(x, z, y), r, () => clutter(b, K, RR, 'chairs'));
+  for (const [x, z, y, k] of [[-21, 31, 0.6, 'gas'], [22.5, 25, 0.6, 'crates'], [18, -12.2, 3.6, 'bags'], [-14, -24, 6.6, 'crates'], [3, -27.4, 6.6, 'gas']]) put(at(x, z, y), RR() * 6, () => clutter(b, K, RR, k));
+  laundry(b, K, RR, new V3(-6, 5.2, 27.6), new V3(6, 5.4, 27.6));
+  laundry(b, K, RR, new V3(-12, 8.4, -11.3), new V3(-2, 8.6, -11.3));
+  const g = new THREE.Group(); b.build(g); scene.add(g);
+}
 const ze = new Character(zeSrc, { kind: 'cc', height: 1.8 });
 ze.root.position.set(-21.3, 0, 23); ze.root.rotation.y = Math.PI / 2; scene.add(ze.root);
 function streetKid(look, height) { const k = new Character(kidSrc, { kind: 'mixamo', height }); dress(k, look); scene.add(k.root); return k; }
@@ -152,6 +186,15 @@ class Ball {
 const ball = new Ball(new V3(0, 0.3, 33));
 const courtBall = new Ball(new V3(0, 0.3, 8));
 const daviBall = new Ball(new V3(2, W.laje.y + 1, -50)); daviBall.frozen = true;
+// The trophy on a crate by the wall, lit by a little spotlight so it shines from the stairs.
+const STAND = new V3(7.6, W.laje.y, -54.6);
+{
+  const crateM = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.8), new THREE.MeshStandardMaterial({ color: 0x2f6fd0, roughness: 0.5 }));
+  crateM.position.copy(STAND).add(new V3(0, 0.35, 0)); crateM.castShadow = crateM.receiveShadow = true; scene.add(crateM);
+  colliders.push({ x0: STAND.x - 0.4, y0: STAND.y, z0: STAND.z - 0.4, x1: STAND.x + 0.4, y1: STAND.y + 0.7, z1: STAND.z + 0.4 }); indexColliders();
+  const glow = new THREE.PointLight(0xffd27a, 6, 6, 1.5); glow.position.copy(STAND).add(new V3(0, 1.6, 0.6)); scene.add(glow);
+}
+trophy.position.copy(STAND).add(new V3(0, 0.7, 0));
 
 // ================= player =================
 const P = {
@@ -323,13 +366,16 @@ function updateMarker() {
 }
 
 // ================= dialogue =================
-const COLORS = { CR7: '#ffd400', AGENT: '#2ee6ff', 'ZÉ': '#ff8a3d', THIAGO: '#7cfc00', LUCAS: '#ff6bd6', DAVI: '#4dd2ff', KIDS: '#ffffff' };
-const speakers = () => ({ CR7: cr7, 'ZÉ': ze, THIAGO: thiago, LUCAS: lucas, DAVI: davi });
+const COLORS = { CR7: '#ffd400', MESSI: '#8fd0ff', AGENT: '#2ee6ff', 'ZÉ': '#ff8a3d', THIAGO: '#7cfc00', LUCAS: '#ff6bd6', DAVI: '#4dd2ff', KIDS: '#ffffff' };
+const speakers = () => ({ HERO: me, CR7: ronaldo, MESSI: messi, 'ZÉ': ze, THIAGO: thiago, LUCAS: lucas, DAVI: davi });
+// Lines are written with HERO for whoever you play and {HERO} for their name; each hero has its own voice.
+const heroText = t => t.replaceAll('{HERO}', hero.name);
 let talking = null;
 function line(who, text) {
   return new Promise(res => {
     const sub = $('#sub'), whoEl = sub.querySelector('.who'), lineEl = sub.querySelector('.line');
-    sub.classList.remove('hidden'); whoEl.textContent = who === 'AGENT' ? 'AGENT (PHONE)' : who; whoEl.style.color = COLORS[who] || '#fff';
+    text = heroText(text);
+    sub.classList.remove('hidden'); whoEl.textContent = who === 'AGENT' ? 'AGENT (PHONE)' : who === 'HERO' ? hero.label : who; whoEl.style.color = who === 'HERO' ? hero.color : COLORS[who] || '#fff';
     const sp = speakers()[who]; talking = sp || null;
     let shown = 0, done = false, spoke = false;
     const t0 = performance.now();
@@ -342,7 +388,7 @@ function line(who, text) {
       requestAnimationFrame(tick);
     };
     IN.skip = false; tick();
-    audio.speak(who, text).then(ok => { spoke = ok; setTimeout(finish, ok ? 380 : Math.max(0, 1300 + text.length * 48 - (performance.now() - t0))); });
+    audio.speak(who === 'HERO' ? hero.id.toUpperCase() : who, text).then(ok => { spoke = ok; setTimeout(finish, ok ? 380 : Math.max(0, 1300 + text.length * 48 - (performance.now() - t0))); });
   });
 }
 async function say(lines) { for (const [w, t] of lines) await line(w, t); $('#sub').classList.add('hidden'); }
@@ -383,28 +429,28 @@ async function intro() {
   await sleep(0.4);
   shot(new V3(-3.2, 2.0, 33.4), new V3(0, 1.5, 36.4), { follow: 0.45, speed: 2 });
   await say([
-    ['AGENT', 'Cris, you there? I just sent you the address. Morro da Goual, Rio.'],
-    ['AGENT', 'There is a kid up there nobody can take the ball off. They call him O Fantasma. The Ghost.'],
-    ['AGENT', 'Every club in Europe is looking for him. Find him first.'],
-    ['CR7', 'Leave it to me.'],
+    ['AGENT', '{HERO}, are you there? We have a problem. A big one.'],
+    ['AGENT', 'The Ballon d\'Or was on show at a charity match here, in Morro da Goual. This morning, it was gone.'],
+    ['AGENT', 'The ceremony is tonight. Find it before anybody else does.'],
+    ['HERO', 'I am on it.'],
   ]);
   act(null, 0); P.action = null;
   $('#letterbox').classList.remove('on'); release(); popMode(); pushMode('free'); P.mode = 'free';
   if (TOUCH) $('#touch').classList.remove('hidden');
   audio.base = 0; audio.carnival = 0;
   state.t0 = performance.now();
-  hint(TOUCH ? 'Left thumb to move · drag to look · SHOOT, TRICK and SIUUU buttons' : 'WASD / ZQSD to move · mouse to look · Shift to sprint · Space to jump / climb', 7);
+  hint(TOUCH ? 'Left thumb to move · drag to look · SHOOT, TRICK and CELEBRATE buttons' : 'WASD / ZQSD to move · mouse to look · Shift to sprint · Space to jump / climb', 7);
   setObjective('CHAPTER 1 · THE RUMOUR', 'Ask around at Bar do Zé', ze.root.position.clone().add(new V3(2, 0, 0)));
   state.stage = STAGES.ZE;
-  setTimeout(() => { if (mode() === 'free') hint(TOUCH ? 'TRICK = rainbow flick · SHOOT = strike · SIUUU = you know' : 'F = rainbow flick · Left click or K = shoot · C = SIUUU', 6); }, 9000);
+  setTimeout(() => { if (mode() === 'free') hint(TOUCH ? 'TRICK = rainbow flick · SHOOT = strike · CELEBRATE = show off' : 'F = rainbow flick · Left click or K = shoot · C = celebrate', 6); }, 9000);
 }
 async function talkZe() {
   if (state.stage === STAGES.ZE) {
     await conversation(ze, [
-      ['ZÉ', 'Well, well. Cristiano Ronaldo in my bar. I must be dreaming.'],
-      ['CR7', 'I am looking for a kid. They call him the Ghost.'],
-      ['ZÉ', 'O Fantasma? Everybody talks about him. Nobody can catch him.'],
-      ['ZÉ', 'Go see the boys at the cage. Thiago runs that court. Nothing happens on this hill without him knowing.'],
+      ['ZÉ', 'Well, well. {HERO} in my bar! Today the whole world comes up this hill.'],
+      ['HERO', 'Somebody took the Ballon d\'Or. Have you seen anything?'],
+      ['ZÉ', 'Ronaldo and Messi came by an hour ago, asking the same question. They are still up there somewhere.'],
+      ['ZÉ', 'But if something disappears on this hill, Thiago knows. Go see him at the cage.'],
     ]);
     state.stage = STAGES.THIAGO;
     setObjective('CHAPTER 1 · THE RUMOUR', 'Find Thiago at the cage', thiago.root.position);
@@ -412,30 +458,30 @@ async function talkZe() {
     await conversation(ze, [pick([
       ['ZÉ', 'A cold drink? No? Water then. Athletes…'],
       ['ZÉ', 'In my day we played barefoot on this hill. And we were happy.'],
-      ['ZÉ', 'If you find the Ghost, tell his mother he still owes me for two coxinhas.'],
+      ['ZÉ', 'Ronaldo drank three coconuts and did not pay. Tell him that.'],
     ])]);
   }
 }
 async function talkThiago() {
   if (state.stage === STAGES.THIAGO) {
     await conversation(thiago, [
-      ['THIAGO', 'No way… Ronaldo?! Bro, sign my ball!'],
-      ['CR7', 'Later. I am looking for O Fantasma.'],
-      ['THIAGO', 'Info is not free here, mister. Show us what you got.'],
+      ['THIAGO', 'No way… {HERO}?! Today is crazy, bro!'],
+      ['HERO', 'I need the Ballon d\'Or. Do you know where it is?'],
+      ['THIAGO', 'Info is not free here. Show us what you got.'],
       ['THIAGO', 'Fifteen juggles. No drop. Everybody is watching.'],
     ], { keep: true });
     popMode();
     await juggleChallenge();
     await conversation(thiago, [
       ['THIAGO', 'Okay, okay. You are legit.'],
-      ['THIAGO', 'The Ghost never plays down here. He trains on the rooftops, up at the top of the hill.'],
-      ['THIAGO', 'Follow the yellow tags. He paints them so his friends can find him.'],
+      ['THIAGO', 'Last night O Fantasma took the golden ball up to the rooftops. He says it belongs to the street now.'],
+      ['THIAGO', 'Follow the yellow tags. That is how his friends find him.'],
     ]);
     state.stage = STAGES.TAGS; nextTag();
   } else if (state.stage < STAGES.THIAGO) {
-    await conversation(thiago, [['THIAGO', 'Ronaldo?! Here?! … Wait, why are you here?']]);
+    await conversation(thiago, [['THIAGO', '{HERO}?! Here?! … Wait, why are you here?']]);
   } else {
-    await conversation(thiago, [pick([['THIAGO', 'Yellow tags, mister. Up the hill!'], ['THIAGO', 'Do the SIUUU! Come on, just once!'], ['THIAGO', 'When you find him, tell him Thiago says hi.']])]);
+    await conversation(thiago, [pick([['THIAGO', 'Yellow tags, bro. Up the hill!'], ['THIAGO', 'Messi went up the rainbow stairs. Ronaldo too. Hurry!'], ['THIAGO', 'When you find the Ghost, tell him Thiago says hi.']])]);
   }
 }
 async function talkLucas() {
@@ -444,6 +490,29 @@ async function talkLucas() {
     ['LUCAS', 'Jump on the crates, then the roofs. That is how we go up.'],
   ])]);
   if (state.stage === STAGES.TAGS) hint(TOUCH ? 'Face a ledge and press JUMP to climb' : 'Face a ledge and press Space to climb', 5);
+}
+// Ronaldo and Messi: met on the way up, the first time you walk past them.
+const met = { messi: false, ronaldo: false };
+async function meetMessi() {
+  met.messi = true;
+  await conversation(messi, [
+    ['MESSI', 'Ah, {HERO}. You are looking for it too?'],
+    ['HERO', 'Everybody is looking for it.'],
+    ['MESSI', 'I have eight already. This one, I let the young ones find.'],
+    ['MESSI', 'The tags go up the rainbow stairs. Go, before Cristiano gets there.'],
+  ]);
+  addStyle(100, 'MET THE GOAT');
+}
+async function meetRonaldo() {
+  met.ronaldo = true;
+  await conversation(ronaldo, [
+    ['CR7', '{HERO}! Do not even think about it. The Ballon d\'Or is mine.'],
+    ['HERO', 'Then why are you still down here?'],
+    ['CR7', 'I am… warming up. The kid is on the roof. He saved all my penalties.'],
+    ['CR7', 'Show me what you can do!'],
+  ]);
+  ronaldoSiu = 0; setTimeout(() => audio.siu(), 380);
+  addStyle(100, 'MET CR7');
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
@@ -469,34 +538,40 @@ async function meetDavi() {
   state.stage = STAGES.DAVI; pushMode('dialog'); if (document.pointerLockElement) document.exitPointerLock();
   $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0);
   daviJuggle.on = true;
-  shot(new V3(6.5, W.laje.y + 2.2, -46.5), new V3(2, W.laje.y + 1.2, -50.5), { cut: true });
+  shot(new V3(6.5, W.laje.y + 2.2, -46.5), new V3(4.5, W.laje.y + 1.0, -52.5), { cut: true });
   await sleep(2.4);
   daviJuggle.on = false; daviBall.frozen = true; daviBall.mesh.visible = false;
   faceEachOther(davi); frameTalk(P.pos, davi.root.position);
   await say([
-    ['DAVI', 'You are… you are Cristiano.'],
-    ['CR7', 'And you are the Ghost. Half of Europe is looking for you.'],
-    ['DAVI', 'Everybody talks. Nobody plays. You want to know if I am the real deal?'],
-    ['DAVI', 'Penalties. Three shots. Score two and I come with you.'],
+    ['DAVI', 'You are… you are {HERO}!'],
+    ['HERO', 'And you are the Ghost. That trophy is not yours, kid.'],
+    ['DAVI', 'It belongs to the street! Everybody wants it. Nobody plays for it.'],
+    ['DAVI', 'Penalties. Three shots. Score two and the golden ball is yours.'],
   ]);
   $('#letterbox').classList.remove('on'); popMode();
   state.stage = STAGES.PENS;
-  setObjective('CHAPTER 3 · THE GHOST', 'Score 2 penalties out of 3 against Davi', null);
+  setObjective('CHAPTER 3 · THE GHOST', 'Score 2 penalties out of 3 against the Ghost', null);
   let won = false;
   while (!won) {
     won = await penaltyChallenge();
-    if (!won) await conversation(davi, [pick([['DAVI', 'Ha! Again, old man?'], ['DAVI', 'Too easy. Again!']])]);
+    if (!won) await conversation(davi, [pick([['DAVI', 'Ha! Again?'], ['DAVI', 'Too easy. Again!']])]);
   }
   pushMode('dialog'); faceEachOther(davi); frameTalk(P.pos, davi.root.position); $('#letterbox').classList.add('on');
   await say([
-    ['DAVI', '…Okay. You are good, old man.'],
-    ['CR7', 'Old man?!'],
-    ['DAVI', 'Ha! I am joking. Where are we going?'],
-    ['CR7', 'Pack your boots, kid. GOUAL ART is waiting for you.'],
+    ['DAVI', '…Okay. You deserve it.'],
+    ['HERO', 'Come with me. Tonight you sit at the ceremony, front row.'],
+    ['DAVI', 'For real?! Let us go!'],
   ]);
-  // Final celebration.
-  P.yaw = 0; shot(new V3(2, W.laje.y + 1.4, -44.2), new V3(2, W.laje.y + 1.3, -48), { follow: 1.2 });
-  siu(true); daviCheer = 3;
+  // Ronaldo and Messi come up to the roof; you lift the Ballon d'Or.
+  ronaldo.root.position.set(-1.8, W.laje.y, -46.4); ronaldo.root.rotation.y = 2.4;
+  messi.root.position.set(5.8, W.laje.y, -46.2); messi.root.rotation.y = -2.4;
+  P.pos.set(2, W.laje.y, -49.4); P.yaw = 0; trophyHeld = true;
+  shot(new V3(2, W.laje.y + 1.5, -44.6), new V3(2, W.laje.y + 1.6, -49.4), { cut: true });
+  await say([
+    ['CR7', 'Not bad. Not bad at all.'],
+    ['MESSI', 'Bravo. It is in good hands.'],
+  ]);
+  celebrate(true); daviCheer = 4; npcCheer = 4; audio.cheer(1); audio.fiesta(4);
   await sleep(2.6);
   shot(new V3(-14, W.laje.y + 9, -30), new V3(2, W.laje.y, -49), { follow: 0.35, speed: 1.5 });
   await sleep(2.2);
@@ -506,9 +581,10 @@ function endScreen() {
   state.stage = STAGES.END; audio.base = 1; audio.carnival = 1;
   const t = Math.round(state.playTime); $('#eTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   $('#eCards').textContent = `${state.cards}/${cards.length}`; $('#eStyle').textContent = state.style.toLocaleString('en');
+  $('#eWho').textContent = `Well played, ${hero.name}`;
   $('#letterbox').classList.remove('on'); $('#end').classList.remove('hidden'); $('#hud').classList.add('hidden'); $('#touch').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
-  post('complete', { time: t, cards: state.cards, style: state.style });
+  post('complete', { time: t, cards: state.cards, style: state.style, hero: hero.id });
 }
 
 // ================= challenge 1: juggling =================
@@ -663,14 +739,21 @@ function endPens() {
 }
 let netKick = 0;
 
-// ================= SIUUU =================
-let siuT = -1;
-function siu(auto = false) {
+// ================= celebration =================
+// Each star has a shout; the move is a little run-up, a jump and a half turn to face the camera.
+const CELEB = { mbappe: 'MBAPPÉÉÉ!', yamal: 'LAMINE!', kane: 'HARRY KANE!' };
+let siuT = -1, trophyHeld = false, ronaldoSiu = -1, npcCheer = 0;
+function celebrate(auto = false) {
   if (siuT >= 0) return;
   siuT = 0; act('siu', 1.9); P.vel.set(0, 0, 0);
-  if (!auto) addStyle(200, 'SIUUU');
-  setTimeout(() => { audio.siu(); }, 380);
-  setTimeout(() => { audio.cheer(1); kidsCheer = 2; cam.shake = 0.35; }, 1350);
+  if (!auto) addStyle(200, 'CELEBRATION');
+  toast(CELEB[hero.id]);
+  setTimeout(() => { audio.cheer(1); kidsCheer = 2; cam.shake = 0.35; }, 1100);
+}
+// The Ballon d'Or held up high in the right hand (after the body pose is set).
+function holdTrophy() {
+  me.rot('rArm', new V3(1, 0, 0), -2.75); me.rot('rFore', new V3(1, 0, 0), -0.35); me.root.updateMatrixWorld(true);
+  trophy.position.copy(me.bones.rHand.getWorldPosition(new V3())); trophy.position.y -= 0.08; trophy.rotation.set(0, me.root.rotation.y, 0);
 }
 
 // ================= cards (collectibles) =================
@@ -755,6 +838,11 @@ function updateNPCs(dt) {
     daviBall.pos.copy(davi.root.position).addScaledVector(f, 0.38); daviBall.pos.y += 0.35 + Math.sin(ph * Math.PI) * 1.0; daviBall.frozen = true; daviBall.update(dt); daviBall.mesh.rotation.x += dt * 8;
   } else davi.animate({ dt, speed: 0, grounded: true, action: tk(davi) || (daviCheer > 0 ? 'cheer' : null), actionT: performance.now() / 1000, look: lookAtPlayer(davi) });
   daviCheer = Math.max(0, daviCheer - dt);
+  // Ronaldo (does a SIUUU when you meet him) and Messi.
+  if (ronaldoSiu >= 0) { ronaldoSiu += dt; if (ronaldoSiu > 1.9) ronaldoSiu = -1; }
+  ronaldo.animate({ dt, speed: 0, grounded: true, action: ronaldoSiu >= 0 ? 'siu' : tk(ronaldo) || (npcCheer > 0 ? 'cheer' : null), actionT: ronaldoSiu >= 0 ? ronaldoSiu : performance.now() / 1000, look: lookAtPlayer(ronaldo) });
+  messi.animate({ dt, speed: 0, grounded: true, action: tk(messi) || (npcCheer > 0 ? 'cheer' : null), actionT: performance.now() / 1000, look: lookAtPlayer(messi) });
+  npcCheer = Math.max(0, npcCheer - dt);
 }
 
 // ================= player update =================
@@ -778,7 +866,7 @@ function updatePlayer(dt) {
     if (IN.jump) { if (ledge) startClimb(ledge); else if (P.grounded) { P.vy = 7.2; P.grounded = false; } }
     if (IN.trick) trick();
     if (IN.shoot) shootBall();
-    if (IN.siu && P.grounded) siu();
+    if (IN.siu && P.grounded) celebrate();
   } else prompt(null);
   if (P.mode === 'climb') {
     const C = P.climb; C.t += dt; const k = C.t / C.dur, e = x => x * x * (3 - 2 * x);
@@ -787,7 +875,7 @@ function updatePlayer(dt) {
     P.pos.x = lerp(C.from.x, C.lx, e(over)); P.pos.z = lerp(C.from.z, C.lz, e(over));
     if (k >= 1) { P.mode = 'free'; P.grounded = true; P.vy = 0; P.pos.y = C.top; addStyle(20, 'CLIMB'); }
   } else if (m === 'free' || m === 'cut' || m === 'dialog') {
-    // SIUUU: small run-up, jump, half turn in the air, land facing the camera.
+    // Celebration: small run-up, jump, half turn in the air, land facing the camera.
     if (siuT >= 0) {
       const t0 = siuT; siuT += dt;
       if (t0 < 0.22 && siuT >= 0.22) { P.vy = 6.3; P.grounded = false; }
@@ -809,11 +897,12 @@ function updatePlayer(dt) {
   }
   P.speed = Math.hypot(P.vel.x, P.vel.z);
   // Footsteps.
-  if (P.grounded && P.speed > 0.8 && P.mode !== 'climb') { const ph = Math.floor(cr7.phase / Math.PI); if (ph !== P.stepPhase) { P.stepPhase = ph; audio.step(); } }
+  if (P.grounded && P.speed > 0.8 && P.mode !== 'climb') { const ph = Math.floor(me.phase / Math.PI); if (ph !== P.stepPhase) { P.stepPhase = ph; audio.step(); } }
   // Character pose.
-  cr7.root.position.copy(P.pos); cr7.root.rotation.y = P.yaw + P.spin;
+  me.root.position.copy(P.pos); me.root.rotation.y = P.yaw + P.spin;
   const actName = P.action === 'jugglePose' ? 'juggle' : P.action;
-  cr7.animate({ dt, speed: P.mode === 'climb' ? 0 : P.speed, grounded: P.grounded || P.mode === 'climb', action: talking === cr7 && !actName ? 'talk' : actName, actionT: P.action === 'climb' ? P.actT / P.actLen : P.actT, tapLen: 0.32, lean: 0 });
+  me.animate({ dt, speed: P.mode === 'climb' ? 0 : P.speed, grounded: P.grounded || P.mode === 'climb', action: talking === me && !actName ? 'talk' : actName, actionT: P.action === 'climb' ? P.actT / P.actLen : P.actT, tapLen: 0.32, lean: 0 });
+  if (trophyHeld) holdTrophy();
   IN.jump = IN.use = IN.trick = IN.shoot = IN.siu = false;
 }
 // Ball at your feet: touches while running, settles when you stop, comes back if you lose it.
@@ -879,13 +968,18 @@ function update(dt) {
   if (!state.paused) {
     for (let i = waits.length - 1; i >= 0; i--) if (waits[i].fn()) { const w = waits.splice(i, 1)[0]; w.r(); }
     if (state.started) state.playTime = (performance.now() - state.t0) / 1000;
-    if (state.juggle) { updateJuggle(dt); cr7.root.position.copy(P.pos); cr7.root.rotation.y = P.yaw; cr7.animate({ dt, speed: 0, grounded: true, action: P.action === 'jugglePose' ? null : P.action, actionT: P.actT, tapLen: 0.32 }); P.actT += dt; if (P.action === 'juggle' && P.actT > 0.32) P.action = null; IN.jump = IN.use = IN.shoot = false; IN.skip = false; }
-    else if (state.pen) { updatePen(dt); cr7.root.position.copy(P.pos); cr7.root.rotation.y = P.yaw; P.actT += dt; if (P.action && P.actT > P.actLen) P.action = null; cr7.animate({ dt, speed: 0, grounded: true, action: P.action, actionT: P.actT }); IN.jump = IN.use = IN.shoot = false; }
+    if (state.juggle) { updateJuggle(dt); me.root.position.copy(P.pos); me.root.rotation.y = P.yaw; me.animate({ dt, speed: 0, grounded: true, action: P.action === 'jugglePose' ? null : P.action, actionT: P.actT, tapLen: 0.32 }); P.actT += dt; if (P.action === 'juggle' && P.actT > 0.32) P.action = null; IN.jump = IN.use = IN.shoot = false; IN.skip = false; }
+    else if (state.pen) { updatePen(dt); me.root.position.copy(P.pos); me.root.rotation.y = P.yaw; P.actT += dt; if (P.action && P.actT > P.actLen) P.action = null; me.animate({ dt, speed: 0, grounded: true, action: P.action, actionT: P.actT }); IN.jump = IN.use = IN.shoot = false; }
     else { updatePlayer(dt); updateBall(dt); }
     updateNPCs(dt);
     // Mission triggers by position.
     if (state.stage === STAGES.TAGS && tagIdx < TAGS.length && P.pos.distanceTo(TAGS[tagIdx].at) < 3.2) nextTag();
     if ((state.stage === STAGES.ROOF || state.stage === STAGES.TAGS) && P.pos.y > W.laje.y - 0.2 && P.pos.x > W.laje.x0 && P.pos.x < W.laje.x1 && P.pos.z > W.laje.z0 && P.pos.z < W.laje.z1 && mode() === 'free' && P.mode === 'free') { tagIdx = TAGS.length; meetDavi(); }
+    // Ronaldo and Messi stop you the first time you pass them on the way up.
+    if (state.stage === STAGES.TAGS && mode() === 'free' && P.mode === 'free') {
+      if (!met.messi && P.pos.distanceTo(messi.root.position) < 3.6) meetMessi();
+      else if (!met.ronaldo && P.pos.distanceTo(ronaldo.root.position) < 3.6) meetRonaldo();
+    }
     // Cards.
     for (const c of cards) if (!c.got) {
       c.m.rotation.y += dt * 2; c.m.position.y = c.y + Math.sin(performance.now() / 400) * 0.1;
@@ -923,8 +1017,8 @@ const leaveFullscreen = () => { if (document.fullscreenElement) document.exitFul
 // ================= menus =================
 function controlsHTML() {
   const rows = TOUCH
-    ? [['Left thumb', 'Move'], ['Drag right side', 'Look around'], ['JUMP', 'Jump · climb a ledge'], ['E', 'Talk'], ['SPRINT', 'Toggle sprint'], ['SHOOT', 'Strike the ball'], ['TRICK', 'Rainbow flick'], ['SIUUU', 'Celebrate']]
-    : [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd>', 'Move'], ['Mouse', 'Look around (click to lock)'], ['<kbd>Shift</kbd>', 'Sprint'], ['<kbd>Space</kbd>', 'Jump · climb a ledge · next line'], ['<kbd>E</kbd>', 'Talk'], ['Click / <kbd>K</kbd>', 'Shoot'], ['<kbd>F</kbd>', 'Rainbow flick'], ['<kbd>C</kbd>', 'SIUUU'], ['<kbd>Esc</kbd>', 'Pause']];
+    ? [['Left thumb', 'Move'], ['Drag right side', 'Look around'], ['JUMP', 'Jump · climb a ledge'], ['E', 'Talk'], ['SPRINT', 'Toggle sprint'], ['SHOOT', 'Strike the ball'], ['TRICK', 'Rainbow flick'], ['CELEB', 'Celebrate']]
+    : [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd>', 'Move'], ['Mouse', 'Look around (click to lock)'], ['<kbd>Shift</kbd>', 'Sprint'], ['<kbd>Space</kbd>', 'Jump · climb a ledge · next line'], ['<kbd>E</kbd>', 'Talk'], ['Click / <kbd>K</kbd>', 'Shoot'], ['<kbd>F</kbd>', 'Rainbow flick'], ['<kbd>C</kbd>', 'Celebrate'], ['<kbd>Esc</kbd>', 'Pause']];
   return rows.map(([a, b]) => `<div>${a}</div><div>${b}</div>`).join('');
 }
 $('#ctrlList').innerHTML = controlsHTML();
@@ -948,6 +1042,12 @@ $('#contactBtn').onclick = () => { if (EMBED) post('contact'); else location.hre
 $('#ctrlBtn').onclick = () => { $('#title').classList.add('hidden'); $('#menu').classList.remove('hidden'); $('#menuKicker').textContent = 'CONTROLS'; $('#resumeBtn').textContent = 'BACK'; $('#resumeBtn').onclick = () => { $('#menu').classList.add('hidden'); $('#title').classList.remove('hidden'); $('#resumeBtn').textContent = 'RESUME'; $('#resumeBtn').onclick = () => togglePause(false); }; };
 function post(action, data) { try { window.parent.postMessage({ type: 'goual-street', action, ...data }, '*'); } catch (e) { } }
 function close() { leaveFullscreen(); audio.stopVoice(); audio.ctx?.suspend(); if (EMBED) post('close'); else location.href = '../?arcade=street'; }
+// Pick your star on the title screen.
+document.querySelectorAll('#heroPick button').forEach(b => b.addEventListener('click', () => {
+  pickHero(b.dataset.hero); document.querySelectorAll('#heroPick button').forEach(x => x.classList.toggle('on', x === b)); audio.init(); audio.blip(660);
+  me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
+}));
+document.querySelector(`#heroPick button[data-hero="${hero.id}"]`)?.classList.add('on');
 $('#playBtn').onclick = async () => {
   audio.init(); goLandscape(); $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden');
   state.started = true; state.t0 = performance.now();
@@ -961,8 +1061,8 @@ const wake = () => { audio.init(); removeEventListener('pointerdown', wake); rem
 addEventListener('pointerdown', wake); addEventListener('keydown', wake);
 $('#loading').classList.add('hidden');
 $('#title').classList.remove('hidden');
-cr7.root.position.copy(P.pos); cr7.root.rotation.y = P.yaw;
+me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
 frame();
 post('ready');
 // Test hooks.
-window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, davi, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, meetDavi, finishJuggle, nextTag, siu, groundAt, IN, mode: () => mode() };
+window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, davi, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, meetDavi, winPens: () => { if (state.pen) { state.pen.goals = 2; endPens(); } }, meetMessi, meetRonaldo, finishJuggle, nextTag, celebrate, pickHero, heroes: HEROES, ronaldo, messi, trophy, groundAt, IN, mode: () => mode() };

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>STREET FOOT — The Next Gem</title>
-<meta name="description" content="STREET FOOT: find the next Brazilian gem in the favelas of Rio. A GOUAL ART mini-game.">
+<title>STREET FOOT — The Ballon d'Or</title>
+<meta name="description" content="STREET FOOT: the Ballon d'Or has vanished in a Rio favela. Play Mbappé, Yamal or Kane and win it back. A GOUAL ART mini-game.">
 <meta name="theme-color" content="#0d1b4d">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230d1b4d'/><circle cx='16' cy='16' r='9' fill='%23ffd400'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -130,6 +130,15 @@
     #toast { font-size: 46px; } #count { font-size: 44px; top: 8%; } #meter { height: 200px; }
     .logo { font-size: 58px; } .lede { font-size: 13px; margin: 10px 0 14px; } .screen { overflow: auto; }
   }
+  #heroPick { max-width: 440px; }
+  @media (max-height: 520px) { #heroPick img { aspect-ratio: auto; height: 62px; object-position: 50% 12%; } .pickT { margin: 4px 0 6px; } #title .lede { display: none; } #title .logo { font-size: 46px; } #title .logo span { font-size: .55em; } #heroPick { margin-bottom: 8px; } }
+  .pickT { margin: 14px 0 8px; font: 800 11px/1 Inter, system-ui, sans-serif; letter-spacing: .25em; color: #ffd400; }
+  #heroPick { display: flex; gap: 10px; margin-bottom: 14px; }
+  #heroPick button { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 0 9px; border-radius: 14px; border: 2px solid rgba(255,255,255,.18); background: linear-gradient(180deg, color-mix(in srgb, var(--c) 55%, #0b1230), #0b1230); color: #fff; cursor: pointer; overflow: hidden; transition: transform .15s, border-color .15s; font: inherit; }
+  #heroPick button img { width: 100%; aspect-ratio: 400 / 460; object-fit: cover; display: block; }
+  #heroPick button b { font: 900 15px/1.1 Impact, 'Arial Black', sans-serif; letter-spacing: .04em; }
+  #heroPick button small { font-size: 10px; opacity: .7; }
+  #heroPick button.on { border-color: #ffd400; transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,0,0,.4), 0 0 0 2px #ffd400 inset; }
 </style>
 </head>
 <body>
@@ -156,7 +165,7 @@
 <div id="touch" class="hidden">
   <div id="stick"><div class="base"><div class="nub"></div></div></div>
   <div id="btns">
-    <button id="bTrick">TRICK</button><button id="bSiu">SIUUU</button>
+    <button id="bTrick">TRICK</button><button id="bSiu">CELEB</button>
     <button id="bShoot">SHOOT</button><button id="bJump" class="big">JUMP</button>
     <button id="bRun">SPRINT</button><button id="bAct" class="big">E</button>
   </div>
@@ -164,8 +173,14 @@
 <div id="title" class="screen hidden">
   <div class="panel">
     <div class="kicker">GOUAL ART PRESENTS</div>
-    <h1 class="logo">STREET FOOT<span>The Next Gem</span></h1>
-    <p class="lede">Rio de Janeiro, Morro da Goual. Somewhere in these alleys plays a kid nobody can take the ball off. They call him <b>O Fantasma</b>. Every club in Europe wants him. Find him first.</p>
+    <h1 class="logo">STREET FOOT<span>The Ballon d'Or</span></h1>
+    <p class="lede">Rio de Janeiro, Morro da Goual. The <b>Ballon d'Or</b> was on show at a charity match… and this morning it was gone. Ronaldo and Messi are already looking for it. Get there first.</p>
+    <div class="pickT">CHOOSE YOUR STAR</div>
+    <div id="heroPick">
+      <button type="button" data-hero="mbappe" style="--c:#2f6fe0"><img src="heroes/mbappe.webp" alt=""><b>MBAPPÉ</b><small>France · 10</small></button>
+      <button type="button" data-hero="yamal" style="--c:#d8262e"><img src="heroes/yamal.webp" alt=""><b>YAMAL</b><small>Spain · 19</small></button>
+      <button type="button" data-hero="kane" style="--c:#e8e8ee"><img src="heroes/kane.webp" alt=""><b>KANE</b><small>England · 9</small></button>
+    </div>
     <div class="menu">
       <button class="primary" id="playBtn">▶ PLAY</button>
       <button id="ctrlBtn">Controls</button>
@@ -183,13 +198,13 @@
       <button id="restartBtn">Restart the mission</button>
       <button id="quitBtn">Back to the GOUAL ART tour</button>
     </div>
-    <p class="credits">CR7 model: “3D Rigged Cristiano Ronaldo Al Nassr” by Lean_Lo1786 (Sketchfab), CC BY 4.0. Voices generated with Kokoro TTS (Apache 2.0). Favela, music and animation made in code by GOUAL ART.</p>
+    <p class="credits">Mbappé, Yamal and Kane models made by GOUAL ART with Meshy. CR7 model: “3D Rigged Cristiano Ronaldo Al Nassr” by Lean_Lo1786 (Sketchfab), CC BY 4.0. Unofficial fan game. Voices generated with Kokoro TTS (Apache 2.0). Favela, music and animation made in code by GOUAL ART.</p>
   </div>
 </div>
 <div id="end" class="screen hidden">
   <div class="panel">
     <div class="kicker">MISSION COMPLETE</div>
-    <h2 class="big">GEM FOUND<span>Welcome to GOUAL ART, Davi</span></h2>
+    <h2 class="big">BALLON D'OR FOUND<span id="eWho">Well played</span></h2>
     <div class="scores"><div><b id="eTime">0:00</b><small>Time</small></div><div><b id="eCards">0/8</b><small>Cards</small></div><div><b id="eStyle">0</b><small>Style</small></div></div>
     <div class="menu">
       <button class="primary" id="tourBtn">BACK TO THE TOUR</button>
@@ -201,6 +216,6 @@
 <div id="fade"></div>
 <div id="loading"><div style="text-align:center"><div class="logo" style="font-size:54px">STREET FOOT</div><div class="bar"><i></i></div><div id="loadTxt" style="margin-top:10px;font-size:12px;opacity:.6">Loading the favela…</div></div></div>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=5"></script>
+<script type="module" src="game.js?v=6"></script>
 </body>
 </html>
