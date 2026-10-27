@@ -10,7 +10,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { Character, dress } from '../street/rig.js?v=3';
+import { Character, dress } from '../street/rig.js?v=4';
 import { audio } from './audio.js?v=2';
 import { loadFavela, makeSky, makeClouds, makeFavela, makeBallonDor } from './favela.js?v=1';
 import { obstacle as makeObstacle, kitMaterials } from './favela-kit.js?v=1';
@@ -60,8 +60,8 @@ scene.add(sun, sun.target);
 const setBar = f => { $('#loading .bar i').style.width = (f * 100) + '%'; };
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
 const load = url => new Promise((res, rej) => loader.load(url, res, undefined, rej));
-let done = 0; const tick = p => p.then(v => { setBar(++done / 6); return v; });
-const [art, cr7Src, kidSrc, zeSrc] = await Promise.all([tick(loadFavela(renderer)), tick(load('../street/models/cr7.glb')), tick(load('../street/models/kid.glb')), tick(load('../street/models/ze.glb'))]).then(r => [r[0], ...r.slice(1).map(g => g.scene)]);
+let done = 0; const tick = p => p.then(v => { setBar(++done / 7); return v; });
+const [art, cr7Src, kidSrc, zeSrc, kaneSrc] = await Promise.all([tick(loadFavela(renderer)), tick(load('../street/models/cr7.glb')), tick(load('../street/models/kid.glb')), tick(load('../street/models/ze.glb')), tick(load('../street/models/kane.glb?v=1'))]).then(r => [r[0], ...r.slice(1).map(g => g.scene)]);
 const sky = makeSky(art.T, art.meta); scene.add(sky);
 const clouds = makeClouds(art.T, art.meta); scene.add(clouds);
 
@@ -80,7 +80,11 @@ const HEROES = [
     make: () => { const c = new Character(kidSrc, { kind: 'mixamo', height: 1.66 }); dress(c, { top: '#fbe14a', bottom: '#1d3fa8', shoes: '#ffffff', skin: '#7c5038' }); return c; } },
   { id: 'ze', name: 'ZÉ', role: 'THE BOSS', ability: 'GOLDEN SHIELD', icon: '🛡', short: 'SHIELD', txt: 'Starts with a shield. Ability: a golden shield that saves you from one crash.',
     make: () => { const c = new Character(zeSrc, { kind: 'cc', height: 1.78 }); outfit(c, { Std_Skin_Leg: ['#1f3b8a', true], Std_Skin_Body: ['#1f3b8a', true], Fit_shirts: ['#f2f2f2', true] }); return c; } },
+  { id: 'kane', name: 'KANE', role: 'THE CAPTAIN', ability: 'CAPTAIN\'S STRIKE', icon: '💥', short: 'STRIKE', txt: 'A thunderbolt shot that blasts every obstacle out of the way for the next 45 metres.',
+    make: () => new Character(kaneSrc, { kind: 'meshy', height: 1.88 }) },
 ];
+// Where each hero stands on the select screen (four across the street).
+const selX = i => (i - (HEROES.length - 1) / 2) * 2.2;
 const heroes = HEROES.map(h => { const c = h.make(); scene.add(c.root); c.root.visible = false; return c; });
 // The real trophy model when it loads (stood upright, base at the hand), else the one made in code.
 // The Ballon d'Or, carried by the runner.
@@ -222,6 +226,7 @@ function useAbility() {
   P.charge = 0; audio.power();
   if (heroDef.id === 'cr7') { P.sprintT = 4; toast('SIUUU!'); }
   else if (heroDef.id === 'davi') { P.magnetT = 8; toast('GINGA!'); }
+  else if (heroDef.id === 'kane') { for (const ob of obstacles) if (!ob.hit && ob.z < P.z + 1 && ob.z > P.z - 45) knock(ob); shake = 0.4; toast('STRIKE!'); }
   else { P.shield = true; toast('SHIELD!'); }
 }
 // Side bump: you stumble back to the previous lane. A second stumble soon after: you fall.
@@ -289,7 +294,7 @@ function updateCamera(dt) {
     look = new V3(P.x * 0.75, 1.25 + P.y * 0.45, P.z - (portrait ? 6 : 7));
     if (state.mode === 'over') { pos = new V3(P.x + 3.6, 3.6, P.z + 6.5); look = new V3(P.x, 0.8, P.z); }
   } else if (state.mode === 'select') {
-    const hx = LANES[sel]; pos = portrait ? new V3(hx, 1.0, 3.9) : new V3(hx + 1.15, 1.4, 2.6); look = portrait ? new V3(hx, -0.6, -0.7) : new V3(hx + 1.0, 1.0, -0.7);
+    const hx = selX(sel); pos = portrait ? new V3(hx, 1.0, 3.9) : new V3(hx + 1.15, 1.4, 2.6); look = portrait ? new V3(hx, -0.6, -0.7) : new V3(hx + 1.0, 1.0, -0.7);
   } else {   // title: slow drone over the street
     const t = state.t * 0.12; pos = new V3(Math.sin(t) * 7, 7 + Math.sin(t * 0.7) * 1.5, 10 + Math.cos(t) * 3); look = new V3(0, 2, -18);
   }
@@ -311,7 +316,7 @@ function update(dt) {
   for (const s of segments) for (const ob of s.obs) if (ob.mixer && Math.abs(ob.z - P.z) < 120) ob.mixer.update(dt);
   if (state.mode === 'run' && P.alive) runStep(dt);
   else if (state.mode === 'select' || state.mode === 'title') {
-    heroes.forEach((h, i) => { if (!h.root.visible) return; h.root.position.set(LANES[i], 0, -1.2 + (state.mode === 'select' && i === sel ? 0.5 : 0)); h.root.rotation.y = 0; h.animate({ dt, speed: 0, grounded: true, action: state.mode === 'select' && i === sel ? 'talk' : null, actionT: state.t }); });
+    heroes.forEach((h, i) => { if (!h.root.visible) return; h.root.position.set(selX(i), 0, -1.2 + (state.mode === 'select' && i === sel ? 0.5 : 0)); h.root.rotation.y = 0; h.animate({ dt, speed: 0, grounded: true, action: state.mode === 'select' && i === sel ? 'talk' : null, actionT: state.t }); });
     if (state.mode === 'select') { cup.visible = true; const h = heroes[sel]; holdCup(h); }
   }
   if (state.mode === 'over') { overStep(dt); }

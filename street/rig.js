@@ -16,6 +16,12 @@ const RIGS = {
     lArm: /^LeftArm_/, lFore: /^LeftForeArm_\d/, rArm: /^RightArm_/, rFore: /^RightForeArm_\d/, rHand: /^RightHand_\d/, lHand: /^LeftHand_\d/,
     lThigh: /^LeftUpLeg_/, lCalf: /^LeftLeg_/, lFoot: /^LeftFoot_/, rThigh: /^RightUpLeg_/, rCalf: /^RightLeg_/, rFoot: /^RightFoot_/,
   },
+  // Meshy auto-rig (Mixamo names; the glTF loader drops the ':' of "mixamorig:")
+  meshy: {
+    hips: /^mixamorigHips$/, spine: /^mixamorigSpine$/, spine1: /^mixamorigSpine1$/, chest: /^mixamorigSpine2$/, neck: /^mixamorigNeck$/, head: /^mixamorigHead$/,
+    lArm: /^mixamorigLeftArm$/, lFore: /^mixamorigLeftForeArm$/, rArm: /^mixamorigRightArm$/, rFore: /^mixamorigRightForeArm$/, rHand: /^mixamorigRightHand$/, lHand: /^mixamorigLeftHand$/,
+    lThigh: /^mixamorigLeftUpLeg$/, lCalf: /^mixamorigLeftLeg$/, lFoot: /^mixamorigLeftFoot$/, rThigh: /^mixamorigRightUpLeg$/, rCalf: /^mixamorigRightLeg$/, rFoot: /^mixamorigRightFoot$/,
+  },
   cc: {
     hips: /^pelvis_/, spine: /^spine_01/, spine1: /^spine_02/, chest: /^spine_03/, neck: /^neck_01/, head: /^head_/,
     lArm: /^upperarm_l_/, lFore: /^lowerarm_l_/, rArm: /^upperarm_r_/, rFore: /^lowerarm_r_/, rHand: /^hand_r_/, lHand: /^hand_l_/,
