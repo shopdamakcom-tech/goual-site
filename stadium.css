@@ -161,5 +161,5 @@ body.hall #look-hint{opacity:1;transform:translate(-50%,0)}
 .arcade-padel .place{color:#d7ff3a}
 .arcade-padel .play{background:#d7ff3a;box-shadow:0 5px 0 #8fae12}
 .arcade-padel .play:hover{box-shadow:0 3px 0 #8fae12}
-.arcade-run .card{border-color:#ffd400;background:rgba(18,52,140,.94)}
-.arcade-run .place{color:#ffd400}
+.arcade-street .card{border-color:#ffd400;background:rgba(18,52,140,.94)}
+.arcade-street .place{color:#ffd400}
