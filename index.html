@@ -35,7 +35,7 @@
   })();
 </script>
 <noscript><meta http-equiv="refresh" content="0;url=classic.html"></noscript>
-<link rel="stylesheet" href="stadium.css?v=22">
+<link rel="stylesheet" href="stadium.css?v=23">
 <link rel="stylesheet" href="fxmenu.css?v=2">
 <script defer src="fxmenu.js?v=2"></script>
 <script defer src="socials.js?v=1"></script>
@@ -47,20 +47,45 @@
 </head>
 <body>
 <div id="bg" aria-hidden="true"></div>
-<div id="tagLoader" aria-hidden="true">
-  <div class="tl-wall"></div>
-  <span class="tagwrap" id="tagwrap"><img class="brand" src="goual-art-brush.webp" alt=""><span class="mist"></span><svg class="can" viewBox="0 0 40 90"><rect x="9" y="22" width="22" height="64" rx="6" fill="#ffd400"/><rect x="9" y="40" width="22" height="20" fill="#ff2d78"/><rect x="13" y="12" width="14" height="12" rx="3" fill="#d9dde3"/><rect x="17" y="5" width="6" height="8" rx="2" fill="#1b1f3b"/><circle cx="16" cy="9" r="1.6" fill="#fff"/></svg></span>
-  <p class="tl-sub">ANIMATION STUDIOS</p>
+<div id="cloudLoader" aria-hidden="true">
+  <div class="cl-sky"></div>
+  <div class="cl-layer cl-far"></div>
+  <div class="cl-layer cl-near"></div>
+  <div class="cl-logo"><img src="goual-art-brush.webp" alt=""><span>ANIMATION STUDIOS</span></div>
 </div>
 <script>
-  // Loading screen: shows at once (before the 3D code arrives) and sprays the logo on over the countdown.
-  // stadium.js takes over with the real progress (window.__tagP) and lifts the screen when the stadium is ready.
+  // Loading: we wait in the clouds above the stadium. Soft painted clouds part as the site loads
+  // (--p 0..1: an eased timer first, then the real progress from stadium.js) and open fully when ready.
   (function () {
-    var el = document.getElementById('tagwrap'), t0 = performance.now();
+    function cloud(w, h, seed) {
+      var c = document.createElement('canvas'); c.width = w; c.height = h; var g = c.getContext('2d'), s = seed;
+      function r() { s = (s * 16807) % 2147483647; return s / 2147483647; }
+      for (var i = 0; i < 70; i++) {
+        var rad = h * (0.1 + r() * 0.16), x = rad + r() * (w - 2 * rad), y = Math.max(rad, Math.min(h - rad, h * (0.4 + r() * 0.3)));
+        var gr = g.createRadialGradient(x - rad * 0.2, y - rad * 0.3, rad * 0.1, x, y, rad);
+        gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.6, 'rgba(240,246,255,0.85)'); gr.addColorStop(1, 'rgba(225,236,250,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
+      }
+      return c.toDataURL();
+    }
+    var L = document.getElementById('cloudLoader');
+    ['cl-far', 'cl-near'].forEach(function (k, n) {
+      var layer = L.querySelector('.' + k);
+      for (var i = 0; i < 6; i++) {
+        var d = document.createElement('i'), left = i % 2 === 0;
+        d.style.backgroundImage = 'url(' + cloud(900, 420, 11 + i * 7 + n * 31) + ')';
+        d.style.setProperty('--x', (left ? -1 : 1) * (0.5 + (i >> 1) * 0.25));
+        d.style.setProperty('--y', ((i >> 1) - 1) * 26 + '%');
+        d.style.setProperty('--s', (n ? 1.05 : 0.85) + i * 0.04);
+        d.className = left ? 'l' : 'r'; layer.appendChild(d);
+      }
+    });
+    var t0 = performance.now();
     function tick(now) {
-      var fake = 0.95 * (1 - Math.exp(-(now - t0) / 2600)), p = Math.max(fake, window.__tagP || 0);
-      el.style.setProperty('--p', p.toFixed(3));
-      if (!document.body.classList.contains('ready')) requestAnimationFrame(tick); else el.style.setProperty('--p', 1);
+      var fake = 0.85 * (1 - Math.exp(-(now - t0) / 2600)), p = Math.max(fake, (window.__tagP || 0) * 0.9);
+      if (document.body.classList.contains('ready')) p = 1;
+      L.style.setProperty('--p', p.toFixed(3));
+      if (p < 1) requestAnimationFrame(tick);
     }
     requestAnimationFrame(tick);
   })();

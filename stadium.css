@@ -160,21 +160,21 @@ body.hall #look-hint{opacity:1;transform:translate(-50%,0)}
 .arcade-street .card{border-color:#ffd400;background:rgba(18,52,140,.94)}
 .arcade-street .place{color:#ffd400}
 
-/* Loading screen: a graffiti wall where the GOUAL ART logo is sprayed on during the countdown (--p 0..1). */
-#tagLoader{position:fixed;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(120% 90% at 50% 40%,#1e5bd8 0%,#12257a 45%,#0a1033 100%);transition:opacity .7s .25s,visibility 0s 1s}
-#tagLoader .tl-wall{position:absolute;inset:0;opacity:.18;background:repeating-linear-gradient(0deg,rgba(255,255,255,.35) 0 2px,transparent 2px 46px),repeating-linear-gradient(90deg,rgba(255,255,255,.25) 0 2px,transparent 2px 92px);mix-blend-mode:overlay}
-#tagLoader .tl-sub{position:relative;margin:clamp(10px,2vh,22px) 0 0;font:400 clamp(12px,1.6vw,24px)/1 Righteous,var(--round),sans-serif;letter-spacing:.42em;padding-left:.42em;opacity:calc(var(--p, 0) * 1);color:#fff}
-.tagwrap{position:relative;display:block;width:min(80vw,900px);--p:0}
-.tagwrap .brand{display:block;width:100%;height:auto;filter:drop-shadow(0 8px 24px rgba(5,8,25,.55));-webkit-mask-image:linear-gradient(90deg,#000 calc(var(--p) * 112% - 10%),transparent calc(var(--p) * 112% + 2%));mask-image:linear-gradient(90deg,#000 calc(var(--p) * 112% - 10%),transparent calc(var(--p) * 112% + 2%))}
-.tagwrap .can{position:absolute;top:18%;left:calc(var(--p) * 100%);width:clamp(30px,4.4vw,60px);height:auto;transform:translate(-20%,-60%) rotate(-24deg);filter:drop-shadow(0 6px 10px rgba(5,8,25,.5));animation:canShake .18s ease-in-out infinite alternate}
-.tagwrap .mist{position:absolute;top:28%;left:calc(var(--p) * 100%);width:clamp(70px,10vw,170px);aspect-ratio:1;border-radius:50%;transform:translate(-55%,-20%);background:radial-gradient(circle,rgba(90,190,255,.6),rgba(255,45,120,.3) 45%,transparent 70%);filter:blur(6px);pointer-events:none;animation:mist .35s ease-in-out infinite alternate}
-@keyframes canShake{to{transform:translate(-20%,-52%) rotate(-18deg)}}
-@keyframes mist{to{opacity:.55;transform:translate(-55%,-5%) scale(1.15)}}
-body.ready #tagLoader{opacity:0;visibility:hidden;pointer-events:none}
-body.ready #tagLoader .can{opacity:0;transform:translate(60%,-160%) rotate(30deg);transition:.5s}
-body.ready #tagLoader .mist{opacity:0}
-body.ready #tagLoader .brand{-webkit-mask-image:none;mask-image:none;animation:tagPop .5s cubic-bezier(.3,1.6,.5,1)}
-@keyframes tagPop{40%{transform:scale(1.05)}}
+/* Loading: clouds above the stadium part as the site loads (--p 0..1) and open fully when it is ready. */
+#cloudLoader{position:fixed;inset:0;z-index:2;overflow:hidden;pointer-events:none;--p:0;transition:visibility 0s 1.6s}
+#cloudLoader .cl-sky{position:absolute;inset:0;background:linear-gradient(180deg,#5aa8ec 0%,#7cc4f5 45%,#cfe8fb 100%);opacity:calc(1 - var(--p) * .35);transition:opacity 1.2s}
+#cloudLoader .cl-layer{position:absolute;inset:0}
+#cloudLoader .cl-layer i{position:absolute;left:50%;top:50%;width:90vw;height:44vw;min-height:46vh;background:center/contain no-repeat;transform:translate(calc(-50% + var(--x) * 46vw + var(--x) * var(--p) * var(--p) * 120vw), calc(-50% + var(--y))) scale(var(--s));transition:transform 1.4s cubic-bezier(.6,0,.2,1),opacity 1.2s;animation:clDrift 9s ease-in-out infinite alternate}
+#cloudLoader .cl-near i{opacity:calc(1 - var(--p) * .7);filter:blur(1px)}
+#cloudLoader .cl-far i{opacity:calc(.85 - var(--p) * .6)}
+@keyframes clDrift{to{margin-left:2.5vw}}
+#cloudLoader .cl-logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,1.4vw,18px)}
+#cloudLoader .cl-logo img{width:min(70vw,560px);height:auto;filter:drop-shadow(0 8px 24px rgba(10,14,30,.4));animation:clFloat 3.2s ease-in-out infinite alternate}
+#cloudLoader .cl-logo span{font:400 clamp(12px,1.6vw,22px)/1 Righteous,var(--round),sans-serif;letter-spacing:.42em;padding-left:.42em;color:#fff;text-shadow:0 2px 12px rgba(10,14,30,.4)}
+@keyframes clFloat{to{transform:translateY(-10px)}}
+body.ready #cloudLoader{visibility:hidden}
+body.ready #cloudLoader .cl-layer i{transform:translate(calc(-50% + var(--x) * 170vw), calc(-50% + var(--y))) scale(calc(var(--s) * 1.4));opacity:0}
+body.ready #cloudLoader .cl-sky,body.ready #cloudLoader .cl-logo{opacity:0;transition:opacity .9s .2s}
 body:not(.ready) .intro .hint{opacity:0}
 .intro .hint{transition:opacity .6s .3s}
-@media (prefers-reduced-motion:reduce){.tagwrap .can,.tagwrap .mist{display:none}.tagwrap .brand{-webkit-mask-image:none;mask-image:none}}
+@media (prefers-reduced-motion:reduce){#cloudLoader .cl-layer i,#cloudLoader .cl-logo img{animation:none}}
