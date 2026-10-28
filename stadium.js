@@ -598,9 +598,8 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
 });
 
 /* ------------------------------------------------------------- the stars */
-// Mbappé, Yamal and Kane (Meshy models by GOUAL ART) and CR7 around the stadium: the three on the
-// substitutes' bench by the coach, CR7 on the gym treadmill, Mbappé and Yamal juggling in the locker
-// room, Kane in the office next to the Ballon d'Or. Each one only moves when the camera is close.
+// CR7 and Mbappé running on the gym treadmills, and Kane (Meshy model by GOUAL ART) in the coach's
+// chair next to the Ballon d'Or. Each one only moves when the camera is close.
 const stars = { list: [] };
 function ballMesh() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
@@ -610,27 +609,22 @@ function ballMesh() {
   const m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 14), new THREE.MeshStandardMaterial({ map: t, roughness: 0.45 })); m.castShadow = true; return m;
 }
 const loadStar = n => new Promise(res => gltfLoader.load(`street/models/${n}.glb`, gl => res(gl.scene), undefined, () => res(null)));
-const starsReady = Promise.all(['mbappe', 'yamal', 'kane', 'cr7'].map(loadStar)).then(([mb, ya, ka, cr]) => {
-  if (!mb || !ya || !ka || !cr) return;
+const starsReady = Promise.all(['mbappe', 'kane', 'cr7'].map(loadStar)).then(([mb, ka, cr]) => {
+  if (!mb || !ka || !cr) return;
   const make = (src, h, kind = 'meshy') => new Character(src, { kind, height: h });
-  // 1. On the bench in the dugout behind the coach, facing the pitch.
-  [[mb, 1.78, 6.7, [62, 24, 44, 52], 14, 8], [ya, 1.80, 8.1, [58, 30, 62, 70], 8, 20], [ka, 1.88, 9.5, [64, 22, 46, 50], 10, 4]].forEach(([src, h, z, arms, lean, headDown], i) => {
-    const ch = make(src, h); ch.root.updateMatrixWorld(true);
-    poseSeated(ch.model, { rig: 'meshy', seat: 0.44, arms, lean, headDown });
-    ch.root.position.set(18.62, 0, z); ch.root.rotation.y = -Math.PI / 2; scene.add(ch.root);
-  });
-  // 2. CR7 running on the treadmill (facing its console).
+  // 1. CR7 running on the treadmill (facing its console).
   const cr7 = make(cr, 1.87, 'valve'); cr7.root.position.set(43.3, FLOOR + 0.13, -13.3); cr7.root.rotation.y = -Math.PI / 2; indoor.add(cr7.root);
   stars.list.push({ ch: cr7, at: cr7.root.position, run: 3.6 });
-  // 3. Mbappé and Yamal juggling in the locker room.
-  [[mb, 1.78, V(45.0, FLOOR, -2.0), 0], [ya, 1.80, V(45.2, FLOOR, 0.3), 0.27]].forEach(([src, h, p, off]) => {
-    const ch = make(src, h); ch.root.position.copy(p); const to = V(42.8, 0, -0.6).sub(p); ch.root.rotation.y = Math.atan2(to.x, to.z); indoor.add(ch.root);
-    const ball = ballMesh(); indoor.add(ball);
-    stars.list.push({ ch, at: p, juggle: { ball, t: off } });
-  });
-  // 4. Kane in the office, by the desk where the Ballon d'Or stands.
-  const kane = make(ka, 1.88); kane.root.position.set(30.35, FLOOR, -5.0); kane.root.rotation.y = Math.PI / 2 - 0.35; office.add(kane.root);
-  stars.list.push({ ch: kane, at: kane.root.position, idle: true });
+  // …and Mbappé on the treadmill next to him, a little faster.
+  const mbappe = make(mb, 1.78); mbappe.root.position.set(43.3, FLOOR + 0.13, -11.16); mbappe.root.rotation.y = -Math.PI / 2; indoor.add(mbappe.root);
+  stars.list.push({ ch: mbappe, at: mbappe.root.position, run: 4.1 });
+  // 2. Kane in the coach's chair behind the desk, next to the Ballon d'Or; he looks up at whoever walks in.
+  const kane = make(ka, 1.88); kane.root.updateMatrixWorld(true);
+  kane.model.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
+  const pose = poseSeated(kane.model, { rig: 'meshy', seat: 0.47, arms: [36, 44, 72, 52], lean: 6, headDown: 2 });
+  const seat = new THREE.Group(); seat.position.set(30.35, FLOOR, -6.8); seat.rotation.y = Math.PI / 2; office.add(seat); seat.add(kane.root);
+  const { head, neck } = pose.bones;
+  coachHead = { head, neck, h: head.quaternion.clone(), n: neck.quaternion.clone(), yaw: 0, pitch: 0 };
 });
 const JUG_TAP = 0.5;
 function updateStars(dt) {
@@ -699,7 +693,7 @@ const indoor = new THREE.Group(); indoor.visible = false; scene.add(indoor);
   add(T, H - 2.02, 1.1, wallMat, 45.75, FLOOR + 2.02 + (H - 2.02) / 2, 13);          // lintel over the arcade door
   lampAt(38, FLOOR + 2, 13, '#fff1d6', 4); lampAt(44.3, FLOOR + 2, 8.5, '#fff1d6', 3);
   // B: locker room → gym.
-  slab(43.3, -8.32, 44.7, -4.87, false); wallX(43.3, -8.32, -4.87); wallX(44.7, -8.32, -4.87);
+  slab(43.3, -8.32, 44.7, -3.13, false); wallX(43.3, -8.32, -4.83); wallX(44.7, -8.32, -3.13);
   // C: gym → office.
   slab(38.5, -8.32, 39.8, -6.0, false); slab(34.42, -7.45, 38.5, -6.0, true);
   wallX(39.8, -8.32, -6.0); wallX(38.5, -8.32, -7.45); wallZ(-6.0, 34.42, 39.8); wallZ(-7.45, 34.42, 38.5);
@@ -974,7 +968,8 @@ const lockerReady = loadModel('models/locker.glb').then(m => {
   [[mx, top - 0.3, mz, '#fff4e6', 14, 12], [lo.x + 1.2, 1.6, mz, '#7fdcff', 6, 6], [mx, 1.6, hi.z - 1.2, '#7fdcff', 6, 6], [mx + 2, top - 0.2, lo.z + 1, '#ff3b4a', 4, 6]]
     .forEach(([x, y, z, col, i, d]) => lampAt(x, y + FLOOR, z, col, i, d));
   // Doors: in from the tunnel corridor (south wall), out to the gym (north wall).
-  cutHoles(m, [B(42.95, FLOOR - 0.2, 4.6, 45.65, FLOOR + 2.2, 5.8), B(43.3, FLOOR - 0.2, -5.4, 44.7, FLOOR + 2.2, -4.4)]);
+  // The north wall steps in at x > 43.64 (z -3.13): cut through the step so the way out is a full 1.4 m wide.
+  cutHoles(m, [B(42.95, FLOOR - 0.2, 4.6, 45.65, FLOOR + 2.2, 5.8), B(43.3, FLOOR - 0.2, -5.4, 44.7, FLOOR + 2.2, -3.0)]);
   // The wall TV: black glass with the film fitted inside, and the camera stop in front of it.
   if (screenMesh) {
     screenMesh.material = new THREE.MeshBasicMaterial({ color: '#05060c' });
@@ -1037,20 +1032,7 @@ lampAt(31.2, FLOOR + 2.7, -6.8, '#ffe6c4', 6, 9); lampAt(33.4, FLOOR + 2.6, -7.6
   rbox(2.3, 1.5, 0.05, 0.03, mat('#15171f', { roughness: 0.4 }), frame, 0, 0, 0);
   makeScreen(5, 2.22, 1.42, frame, 0, 0, 0.03);
 }
-const coachReady = loadModel('models/coach.glb').then(m => {
-  if (!m) return;
-  m.traverse(o => {
-    if (!o.isMesh) return;
-    if (/shadow|plane/i.test(o.name + o.parent.name)) o.visible = false;
-    if (o.material.name === 'Std_Skin_Leg') o.visible = false;                       // legs stay out of sight behind the desk panel
-  });
-  prepCharacter(m);
-  const pose = poseSeated(m, { rig: 'unreal', seat: 0.42, arms: [38, 40, 75, 55], lean: 6, headDown: 4 });
-  const seat = new THREE.Group(); seat.position.set(30.4, FLOOR, -6.8); seat.rotation.y = Math.PI / 2; office.add(seat); seat.add(m);
-  // He turns his head to whoever walks in.
-  const { head, neck } = pose.bones;
-  coachHead = { head, neck, h: head.quaternion.clone(), n: neck.quaternion.clone(), yaw: 0, pitch: 0 };
-});
+const coachReady = starsReady;   // Kane sits in the coach's chair (see the stars above)
 const headDir = new THREE.Vector3(), headPos = new THREE.Vector3();
 function lookAtCamera(dt) {
   const c = coachHead;
@@ -1104,8 +1086,7 @@ const KEYS = [
   { pos: [44.3, EYE, 7.0], look: [43, EYE - 0.1, 2], w: 2.2 },
   { pos: [44, EYE, 4.2], look: [45.86, FLOOR + 1.35, 2.3], w: 2.4 },            // into the locker room: the TV first
   { w: 2.2, station: 3, pos: [43.8, FLOOR + 1.45, 2.06], look: [45.86, FLOOR + 1.32, 2.06] },   // set from the TV on load
-  { pause: 1, pos: [42.7, EYE - 0.05, 0.9], look: [45.1, FLOOR + 1.0, -0.9], w: 3.5 },     // Mbappé and Yamal juggling: slow, short stop
-  { pos: [42.6, EYE, -1.2], look: [44, EYE, -6], w: 3 },
+  { pos: [43.5, EYE, -1.1], look: [44, EYE, -8], w: 3 },
   { pos: [44, EYE, -4.3], look: [44, EYE, -9] },
   { pos: [44, EYE, -7.4], look: [44, EYE - 0.1, -12] },                        // straight through the gym door…
   { pos: [43.95, EYE, -9.5], look: [41, EYE - 0.2, -12.5] },                  // …then turn into the gym
