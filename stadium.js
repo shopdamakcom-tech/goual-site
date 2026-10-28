@@ -542,17 +542,21 @@ function poseSeated(model, { rig, seat, arms, lean, headDown }) {
   const w = o => o.getWorldPosition(V(0, 0, 0));
   return { bones: b, hands: [w(b.handL), w(b.handR)], head: w(b.head) };
 }
-// Two-bone reach (cyclic coordinate descent): turn the upper arm and forearm so the hand lands on `target`.
-function reach(arm, fore, hand, target, iters = 14) {
-  const q = new THREE.Quaternion(), a = V(0, 0, 0), b = V(0, 0, 0), p = V(0, 0, 0), h = V(0, 0, 0), wq = new THREE.Quaternion();
-  for (let i = 0; i < iters; i++) for (const bone of [fore, arm]) {
-    bone.getWorldPosition(p); hand.getWorldPosition(h);
-    a.copy(h).sub(p).normalize(); b.copy(target).sub(p).normalize();
-    q.setFromUnitVectors(a, b);
-    bone.parent.getWorldQuaternion(wq);
-    bone.quaternion.premultiply(wq.clone().invert().multiply(q).multiply(wq));
-    bone.updateMatrixWorld(true);
-  }
+// Two-bone IK with an elbow pole: shoulder stays, the elbow bends toward `pole`, the hand reaches `target`.
+function armIK(arm, fore, hand, target, pole) {
+  const S = arm.getWorldPosition(V(0, 0, 0)), E0 = fore.getWorldPosition(V(0, 0, 0)), H0 = hand.getWorldPosition(V(0, 0, 0));
+  const a = S.distanceTo(E0), b = E0.distanceTo(H0);
+  const d = clamp(S.distanceTo(target), 0.05, a + b - 0.002), dir = target.clone().sub(S).normalize();
+  const x = (a * a - b * b + d * d) / (2 * d), h = Math.sqrt(Math.max(0, a * a - x * x));
+  const side = pole.clone().sub(dir.clone().multiplyScalar(pole.dot(dir))).normalize();
+  const E = S.clone().addScaledVector(dir, x).addScaledVector(side, h), T = S.clone().addScaledVector(dir, d);
+  const aim = (bone, from, to, cur) => {
+    const q = new THREE.Quaternion().setFromUnitVectors(cur.clone().sub(from).normalize(), to.clone().sub(from).normalize());
+    const pq = bone.parent.getWorldQuaternion(new THREE.Quaternion());
+    bone.quaternion.premultiply(pq.clone().invert().multiply(q).multiply(pq)); bone.updateMatrixWorld(true);
+  };
+  aim(arm, S, E, E0);
+  aim(fore, E, T, hand.getWorldPosition(V(0, 0, 0)));
 }
 function prepCharacter(m) {
   m.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
@@ -627,17 +631,25 @@ const starsReady = Promise.all(['kane', 'cr7'].map(loadStar)).then(([ka, cr]) =>
   // 1. CR7 running on the treadmill (facing its console).
   const cr7 = make(cr, 1.87, 'valve'); cr7.root.position.set(43.3, FLOOR + 0.13, -13.3); cr7.root.rotation.y = -Math.PI / 2; indoor.add(cr7.root);
   stars.list.push({ ch: cr7, at: cr7.root.position, run: 3.6 });
-  // 2. Kane in the coach's chair behind the desk, next to the Ballon d'Or; he looks up at whoever walks in.
-  const kane = make(ka, 1.88); kane.root.updateMatrixWorld(true);
+  // 2. Kane standing beside the coach's chair, behind the Ballon d'Or, arms crossed; he follows you with
+  // his eyes. At the end of the tour you take the empty chair.
+  const kane = make(ka, 1.88); kane.root.position.set(30.15, FLOOR, -5.55); kane.root.rotation.y = Math.PI / 2; office.add(kane.root);
   kane.model.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
-  const pose = poseSeated(kane.model, { rig: 'meshy', seat: 0.47, arms: [36, 44, 72, 52], lean: 6, headDown: 2 });
-  const seat = new THREE.Group(); seat.position.set(30.35, FLOOR, -6.8); seat.rotation.y = Math.PI / 2; office.add(seat); seat.add(kane.root);
-  // Hands flat on the desk, a shoulder width apart.
-  scene.updateMatrixWorld(true);
-  reach(pose.bones.armL, pose.bones.foreL, pose.bones.handL, V(30.98, FLOOR + 0.74, -7.1));
-  reach(pose.bones.armR, pose.bones.foreR, pose.bones.handR, V(30.98, FLOOR + 0.74, -6.5));
-  const { head, neck } = pose.bones;
-  coachHead = { head, neck, h: head.quaternion.clone(), n: neck.quaternion.clone(), yaw: 0, pitch: 0 };
+  const B = kane.bones, wp = b => b.getWorldPosition(V(0, 0, 0));
+  const rest = ['lArm', 'lFore', 'rArm', 'rFore'].map(k => [B[k], B[k].quaternion.clone()]);
+  const cross = (o = {}) => {
+    const k = { fwd: 0.2, drop: 0.32, span: 0.06, pole: 0.6, pf: 0.3, ...o };
+    rest.forEach(([b, q]) => b.quaternion.copy(q)); scene.updateMatrixWorld(true);
+    const sl = wp(B.lArm), sr = wp(B.rArm), mid = sl.clone().add(sr).multiplyScalar(0.5);
+    const out = sl.clone().sub(sr).setY(0).normalize(), fwd = V(0, 0, 0).set(1, 0, 0).applyQuaternion(kane.root.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+    const fz = V(Math.sin(kane.root.rotation.y), 0, Math.cos(kane.root.rotation.y));
+    const C = mid.clone().addScaledVector(fz, k.fwd).add(V(0, -k.drop, 0));
+    // each hand goes to the opposite side; elbows down, out to their own side, a bit forward
+    armIK(B.lArm, B.lFore, B.lHand, C.clone().addScaledVector(out, -k.span), V(0, -1, 0).addScaledVector(out, k.pole).addScaledVector(fz, k.pf));
+    armIK(B.rArm, B.rFore, B.rHand, C.clone().addScaledVector(out, k.span).add(V(0, 0.05, 0)).addScaledVector(fz, 0.04), V(0, -1, 0).addScaledVector(out, -k.pole).addScaledVector(fz, k.pf));
+  };
+  cross(); stars.kaneCross = cross;
+  coachHead = { head: B.head, neck: B.neck, h: B.head.quaternion.clone(), n: B.neck.quaternion.clone(), yaw: 0, pitch: 0 };
 });
 const JUG_TAP = 0.5;
 function updateStars(dt) {
@@ -1112,7 +1124,9 @@ const KEYS = [
   { pos: [35.6, EYE, -6.72], look: [30.6, FLOOR + 1.3, -6.8], w: 2.8 },
   { pos: [33.8, EYE, -6.7], look: [30.6, FLOOR + 1.25, -6.8] },               // the coach looks up
   { station: 5, pos: [32.9, FLOOR + 1.55, -6.2], look: [31, FLOOR + 1.6, -8.93] },
-  { pos: [33.7, FLOOR + 1.65, -5.4], look: [30.6, FLOOR + 1.2, -7.2] },
+  { pos: [32.2, FLOOR + 1.55, -7.4], look: [30.4, FLOOR + 1.1, -6.8], w: 1.4 },          // round the desk…
+  { pos: [31.2, FLOOR + 1.5, -8.0], look: [30.35, FLOOR + 1.0, -6.8], w: 1.4 },
+  { pos: [30.35, FLOOR + 1.2, -6.8], look: [34.5, FLOOR + 1.15, -6.8], w: 1.6 },        // …and sit in the chair, facing the room
 ].map(k => ({ ...k, pos: new THREE.Vector3(...k.pos), look: new THREE.Vector3(...k.look) }));
 // Spread progress over the path by distance, so the camera keeps an even pace (the flight in from
 // the sky is compressed). The last film ends at 0.93; the final move back leaves room for the contact page.
