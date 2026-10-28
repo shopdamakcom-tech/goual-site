@@ -542,6 +542,18 @@ function poseSeated(model, { rig, seat, arms, lean, headDown }) {
   const w = o => o.getWorldPosition(V(0, 0, 0));
   return { bones: b, hands: [w(b.handL), w(b.handR)], head: w(b.head) };
 }
+// Two-bone reach (cyclic coordinate descent): turn the upper arm and forearm so the hand lands on `target`.
+function reach(arm, fore, hand, target, iters = 14) {
+  const q = new THREE.Quaternion(), a = V(0, 0, 0), b = V(0, 0, 0), p = V(0, 0, 0), h = V(0, 0, 0), wq = new THREE.Quaternion();
+  for (let i = 0; i < iters; i++) for (const bone of [fore, arm]) {
+    bone.getWorldPosition(p); hand.getWorldPosition(h);
+    a.copy(h).sub(p).normalize(); b.copy(target).sub(p).normalize();
+    q.setFromUnitVectors(a, b);
+    bone.parent.getWorldQuaternion(wq);
+    bone.quaternion.premultiply(wq.clone().invert().multiply(q).multiply(wq));
+    bone.updateMatrixWorld(true);
+  }
+}
 function prepCharacter(m) {
   m.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.frustumCulled = false; } });
 }
@@ -598,7 +610,7 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
 });
 
 /* ------------------------------------------------------------- the stars */
-// CR7 and Mbappé running on the gym treadmills, and Kane (Meshy model by GOUAL ART) in the coach's
+// CR7 running on a gym treadmill, and Kane (Meshy model by GOUAL ART) in the coach's
 // chair next to the Ballon d'Or. Each one only moves when the camera is close.
 const stars = { list: [] };
 function ballMesh() {
@@ -609,20 +621,21 @@ function ballMesh() {
   const m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 14), new THREE.MeshStandardMaterial({ map: t, roughness: 0.45 })); m.castShadow = true; return m;
 }
 const loadStar = n => new Promise(res => gltfLoader.load(`street/models/${n}.glb`, gl => res(gl.scene), undefined, () => res(null)));
-const starsReady = Promise.all(['mbappe', 'kane', 'cr7'].map(loadStar)).then(([mb, ka, cr]) => {
-  if (!mb || !ka || !cr) return;
+const starsReady = Promise.all(['kane', 'cr7'].map(loadStar)).then(([ka, cr]) => {
+  if (!ka || !cr) return;
   const make = (src, h, kind = 'meshy') => new Character(src, { kind, height: h });
   // 1. CR7 running on the treadmill (facing its console).
   const cr7 = make(cr, 1.87, 'valve'); cr7.root.position.set(43.3, FLOOR + 0.13, -13.3); cr7.root.rotation.y = -Math.PI / 2; indoor.add(cr7.root);
   stars.list.push({ ch: cr7, at: cr7.root.position, run: 3.6 });
-  // …and Mbappé on the treadmill next to him, a little faster.
-  const mbappe = make(mb, 1.78); mbappe.root.position.set(43.3, FLOOR + 0.13, -11.16); mbappe.root.rotation.y = -Math.PI / 2; indoor.add(mbappe.root);
-  stars.list.push({ ch: mbappe, at: mbappe.root.position, run: 4.1 });
   // 2. Kane in the coach's chair behind the desk, next to the Ballon d'Or; he looks up at whoever walks in.
   const kane = make(ka, 1.88); kane.root.updateMatrixWorld(true);
   kane.model.traverse(o => { if (o.isMesh) o.frustumCulled = false; });
   const pose = poseSeated(kane.model, { rig: 'meshy', seat: 0.47, arms: [36, 44, 72, 52], lean: 6, headDown: 2 });
   const seat = new THREE.Group(); seat.position.set(30.35, FLOOR, -6.8); seat.rotation.y = Math.PI / 2; office.add(seat); seat.add(kane.root);
+  // Hands flat on the desk, a shoulder width apart.
+  scene.updateMatrixWorld(true);
+  reach(pose.bones.armL, pose.bones.foreL, pose.bones.handL, V(30.98, FLOOR + 0.74, -7.1));
+  reach(pose.bones.armR, pose.bones.foreR, pose.bones.handR, V(30.98, FLOOR + 0.74, -6.5));
   const { head, neck } = pose.bones;
   coachHead = { head, neck, h: head.quaternion.clone(), n: neck.quaternion.clone(), yaw: 0, pitch: 0 };
 });
