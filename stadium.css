@@ -157,9 +157,5 @@ body.hall #look-hint{opacity:1;transform:translate(-50%,0)}
 #look-hint .t{display:none}
 @media (hover:none),(pointer:coarse){#look-hint .m{display:none}#look-hint .t{display:inline}}
 
-.arcade-padel .card{border-color:#d7ff3a;background:rgba(11,18,48,.94)}
-.arcade-padel .place{color:#d7ff3a}
-.arcade-padel .play{background:#d7ff3a;box-shadow:0 5px 0 #8fae12}
-.arcade-padel .play:hover{box-shadow:0 3px 0 #8fae12}
 .arcade-street .card{border-color:#ffd400;background:rgba(18,52,140,.94)}
 .arcade-street .place{color:#ffd400}

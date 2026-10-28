@@ -89,8 +89,27 @@
   .scores b { display: block; font: 34px 'Bebas Neue'; color: var(--y); line-height: 1; }
   .scores small { opacity: .7; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
   #loading { position: fixed; inset: 0; display: grid; place-items: center; z-index: 9; background: #0d1b4d; }
-  #loading .bar { width: 220px; height: 4px; background: rgba(255,255,255,.15); border-radius: 2px; overflow: hidden; margin-top: 14px; }
-  #loading .bar i { display: block; height: 100%; width: 0; background: var(--y); transition: width .3s; }
+  #loading .ld-art { position: absolute; inset: 0; background: url(poster.jpg) right center / auto 100% no-repeat, #0d1b4d; }
+  #loading .ld-art::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, #0d1b4d 0%, #0d1b4d 34%, rgba(13,27,77,.75) 55%, rgba(13,27,77,.1) 85%); }
+  #loading .ld-box { position: relative; justify-self: start; margin-left: clamp(20px, 8vw, 140px); max-width: min(520px, 88vw); }
+  #loading .ld-kick { font: 800 11px/1 Inter, system-ui, sans-serif; letter-spacing: .3em; color: #2ee6ff; }
+  #loading .ld-logo { font-size: clamp(54px, 9vw, 96px); margin: 8px 0 14px; }
+  #loading .ld-heroes { display: flex; gap: 10px; margin-bottom: 20px; }
+  #loading .ld-heroes img { width: 74px; height: 74px; object-fit: cover; object-position: 50% 15%; border-radius: 50%; border: 3px solid var(--y); background: #1e5bd8; animation: ldBob 1.4s ease-in-out infinite; }
+  #loading .ld-heroes img:nth-child(2) { animation-delay: .2s; } #loading .ld-heroes img:nth-child(3) { animation-delay: .4s; }
+  @keyframes ldBob { 50% { transform: translateY(-6px); } }
+  #loading .ld-bar { position: relative; display: flex; align-items: center; gap: 12px; }
+  #loading .bar { flex: 1; height: 14px; background: rgba(255,255,255,.12); border-radius: 8px; overflow: hidden; border: 2px solid rgba(255,255,255,.25); }
+  #loading .bar i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(-45deg, #ffd400 0 12px, #ffb300 12px 24px); background-size: 34px 34px; animation: ldStripe .8s linear infinite; transition: width .3s; }
+  @keyframes ldStripe { to { background-position: 34px 0; } }
+  #loading .ld-ball { font-size: 22px; animation: ldSpin 1s linear infinite; }
+  @keyframes ldSpin { to { transform: rotate(360deg); } }
+  #loading #loadPct { font: 400 26px/1 'Bebas Neue', Impact, sans-serif; color: var(--y); min-width: 52px; text-align: right; }
+  #loadTxt { margin-top: 12px; font-size: 13px; opacity: .8; }
+  #loading .ld-tip { margin-top: 18px; padding: 10px 14px; border-radius: 10px; background: rgba(255,255,255,.08); border-left: 3px solid var(--y); font-size: 13px; }
+  #loading .ld-tip b { color: var(--y); margin-right: 6px; letter-spacing: .1em; }
+  @media (max-width: 700px) { #loading .ld-art { background-position: center; opacity: .45; } #loading .ld-heroes img { width: 56px; height: 56px; } }
+  @media (max-height: 520px) { #loading .ld-logo { font-size: 46px; margin: 4px 0 8px; } #loading .ld-heroes { margin-bottom: 10px; } #loading .ld-heroes img { width: 46px; height: 46px; } #loading .ld-tip { margin-top: 10px; } }
   #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 4; }
   #letterbox::before, #letterbox::after { content: ''; position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .5s; z-index: 1; }
   #letterbox::before { top: 0; } #letterbox::after { bottom: 0; }
@@ -214,8 +233,27 @@
   </div>
 </div>
 <div id="fade"></div>
-<div id="loading"><div style="text-align:center"><div class="logo" style="font-size:54px">STREET FOOT</div><div class="bar"><i></i></div><div id="loadTxt" style="margin-top:10px;font-size:12px;opacity:.6">Loading the favela…</div></div></div>
+<div id="loading">
+  <div class="ld-art"></div>
+  <div class="ld-box">
+    <div class="ld-kick">GOUAL ART PRESENTS</div>
+    <div class="logo ld-logo">STREET FOOT<span>The Ballon d'Or</span></div>
+    <div class="ld-heroes"><img src="heroes/mbappe.webp" alt=""><img src="heroes/yamal.webp" alt=""><img src="heroes/kane.webp" alt=""></div>
+    <div class="ld-bar"><div class="bar"><i></i></div><span class="ld-ball">⚽</span><b id="loadPct">0%</b></div>
+    <div id="loadTxt">Warming up on Morro da Goual…</div>
+    <div class="ld-tip"><b>TIP</b> <span id="loadTip">Press F for a rainbow flick over a defender.</span></div>
+  </div>
+</div>
+<script>
+  // Rotating loading lines and tips (plain script: runs while the game module downloads).
+  (() => {
+    const lines = ['Warming up on Morro da Goual…', 'Painting the yellow tags…', 'Pumping up the ball…', 'Waking up Zé at the bar…', 'Hiding the Ballon d\u2019Or…'];
+    const tips = ['Press F for a rainbow flick over a defender.', 'Face a ledge and press Space to climb onto the roofs.', 'Collect the 8 golden street cards for style points.', 'Penalties: hold to charge, not too hard or it flies over.', 'Press C to celebrate after a goal.'];
+    let i = 0; const t = setInterval(() => { const el = document.getElementById('loading'); if (!el || el.classList.contains('hidden')) return clearInterval(t); i++;
+      document.getElementById('loadTxt').textContent = lines[i % lines.length]; document.getElementById('loadTip').textContent = tips[i % tips.length]; }, 2600);
+  })();
+</script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=6"></script>
+<script type="module" src="game.js?v=7"></script>
 </body>
 </html>
