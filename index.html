@@ -35,59 +35,47 @@
   })();
 </script>
 <noscript><meta http-equiv="refresh" content="0;url=classic.html"></noscript>
-<link rel="stylesheet" href="stadium.css?v=23">
+<link rel="stylesheet" href="stadium.css?v=24">
 <link rel="stylesheet" href="fxmenu.css?v=2">
 <script defer src="fxmenu.js?v=2"></script>
 <script defer src="socials.js?v=1"></script>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/"}}
 </script>
-<script type="module" src="stadium.js?v=44"></script>
+<script type="module" src="stadium.js?v=45"></script>
 <script defer src="contact.js?v=2"></script>
 </head>
 <body>
 <div id="bg" aria-hidden="true"></div>
-<div id="cloudLoader" aria-hidden="true">
-  <div class="cl-sky"></div>
-  <div class="cl-layer cl-far"></div>
-  <div class="cl-layer cl-near"></div>
-  <div class="cl-logo"><img src="goual-art-brush.webp" alt=""><span>ANIMATION STUDIOS</span></div>
+<div id="space" aria-hidden="true">
+  <canvas class="sp-stars"></canvas>
+  <div class="sp-earth"><div class="sp-land"></div></div>
+  <div class="sp-logo"><img src="goual-art-brush.webp" alt=""><span>ANIMATION STUDIOS</span></div>
 </div>
 <script>
-  // Loading: we wait in the clouds above the stadium. Soft painted clouds part as the site loads
-  // (--p 0..1: an eased timer first, then the real progress from stadium.js) and open fully when ready.
+  // Opening: the visitor starts in space above a cartoon Earth. The scene shows from the first frame
+  // (no 3D needed); stadium.js then drives --d (0..1) as you scroll, diving toward the Earth until the
+  // sky and the clouds take over above the stadium.
   (function () {
-    function cloud(w, h, seed) {
-      var c = document.createElement('canvas'); c.width = w; c.height = h; var g = c.getContext('2d'), s = seed;
-      function r() { s = (s * 16807) % 2147483647; return s / 2147483647; }
-      for (var i = 0; i < 70; i++) {
-        var rad = h * (0.1 + r() * 0.16), x = rad + r() * (w - 2 * rad), y = Math.max(rad, Math.min(h - rad, h * (0.4 + r() * 0.3)));
-        var gr = g.createRadialGradient(x - rad * 0.2, y - rad * 0.3, rad * 0.1, x, y, rad);
-        gr.addColorStop(0, 'rgba(255,255,255,0.95)'); gr.addColorStop(0.6, 'rgba(240,246,255,0.85)'); gr.addColorStop(1, 'rgba(225,236,250,0)');
-        g.fillStyle = gr; g.beginPath(); g.arc(x, y, rad, 0, 7); g.fill();
-      }
-      return c.toDataURL();
+    var sp = document.getElementById('space'), c = sp.querySelector('.sp-stars'), g = c.getContext('2d');
+    function stars() {
+      var d = Math.min(devicePixelRatio || 1, 2); c.width = innerWidth * d; c.height = innerHeight * d;
+      var s = 7; function r() { s = (s * 16807) % 2147483647; return s / 2147483647; }
+      g.clearRect(0, 0, c.width, c.height);
+      for (var i = 0; i < 420; i++) { var a = 0.25 + r() * 0.75, z = r() < 0.08 ? 2.2 : r() * 1.4 + 0.4;
+        g.fillStyle = 'rgba(' + (r() < 0.2 ? '200,220,255' : '255,255,255') + ',' + a + ')'; g.beginPath(); g.arc(r() * c.width, r() * c.height * 0.85, z * d, 0, 7); g.fill(); }
     }
-    var L = document.getElementById('cloudLoader');
-    ['cl-far', 'cl-near'].forEach(function (k, n) {
-      var layer = L.querySelector('.' + k);
-      for (var i = 0; i < 6; i++) {
-        var d = document.createElement('i'), left = i % 2 === 0;
-        d.style.backgroundImage = 'url(' + cloud(900, 420, 11 + i * 7 + n * 31) + ')';
-        d.style.setProperty('--x', (left ? -1 : 1) * (0.5 + (i >> 1) * 0.25));
-        d.style.setProperty('--y', ((i >> 1) - 1) * 26 + '%');
-        d.style.setProperty('--s', (n ? 1.05 : 0.85) + i * 0.04);
-        d.className = left ? 'l' : 'r'; layer.appendChild(d);
-      }
-    });
-    var t0 = performance.now();
-    function tick(now) {
-      var fake = 0.85 * (1 - Math.exp(-(now - t0) / 2600)), p = Math.max(fake, (window.__tagP || 0) * 0.9);
-      if (document.body.classList.contains('ready')) p = 1;
-      L.style.setProperty('--p', p.toFixed(3));
-      if (p < 1) requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
+    stars(); addEventListener('resize', stars);
+    // Continents: soft green and sand blobs on a strip that scrolls round the globe.
+    var t = document.createElement('canvas'); t.width = 1600; t.height = 800; var q = t.getContext('2d'), s2 = 3;
+    function r2() { s2 = (s2 * 16807) % 2147483647; return s2 / 2147483647; }
+    for (var k = 0; k < 9; k++) { var cx = r2() * 1600, cy = 120 + r2() * 560, n = 14 + r2() * 14;
+      for (var m = 0; m < n; m++) { var x = cx + (r2() - 0.5) * 260, y = cy + (r2() - 0.5) * 160, rr = 30 + r2() * 70;
+        for (var w = 0; w < 2; w++) { var xx = x + (w ? -1600 : 0) * (x > 1400 ? 1 : 0) + (w ? 1600 : 0) * (x < 200 ? 1 : 0);
+          var gr = q.createRadialGradient(xx, y, 0, xx, y, rr); gr.addColorStop(0, r2() < 0.25 ? '#e9cf8f' : '#5fbf4a'); gr.addColorStop(0.75, 'rgba(79,170,64,0.9)'); gr.addColorStop(1, 'rgba(79,170,64,0)');
+          q.fillStyle = gr; q.beginPath(); q.arc(xx, y, rr, 0, 7); q.fill(); } } }
+    for (var k2 = 0; k2 < 40; k2++) { q.fillStyle = 'rgba(255,255,255,' + (0.35 + r2() * 0.4) + ')'; q.beginPath(); q.ellipse(r2() * 1600, r2() * 800, 40 + r2() * 120, 10 + r2() * 22, 0, 0, 7); q.fill(); }
+    sp.querySelector('.sp-land').style.backgroundImage = 'url(' + t.toDataURL() + ')';
   })();
 </script>
 <div id="counter" aria-hidden="true">99</div>

@@ -8,8 +8,10 @@ button{background:none;border:0;padding:0}
 /* Pre-WebGL backdrop: the same sky as the 3D scene, so there is no flash. */
 #bg{position:fixed;inset:0;z-index:0;background:linear-gradient(180deg,#4aa3f0 0%,#9fd3ff 55%,#ffe9c9 100%)}
 #webgl{position:fixed;inset:0;width:100%;height:100%;z-index:1;display:block;touch-action:none}
+#space{z-index:2!important}
+#ui{z-index:3!important}
 #webgl.hot{cursor:pointer}
-#counter{position:fixed;z-index:3;left:2.2vw;bottom:3svh;font:700 17svh/1 var(--round);color:#fff;text-shadow:0 6px 0 rgba(27,31,59,.18);pointer-events:none;transition:opacity .6s,transform .6s}
+#counter{position:fixed;z-index:4;left:2.2vw;bottom:3svh;font:700 17svh/1 var(--round);color:#fff;text-shadow:0 6px 0 rgba(27,31,59,.18);pointer-events:none;transition:opacity .6s,transform .6s}
 #counter.done{opacity:0;transform:translateY(6vh) scale(.9)}
 
 #ui{position:fixed;inset:0;z-index:2;pointer-events:none}
@@ -160,21 +162,21 @@ body.hall #look-hint{opacity:1;transform:translate(-50%,0)}
 .arcade-street .card{border-color:#ffd400;background:rgba(18,52,140,.94)}
 .arcade-street .place{color:#ffd400}
 
-/* Loading: clouds above the stadium part as the site loads (--p 0..1) and open fully when it is ready. */
-#cloudLoader{position:fixed;inset:0;z-index:2;overflow:hidden;pointer-events:none;--p:0;transition:visibility 0s 1.6s}
-#cloudLoader .cl-sky{position:absolute;inset:0;background:linear-gradient(180deg,#5aa8ec 0%,#7cc4f5 45%,#cfe8fb 100%);opacity:calc(1 - var(--p) * .35);transition:opacity 1.2s}
-#cloudLoader .cl-layer{position:absolute;inset:0}
-#cloudLoader .cl-layer i{position:absolute;left:50%;top:50%;width:90vw;height:44vw;min-height:46vh;background:center/contain no-repeat;transform:translate(calc(-50% + var(--x) * 46vw + var(--x) * var(--p) * var(--p) * 120vw), calc(-50% + var(--y))) scale(var(--s));transition:transform 1.4s cubic-bezier(.6,0,.2,1),opacity 1.2s;animation:clDrift 9s ease-in-out infinite alternate}
-#cloudLoader .cl-near i{opacity:calc(1 - var(--p) * .7);filter:blur(1px)}
-#cloudLoader .cl-far i{opacity:calc(.85 - var(--p) * .6)}
-@keyframes clDrift{to{margin-left:2.5vw}}
-#cloudLoader .cl-logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,1.4vw,18px)}
-#cloudLoader .cl-logo img{width:min(70vw,560px);height:auto;filter:drop-shadow(0 8px 24px rgba(10,14,30,.4));animation:clFloat 3.2s ease-in-out infinite alternate}
-#cloudLoader .cl-logo span{font:400 clamp(12px,1.6vw,22px)/1 Righteous,var(--round),sans-serif;letter-spacing:.42em;padding-left:.42em;color:#fff;text-shadow:0 2px 12px rgba(10,14,30,.4)}
-@keyframes clFloat{to{transform:translateY(-10px)}}
-body.ready #cloudLoader{visibility:hidden}
-body.ready #cloudLoader .cl-layer i{transform:translate(calc(-50% + var(--x) * 170vw), calc(-50% + var(--y))) scale(calc(var(--s) * 1.4));opacity:0}
-body.ready #cloudLoader .cl-sky,body.ready #cloudLoader .cl-logo{opacity:0;transition:opacity .9s .2s}
+/* Opening in space: stars and a cartoon Earth, from the first frame. --d (0..1, from the scroll) dives
+   toward the Earth: it grows and rises, the stars fade, the sky turns blue, then it all fades onto the 3D sky. */
+#space{position:fixed;inset:0;z-index:1;isolation:isolate;overflow:hidden;pointer-events:none;--d:0;background:radial-gradient(130% 90% at 50% 110%,#16306e 0%,#0a1236 45%,#03050f 100%);opacity:calc(1.6 - var(--d) * 1.6)}
+#space::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,#5aa8ec,#9fd3ff);opacity:clamp(0,calc(var(--d) * 2.2 - .7),1)}
+#space .sp-stars{position:absolute;inset:0;width:100%;height:100%;opacity:calc(1 - var(--d) * 2.5);animation:spTwinkle 4s ease-in-out infinite alternate}
+@keyframes spTwinkle{to{filter:brightness(.75)}}
+#space .sp-earth{position:absolute;left:50%;top:calc(100% - 26vmin);width:150vmax;aspect-ratio:1;border-radius:50%;transform:translate(-50%,calc(var(--d) * -60%)) scale(calc(1 + var(--d) * 2.2));transform-origin:50% 0;background:radial-gradient(circle at 50% 18%,#3aa0ff 0%,#1d6fd6 30%,#0c3b91 60%,#061d52 100%);box-shadow:0 0 6vmin 2vmin rgba(110,190,255,.75),0 0 18vmin 6vmin rgba(70,150,255,.35),inset 0 2vmin 6vmin rgba(180,230,255,.6);overflow:hidden}
+#space .sp-land{position:absolute;inset:0;border-radius:50%;background-size:auto 100%;background-repeat:repeat-x;opacity:.92;animation:spSpin 90s linear infinite;-webkit-mask-image:radial-gradient(circle at 50% 30%,#000 45%,transparent 72%);mask-image:radial-gradient(circle at 50% 30%,#000 45%,transparent 72%)}
+@keyframes spSpin{to{background-position:-200% 0}}
+#space .sp-logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,1.4vw,18px);padding-bottom:18vh;transition:opacity .6s}
+#space .sp-logo img{width:min(70vw,560px);height:auto;filter:drop-shadow(0 0 30px rgba(90,160,255,.45));animation:spFloat 3.4s ease-in-out infinite alternate}
+#space .sp-logo span{font:400 clamp(12px,1.6vw,22px)/1 Righteous,var(--round),sans-serif;letter-spacing:.42em;padding-left:.42em;color:#fff}
+@keyframes spFloat{to{transform:translateY(-10px)}}
+body.ready #space .sp-logo{opacity:0}
+@media (prefers-reduced-motion:reduce){#space .sp-land,#space .sp-logo img,#space .sp-stars{animation:none}}
 body:not(.ready) .intro .hint{opacity:0}
 .intro .hint{transition:opacity .6s .3s}
-@media (prefers-reduced-motion:reduce){#cloudLoader .cl-layer i,#cloudLoader .cl-logo img{animation:none}}
+
