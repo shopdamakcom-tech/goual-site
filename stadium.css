@@ -159,3 +159,18 @@ body.hall #look-hint{opacity:1;transform:translate(-50%,0)}
 
 .arcade-street .card{border-color:#ffd400;background:rgba(18,52,140,.94)}
 .arcade-street .place{color:#ffd400}
+
+/* Loading: the logo is sprayed on like a tag, left to right, as the site loads (--p from 0 to 1). */
+.tagwrap{position:relative;display:block;--p:0}
+.tagwrap .brand{-webkit-mask-image:linear-gradient(90deg,#000 calc(var(--p) * 112% - 10%),transparent calc(var(--p) * 112% + 2%));mask-image:linear-gradient(90deg,#000 calc(var(--p) * 112% - 10%),transparent calc(var(--p) * 112% + 2%))}
+.tagwrap .can{position:absolute;top:18%;left:calc(var(--p) * 100%);width:clamp(28px,4vw,54px);height:auto;transform:translate(-20%,-60%) rotate(-24deg);filter:drop-shadow(0 6px 10px rgba(10,14,30,.45));animation:canShake .18s ease-in-out infinite alternate;transition:left .25s linear,opacity .5s,transform .6s}
+.tagwrap .mist{position:absolute;top:28%;left:calc(var(--p) * 100%);width:clamp(60px,9vw,150px);aspect-ratio:1;border-radius:50%;transform:translate(-55%,-20%);background:radial-gradient(circle,rgba(70,170,255,.55),rgba(255,45,120,.25) 45%,transparent 70%);filter:blur(6px);pointer-events:none;animation:mist .35s ease-in-out infinite alternate;transition:left .25s linear,opacity .5s}
+@keyframes canShake{to{transform:translate(-20%,-52%) rotate(-18deg)}}
+@keyframes mist{to{opacity:.55;transform:translate(-55%,-5%) scale(1.15)}}
+body:not(.ready) .intro .hint{opacity:0}
+.intro .hint{transition:opacity .6s .3s}
+body.ready .tagwrap .can{opacity:0;transform:translate(60%,-160%) rotate(30deg)}
+body.ready .tagwrap .mist{opacity:0}
+body.ready .tagwrap .brand{-webkit-mask-image:none;mask-image:none;animation:tagPop .5s cubic-bezier(.3,1.6,.5,1)}
+@keyframes tagPop{40%{transform:scale(1.05)}}
+@media (prefers-reduced-motion:reduce){.tagwrap .can,.tagwrap .mist{display:none}.tagwrap .brand{-webkit-mask-image:none;mask-image:none}}
