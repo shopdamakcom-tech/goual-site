@@ -168,9 +168,13 @@ body.hall #look-hint{opacity:1;transform:translate(-50%,0)}
 #space::after{content:'';position:absolute;inset:0;background:linear-gradient(180deg,#5aa8ec,#9fd3ff);opacity:clamp(0,calc(var(--d) * 2.2 - .7),1)}
 #space .sp-stars{position:absolute;inset:0;width:100%;height:100%;opacity:calc(1 - var(--d) * 2.5);animation:spTwinkle 4s ease-in-out infinite alternate}
 @keyframes spTwinkle{to{filter:brightness(.75)}}
-#space .sp-earth{position:absolute;left:50%;top:calc(100% - 26vmin);width:150vmax;aspect-ratio:1;border-radius:50%;transform:translate(-50%,calc(var(--d) * -60%)) scale(calc(1 + var(--d) * 2.2));transform-origin:50% 0;background:radial-gradient(circle at 50% 18%,#3aa0ff 0%,#1d6fd6 30%,#0c3b91 60%,#061d52 100%);box-shadow:0 0 6vmin 2vmin rgba(110,190,255,.75),0 0 18vmin 6vmin rgba(70,150,255,.35),inset 0 2vmin 6vmin rgba(180,230,255,.6);overflow:hidden}
-#space .sp-land{position:absolute;inset:0;border-radius:50%;background-size:auto 100%;background-repeat:repeat-x;opacity:.92;animation:spSpin 90s linear infinite;-webkit-mask-image:radial-gradient(circle at 50% 30%,#000 45%,transparent 72%);mask-image:radial-gradient(circle at 50% 30%,#000 45%,transparent 72%)}
-@keyframes spSpin{to{background-position:-200% 0}}
+#space .sp-earth{position:absolute;left:50%;top:calc(100% - 30vmin);width:130vmax;aspect-ratio:1;border-radius:50%;transform:translate(-50%,calc(var(--d) * -55%)) scale(calc(1 + var(--d) * 2.2));transform-origin:50% 0;background:url(earth.webp) center/cover no-repeat;box-shadow:0 0 5vmin 1.5vmin rgba(120,190,255,.55),0 0 16vmin 5vmin rgba(70,150,255,.28)}
+#space .sp-earth::after{content:'';position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 50%,transparent 62%,rgba(140,200,255,.35) 69%,rgba(170,215,255,.7) 71%,transparent 71.5%);pointer-events:none}
+#space .sp-land{display:none}
+/* Shooting stars: a few streaks crossing the sky now and then, from either side. */
+#space .sp-shoot{position:absolute;width:clamp(90px,14vw,200px);height:2px;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,0),#fff 85%,#cfe6ff);filter:drop-shadow(0 0 6px #bfe0ff);opacity:0;animation:spShoot var(--t) linear infinite;animation-delay:var(--w);top:var(--y);left:var(--x);transform:rotate(var(--a));opacity:calc(1 - var(--d) * 3)}
+#space .sp-shoot.r{transform:rotate(var(--a)) scaleX(-1)}
+@keyframes spShoot{0%{translate:0 0;opacity:0}2%{opacity:1}12%{translate:calc(var(--dx)) calc(var(--dy));opacity:0}100%{translate:calc(var(--dx)) calc(var(--dy));opacity:0}}
 #space .sp-logo{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(8px,1.4vw,18px);padding-bottom:18vh;transition:opacity .6s}
 #space .sp-logo img{width:min(70vw,560px);height:auto;filter:drop-shadow(0 0 30px rgba(90,160,255,.45));animation:spFloat 3.4s ease-in-out infinite alternate}
 #space .sp-logo span{font:400 clamp(12px,1.6vw,22px)/1 Righteous,var(--round),sans-serif;letter-spacing:.42em;padding-left:.42em;color:#fff}

@@ -35,7 +35,7 @@
   })();
 </script>
 <noscript><meta http-equiv="refresh" content="0;url=classic.html"></noscript>
-<link rel="stylesheet" href="stadium.css?v=24">
+<link rel="stylesheet" href="stadium.css?v=25">
 <link rel="stylesheet" href="fxmenu.css?v=2">
 <script defer src="fxmenu.js?v=2"></script>
 <script defer src="socials.js?v=1"></script>
@@ -49,7 +49,11 @@
 <div id="bg" aria-hidden="true"></div>
 <div id="space" aria-hidden="true">
   <canvas class="sp-stars"></canvas>
-  <div class="sp-earth"><div class="sp-land"></div></div>
+  <div class="sp-earth"></div>
+  <i class="sp-shoot" style="--x:8%;--y:12%;--a:24deg;--dx:38vw;--dy:17vw;--t:7s;--w:.8s"></i>
+  <i class="sp-shoot r" style="--x:78%;--y:8%;--a:-24deg;--dx:-34vw;--dy:15vw;--t:9s;--w:3.6s"></i>
+  <i class="sp-shoot" style="--x:30%;--y:4%;--a:30deg;--dx:30vw;--dy:17vw;--t:11s;--w:6.2s"></i>
+  <i class="sp-shoot r" style="--x:60%;--y:22%;--a:-18deg;--dx:-28vw;--dy:9vw;--t:8s;--w:5s"></i>
   <div class="sp-logo"><img src="goual-art-brush.webp" alt=""><span>ANIMATION STUDIOS</span></div>
 </div>
 <script>
@@ -66,16 +70,6 @@
         g.fillStyle = 'rgba(' + (r() < 0.2 ? '200,220,255' : '255,255,255') + ',' + a + ')'; g.beginPath(); g.arc(r() * c.width, r() * c.height * 0.85, z * d, 0, 7); g.fill(); }
     }
     stars(); addEventListener('resize', stars);
-    // Continents: soft green and sand blobs on a strip that scrolls round the globe.
-    var t = document.createElement('canvas'); t.width = 1600; t.height = 800; var q = t.getContext('2d'), s2 = 3;
-    function r2() { s2 = (s2 * 16807) % 2147483647; return s2 / 2147483647; }
-    for (var k = 0; k < 9; k++) { var cx = r2() * 1600, cy = 120 + r2() * 560, n = 14 + r2() * 14;
-      for (var m = 0; m < n; m++) { var x = cx + (r2() - 0.5) * 260, y = cy + (r2() - 0.5) * 160, rr = 30 + r2() * 70;
-        for (var w = 0; w < 2; w++) { var xx = x + (w ? -1600 : 0) * (x > 1400 ? 1 : 0) + (w ? 1600 : 0) * (x < 200 ? 1 : 0);
-          var gr = q.createRadialGradient(xx, y, 0, xx, y, rr); gr.addColorStop(0, r2() < 0.25 ? '#e9cf8f' : '#5fbf4a'); gr.addColorStop(0.75, 'rgba(79,170,64,0.9)'); gr.addColorStop(1, 'rgba(79,170,64,0)');
-          q.fillStyle = gr; q.beginPath(); q.arc(xx, y, rr, 0, 7); q.fill(); } } }
-    for (var k2 = 0; k2 < 40; k2++) { q.fillStyle = 'rgba(255,255,255,' + (0.35 + r2() * 0.4) + ')'; q.beginPath(); q.ellipse(r2() * 1600, r2() * 800, 40 + r2() * 120, 10 + r2() * 22, 0, 0, 7); q.fill(); }
-    sp.querySelector('.sp-land').style.backgroundImage = 'url(' + t.toDataURL() + ')';
   })();
 </script>
 <div id="counter" aria-hidden="true">99</div>
