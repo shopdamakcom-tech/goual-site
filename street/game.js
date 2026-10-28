@@ -78,7 +78,7 @@ indexColliders();
 
 // ================= loading =================
 const manager = new THREE.LoadingManager();
-manager.onProgress = (u, a, b) => { $('#loading .bar i').style.width = (a / b * 100) + '%'; };
+manager.onProgress = (u, a, b) => { const k = Math.round(a / b * 100); $('#loading .bar i').style.width = k + '%'; $('#loadPct').textContent = k + '%'; };
 const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
 const load = url => new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
 const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), load('models/mbappe.glb'), load('models/yamal.glb'), load('models/kane.glb')]);
@@ -144,7 +144,7 @@ const ballTex = (() => {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 })();
 const ballMat = new THREE.MeshStandardMaterial({ map: ballTex, roughness: 0.45 });
-const BALL_R = 0.11;
+const BALL_R = 0.15;   // a bit bigger than life, so it reads well on screen
 class Ball {
   constructor(p) {
     // The official Trionda ball (3D model), sized to the physics ball; a plain textured sphere if it fails to load.
@@ -152,7 +152,8 @@ class Ball {
       const m = triondaSrc.clone(); m.updateMatrixWorld(true);
       const b = new THREE.Box3().setFromObject(m), sz = b.getSize(new V3()), c = b.getCenter(new V3());
       const k = (2 * BALL_R) / Math.max(sz.x, sz.y, sz.z); m.scale.multiplyScalar(k); m.position.sub(c.multiplyScalar(k));
-      m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material.side = THREE.FrontSide; } });
+      // Brighter: the model's texture is quite dark under the favela light.
+      m.traverse(o => { if (o.isMesh) { o.castShadow = true; const mt = o.material = o.material.clone(); mt.side = THREE.FrontSide; mt.color.multiplyScalar(1.25); mt.roughness = 0.38; mt.metalness = 0; if (mt.map) { mt.emissive = new THREE.Color('#ffffff'); mt.emissiveMap = mt.map; mt.emissiveIntensity = 0.32; } } });
       this.mesh = new THREE.Group(); this.mesh.add(m);
     } else { this.mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL_R, 24, 16), ballMat); this.mesh.castShadow = true; }
     scene.add(this.mesh);

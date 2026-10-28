@@ -515,6 +515,7 @@ function updateLamps(on) {
 // pose does not depend on each rig's local bone axes. arms: [down, forward, forearm in, forearm up].
 const RIGS = {
   mixamo: { upLegL: 'LeftUpLeg', upLegR: 'RightUpLeg', legL: 'LeftLeg', legR: 'RightLeg', spine1: 'Spine1', spine2: 'Spine2', neck: 'Neck', head: 'Head', armL: 'LeftArm', armR: 'RightArm', foreL: 'LeftForeArm', foreR: 'RightForeArm', handL: 'LeftHand', handR: 'RightHand' },
+  meshy: { upLegL: 'mixamorigLeftUpLeg', upLegR: 'mixamorigRightUpLeg', legL: 'mixamorigLeftLeg', legR: 'mixamorigRightLeg', spine1: 'mixamorigSpine1', spine2: 'mixamorigSpine2', neck: 'mixamorigNeck', head: 'mixamorigHead', armL: 'mixamorigLeftArm', armR: 'mixamorigRightArm', foreL: 'mixamorigLeftForeArm', foreR: 'mixamorigRightForeArm', handL: 'mixamorigLeftHand', handR: 'mixamorigRightHand' },
   unreal: { upLegL: 'thigh_l', upLegR: 'thigh_r', legL: 'calf_l', legR: 'calf_r', spine1: 'spine_02', spine2: 'spine_03', neck: 'neck_01', head: 'head', armL: 'upperarm_l', armR: 'upperarm_r', foreL: 'lowerarm_l', foreR: 'lowerarm_r', handL: 'hand_l', handR: 'hand_r' },
 };
 const AX = V(1, 0, 0), AY = V(0, 1, 0), AZ = V(0, 0, 1);
@@ -596,63 +597,57 @@ const playerReady = !location.search.includes('player') ? loadModel('models/benc
   rebuildCurves();
 });
 
-/* ------------------------------------------------------------- the trio */
-// Mbappé, Yamal and Kane warm up on the pitch in front of the bench: each one juggles a few touches,
-// then passes along the triangle. Models made by GOUAL ART with Meshy; the motion is procedural.
-const trio = { ready: false, players: [], holder: 0, phase: 'juggle', t: 0, ball: null, from: V(0, 0, 0), to: V(0, 0, 0) };
-{
-  const SPOTS = [V(9.6, 0, 1.6), V(13.4, 0, 3.6), V(9.2, 0, 6.2)];   // south of the camera's line to the bench
+/* ------------------------------------------------------------- the stars */
+// Mbappé, Yamal and Kane (Meshy models by GOUAL ART) and CR7 around the stadium: the three on the
+// substitutes' bench by the coach, CR7 on the gym treadmill, Mbappé and Yamal juggling in the locker
+// room, Kane in the office next to the Ballon d'Or. Each one only moves when the camera is close.
+const stars = { list: [] };
+function ballMesh() {
   const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d');
   g.fillStyle = '#f4f4f4'; g.fillRect(0, 0, 256, 128); g.fillStyle = '#151515';
   for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) { const x = i * 43 + (j % 2) * 21 + 10, y = j * 45 + 18; g.beginPath(); for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + k * 1.2566; g.lineTo(x + Math.cos(a) * 10, y + Math.sin(a) * 10); } g.fill(); }
-  const bt = new THREE.CanvasTexture(c); bt.colorSpace = THREE.SRGBColorSpace;
-  trio.ball = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 14), new THREE.MeshStandardMaterial({ map: bt, roughness: 0.45 }));
-  trio.ball.castShadow = true; trio.ball.visible = false; scene.add(trio.ball);
-  Promise.all([['mbappe', 1.78], ['yamal', 1.80], ['kane', 1.88]].map(([n, h]) => new Promise(res => gltfLoader.load(`street/models/${n}.glb`, gl => res([gl.scene, h]), undefined, () => res(null)))))
-    .then(list => {
-      if (list.some(x => !x)) return;
-      trio.players = list.map(([src, h], i) => { const ch = new Character(src, { kind: 'meshy', height: h }); ch.root.position.copy(SPOTS[i]); scene.add(ch.root); return ch; });
-      trio.ready = true; trio.ball.visible = true;
-    });
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.11, 20, 14), new THREE.MeshStandardMaterial({ map: t, roughness: 0.45 })); m.castShadow = true; return m;
 }
-const JUG_TAP = 0.5;
-function updateTrio(dt) {
-  if (!trio.ready) return;
-  const near = camera.position.distanceTo(V(10, 0, 6)) < 90 && camera.position.y > -0.5;
-  trio.players.forEach(p => { p.root.visible = near; }); trio.ball.visible = near;
-  if (!near) return;
-  const P = trio.players, n = P.length, h = trio.holder, next = (h + 1) % n;
-  trio.t += dt;
-  // Everyone faces the ball (the holder faces the next player before passing).
-  const face = (ch, tgt, k = 6) => { const d = tgt.clone().sub(ch.root.position); const yaw = Math.atan2(d.x, d.z); let a = yaw - ch.root.rotation.y; a = Math.atan2(Math.sin(a), Math.cos(a)); ch.root.rotation.y += a * (1 - Math.exp(-dt * k)); };
-  const ballPos = trio.ball.position;
-  P.forEach((ch, i) => {
-    if (i === h && trio.phase !== 'pass') return;
-    face(ch, i === h ? P[next].root.position : ballPos);
-    ch.animate({ dt, speed: 0, grounded: true, action: i === next && trio.phase === 'pass' && trio.t > 0.6 ? 'trap' : null, actionT: trio.t });
+const loadStar = n => new Promise(res => gltfLoader.load(`street/models/${n}.glb`, gl => res(gl.scene), undefined, () => res(null)));
+const starsReady = Promise.all(['mbappe', 'yamal', 'kane', 'cr7'].map(loadStar)).then(([mb, ya, ka, cr]) => {
+  if (!mb || !ya || !ka || !cr) return;
+  const make = (src, h, kind = 'meshy') => new Character(src, { kind, height: h });
+  // 1. On the bench in the dugout behind the coach, facing the pitch.
+  [[mb, 1.78, 6.7, [62, 24, 44, 52], 14, 8], [ya, 1.80, 8.1, [58, 30, 62, 70], 8, 20], [ka, 1.88, 9.5, [64, 22, 46, 50], 10, 4]].forEach(([src, h, z, arms, lean, headDown], i) => {
+    const ch = make(src, h); ch.root.updateMatrixWorld(true);
+    poseSeated(ch.model, { rig: 'meshy', seat: 0.44, arms, lean, headDown });
+    ch.root.position.set(18.62, 0, z); ch.root.rotation.y = -Math.PI / 2; scene.add(ch.root);
   });
-  const H = P[h];
-  if (trio.phase === 'juggle') {
-    // Keepy-uppies in front of the holder, about six touches.
-    const f = V(Math.sin(H.root.rotation.y), 0, Math.cos(H.root.rotation.y));
-    const ph = (trio.t % JUG_TAP) / JUG_TAP;
-    H.animate({ dt, speed: 0, grounded: true, action: 'juggle', actionT: trio.t % JUG_TAP, tapLen: JUG_TAP });
-    ballPos.copy(H.root.position).addScaledVector(f, 0.38); ballPos.y = 0.35 + Math.sin(ph * Math.PI) * 1.0;
-    trio.ball.rotation.x += dt * 8;
-    if (trio.t > JUG_TAP * 6) { trio.phase = 'turn'; trio.t = 0; }
-  } else if (trio.phase === 'turn') {
-    // Let the ball drop to the feet while turning to the next player, then strike.
-    face(H, P[next].root.position, 9);
-    H.animate({ dt, speed: 0, grounded: true, action: trio.t > 0.35 ? 'kick' : null, actionT: trio.t - 0.35 });
-    const f = V(Math.sin(H.root.rotation.y), 0, Math.cos(H.root.rotation.y));
-    ballPos.lerp(H.root.position.clone().addScaledVector(f, 0.42).setY(0.11), 1 - Math.exp(-dt * 10));
-    if (trio.t > 0.58) { trio.phase = 'pass'; trio.t = 0; trio.from.copy(ballPos); trio.to.copy(P[next].root.position).addScaledVector(P[next].root.position.clone().sub(ballPos).setY(0).normalize(), -0.45).setY(0.11); trio.chip = Math.random() < 0.35; }
-  } else if (trio.phase === 'pass') {
-    H.animate({ dt, speed: 0, grounded: true, action: 'kick', actionT: trio.t + 0.23 });
-    const dur = trio.chip ? 1.15 : 0.95, k = Math.min(1, trio.t / dur);
-    ballPos.lerpVectors(trio.from, trio.to, k); ballPos.y = 0.11 + (trio.chip ? Math.sin(k * Math.PI) * 1.6 : 0);
-    trio.ball.rotation.x -= dt * 14;
-    if (k >= 1) { trio.holder = next; trio.phase = 'juggle'; trio.t = 0; }
+  // 2. CR7 running on the treadmill (facing its console).
+  const cr7 = make(cr, 1.87, 'valve'); cr7.root.position.set(43.3, FLOOR + 0.13, -13.3); cr7.root.rotation.y = -Math.PI / 2; indoor.add(cr7.root);
+  stars.list.push({ ch: cr7, at: cr7.root.position, run: 3.6 });
+  // 3. Mbappé and Yamal juggling in the locker room.
+  [[mb, 1.78, V(45.0, FLOOR, -2.0), 0], [ya, 1.80, V(45.2, FLOOR, 0.3), 0.27]].forEach(([src, h, p, off]) => {
+    const ch = make(src, h); ch.root.position.copy(p); const to = V(42.8, 0, -0.6).sub(p); ch.root.rotation.y = Math.atan2(to.x, to.z); indoor.add(ch.root);
+    const ball = ballMesh(); indoor.add(ball);
+    stars.list.push({ ch, at: p, juggle: { ball, t: off } });
+  });
+  // 4. Kane in the office, by the desk where the Ballon d'Or stands.
+  const kane = make(ka, 1.88); kane.root.position.set(30.35, FLOOR, -5.0); kane.root.rotation.y = Math.PI / 2 - 0.35; office.add(kane.root);
+  stars.list.push({ ch: kane, at: kane.root.position, idle: true });
+});
+const JUG_TAP = 0.5;
+function updateStars(dt) {
+  for (const s of stars.list) {
+    const near = s.at.distanceTo(camera.position) < 14;
+    if (!near) continue;
+    const ch = s.ch;
+    if (s.run) ch.animate({ dt, speed: s.run, grounded: true });
+    else if (s.juggle) {
+      const J = s.juggle; J.t += dt;
+      const ph = (J.t % JUG_TAP) / JUG_TAP, f = V(Math.sin(ch.root.rotation.y), 0, Math.cos(ch.root.rotation.y));
+      ch.animate({ dt, speed: 0, grounded: true, action: 'juggle', actionT: J.t % JUG_TAP, tapLen: JUG_TAP });
+      J.ball.position.copy(ch.root.position).addScaledVector(f, 0.38); J.ball.position.y = ch.root.position.y + 0.35 + Math.sin(ph * Math.PI) * 1.0; J.ball.rotation.x += dt * 8;
+    } else if (s.idle) {
+      const d = camera.position.clone().sub(ch.root.position); let a = Math.atan2(d.x, d.z) - ch.root.rotation.y; a = Math.atan2(Math.sin(a), Math.cos(a));
+      ch.animate({ dt, speed: 0, grounded: true, look: clamp(a, -1, 1) });
+    }
   }
 }
 
@@ -700,16 +695,14 @@ const indoor = new THREE.Group(); indoor.visible = false; scene.add(indoor);
   };
   // A: tunnel → locker room (east, then north to the locker-room door).
   slab(33.86, 11.56, 45.75, 14.44, true); slab(42.85, 5.3, 45.75, 11.56, false);
-  wallZ(11.56, 33.86, 42.85); wallZ(14.44, 33.86, 45.75); wallX(45.75, 5.3, 12.45); wallX(45.75, 13.55, 14.44); wallX(42.85, 5.3, 7.87); wallX(42.85, 8.93, 11.56);
-  add(T, H - 2.02, 1.1, wallMat, 42.85, FLOOR + 2.02 + (H - 2.02) / 2, 8.4);          // lintel over the padel door
+  wallZ(11.56, 33.86, 42.85); wallZ(14.44, 33.86, 45.75); wallX(45.75, 5.3, 12.45); wallX(45.75, 13.55, 14.44); wallX(42.85, 5.3, 11.56);
   add(T, H - 2.02, 1.1, wallMat, 45.75, FLOOR + 2.02 + (H - 2.02) / 2, 13);          // lintel over the arcade door
-  lampAt(38, FLOOR + 2, 13, '#fff1d6', 4); lampAt(44.3, FLOOR + 2, 8.5, '#fff1d6', 4);
+  lampAt(38, FLOOR + 2, 13, '#fff1d6', 4); lampAt(44.3, FLOOR + 2, 8.5, '#fff1d6', 3);
   // B: locker room → gym.
   slab(43.3, -8.32, 44.7, -4.87, false); wallX(43.3, -8.32, -4.87); wallX(44.7, -8.32, -4.87);
   // C: gym → office.
   slab(38.5, -8.32, 39.8, -6.0, false); slab(34.42, -7.45, 38.5, -6.0, true);
-  wallX(39.8, -8.32, -6.0); wallX(38.5, -8.32, -7.45); wallZ(-6.0, 34.42, 38.62); wallZ(-6.0, 39.68, 39.8); wallZ(-7.45, 34.42, 38.5);
-  add(1.06, H - 2.02, T, wallMat, 39.15, FLOOR + 2.02 + (H - 2.02) / 2, -6.0);          // lintel over the GOUAL RUN door
+  wallX(39.8, -8.32, -6.0); wallX(38.5, -8.32, -7.45); wallZ(-6.0, 34.42, 39.8); wallZ(-7.45, 34.42, 38.5);
   lampAt(37, FLOOR + 2, -6.7, '#fff1d6', 4);
 }
 
@@ -806,17 +799,11 @@ function updateReels() {
 
 /* ----------------------------------------------------------- arcade doors */
 // Doors to the mini-games. The tour stops in front of each; PLAY swings it open onto the game's
-// world, and the game opens full screen. STREET FOOT ends corridor A; PADEL CLASH is on the left
-// wall of the short corridor down to the locker room; the door by the gym is the next game (coming soon).
+// world, and the game opens full screen. STREET FOOT ends corridor A.
 const ARCADES = {
   street: { X: 45.75, Z: 13, rot: 0, url: 'street/index.html?embed=1', poster: 'street/poster.jpg', logo: 'goual-art-brush-small.webp', cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
     lines: ['STREET', 'FOOT'], tag: 'BALLON D\'OR', foot: 'MINI-GAME · RIO DE JANEIRO', sign: 'ARCADE · STREET FOOT', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff2d78',
     card: ['STREET FOOT', 'The Ballon d\'Or has gone missing in the favelas of Rio. Play Mbappé, Yamal or Kane and bring it back.'] },
-  padel: { X: 42.85, Z: 8.4, rot: Math.PI, url: 'padel/index.html?embed=1', cover: 'padel/cover-small.jpg', view: 'padel/cover.jpg', viewRepeat: [0.5, 1, 0.25, 0],
-    lines: ['PADEL', 'CLASH'], tag: 'CR7 VS MESSI', foot: 'MINI-GAME · INDOOR COURT', sign: 'ARCADE · PADEL CLASH', bg: '#0b1230', accent: '#d7ff3a', accent2: '#2a6fd1',
-    card: ['PADEL CLASH', 'CR7 vs Messi on a glass court under the floodlights. First to 3 games.'] },
-  soon: { X: 39.15, Z: -6.0, rot: -Math.PI / 2, url: null, cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
-    lines: ['NEXT', 'GAME'], tag: 'COMING SOON', foot: 'NEXT MINI-GAME · STAY TUNED', sign: 'ARCADE · COMING SOON', bg: '#0d1b4d', accent: '#ffd400', accent2: '#ff2d78', card: ['', ''] },
 };
 for (const [id, A] of Object.entries(ARCADES)) {
   Object.assign(A, { id, open: 0, target: 0 });
@@ -1079,17 +1066,17 @@ function lookAtCamera(dt) {
 }
 
 /* ---------------------------------------------------------- ballon d'or */
-// The golden ball on the green counter, next to the water bottles, under its own small spot.
+// The golden ball on the coach's desk, next to Kane, under its own small spot.
 loadModel('models/ballon-dor.glb').then(m => {
   if (!m) return;
   m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.material.metalness = 1; o.material.roughness = Math.max(0.18, o.material.roughness); o.material.envMapIntensity = 2.4; o.material.emissive = new THREE.Color('#5a3a08'); o.material.emissiveIntensity = 0.35; } });
   const b = new THREE.Box3().setFromObject(m), s = 0.46 / (b.max.y - b.min.y);
   m.scale.setScalar(s); m.updateMatrixWorld(true);
   const b2 = new THREE.Box3().setFromObject(m), c = b2.getCenter(V(0, 0, 0));
-  const g = new THREE.Group(); g.position.set(41.45, -1.19, 0.2); g.rotation.y = 0.6; indoor.add(g);
+  const g = new THREE.Group(); g.position.set(31.0, FLOOR + 0.71, -5.85); g.rotation.y = 0.6 + Math.PI; office.add(g);
   m.position.set(-c.x, -b2.min.y, -c.z); g.add(m);
 });
-lampAt(41.9, FLOOR + 1.9, 0.6, '#ffe2a6', 4, 3);
+lampAt(31.6, FLOOR + 1.9, -5.6, '#ffe2a6', 3, 3);
 
 /* ------------------------------------------------------------ camera path */
 // Keyframes: camera position and look target. Timing comes from the distance between keys,
@@ -1113,12 +1100,11 @@ const KEYS = [
   { pos: [33, EYE, 13], look: [40, EYE, 13], w: 2.2 },
   { pos: [37.8, EYE, 13], look: [44, EYE - 0.1, 13], w: 2.8 },                 // hall of fame: slow
   { game: 'street', pos: [42.55, EYE, 13], look: [45.75, FLOOR + 1.1, 13], w: 2.8 },      // STREET FOOT door
-  { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6], w: 3.2 },                   // corner (slow between the two doors)
-  { game: 'padel', pos: [45.5, EYE - 0.05, 8.4], look: [42.85, FLOOR + 1.2, 8.4], w: 3.2 },    // PADEL CLASH door (left wall)
+  { pos: [44.2, EYE, 11.4], look: [44.3, EYE, 6], w: 2.4 },                   // corner
   { pos: [44.3, EYE, 7.0], look: [43, EYE - 0.1, 2], w: 2.2 },
   { pos: [44, EYE, 4.2], look: [45.86, FLOOR + 1.35, 2.3], w: 2.4 },            // into the locker room: the TV first
   { w: 2.2, station: 3, pos: [43.8, FLOOR + 1.45, 2.06], look: [45.86, FLOOR + 1.32, 2.06] },   // set from the TV on load
-  { pause: 1, pos: [42.85, EYE - 0.05, 1.15], look: [41.45, FLOOR + 1.05, 0.2], w: 4.5 },     // the Ballon d'Or by the water bottles: slow, short stop
+  { pause: 1, pos: [42.7, EYE - 0.05, 0.9], look: [45.1, FLOOR + 1.0, -0.9], w: 3.5 },     // Mbappé and Yamal juggling: slow, short stop
   { pos: [42.6, EYE, -1.2], look: [44, EYE, -6], w: 3 },
   { pos: [44, EYE, -4.3], look: [44, EYE, -9] },
   { pos: [44, EYE, -7.4], look: [44, EYE - 0.1, -12] },                        // straight through the gym door…
@@ -1126,7 +1112,7 @@ const KEYS = [
   { pos: [41.4, EYE, -10.2], look: [38.7, FLOOR + 1.5, -13.6] },
   { station: 4, pos: [41.2, FLOOR + 1.55, -13.59], look: [38.66, FLOOR + 1.55, -13.59] },
   { pos: [40.3, EYE, -11], look: [39.2, EYE, -7] },
-  { pos: [39.15, EYE, -8.1], look: [39.15, FLOOR + 1.12, -6.0], w: 2 },    // the next game's door, facing you out of the gym (coming soon)
+  { pos: [39.15, EYE, -8.1], look: [38.4, EYE, -6.4] },                   // out of the gym
   { pos: [39.1, EYE, -6.85], look: [34, EYE, -6.75] },                        // corner
   { pos: [37.6, EYE, -6.72], look: [33, EYE - 0.05, -6.72], w: 2.8 },        // reels corridor: straight and slow, look left/right
   { pos: [35.6, EYE, -6.72], look: [30.6, FLOOR + 1.3, -6.8], w: 2.8 },
@@ -1335,7 +1321,7 @@ STATIONS.forEach((st, i) => {
 for (const A of Object.values(ARCADES)) {
   if (!A.url) continue;
   const k = KEYS.find(k => k.game === A.id), el = document.createElement('section');
-  el.className = 'chapter station arcade-stop arcade-' + A.id + (A.id === 'padel' ? ' right' : ''); el.dataset.range = `${k.p - 0.015},${k.hold + 0.015}`;
+  el.className = 'chapter station arcade-stop arcade-' + A.id + ''; el.dataset.range = `${k.p - 0.015},${k.hold + 0.015}`;
   el.innerHTML = `<div class="card"><div class="place">MINI-GAME — THE ARCADE DOOR</div><h2>${A.card[0]}</h2><p class="pitch">${A.card[1]}</p><button type="button" class="play" data-arcade="${A.id}"><i>▶</i>PLAY</button><span class="hint">or click the door</span></div>`;
   contactEl.before(el);
 }
@@ -1596,7 +1582,7 @@ function frame() {
   if (inside && coachHead && camera.position.x < 40 && camera.position.z < -5) lookAtCamera(dt);
   updateLamps(inside || tunnel.visible);
   updateReels();
-  updateTrio(dt);
+  updateStars(dt);
   // Hall of fame: each frame lights up (with a little flicker and a click) as the camera reaches it.
   if (inside) hallLights.forEach(L => {
     const on = camera.position.x > L.x - 3.2 && Math.abs(camera.position.z - 13) < 2;
@@ -1654,4 +1640,4 @@ const setMenu = open => { mobileMenu.hidden = !open; burger.setAttribute('aria-e
 burger.addEventListener('click', () => setMenu(mobileMenu.hidden));
 mobileMenu.addEventListener('click', e => { if (e.target.closest('a,button')) setMenu(false); });
 addEventListener('keydown', e => { if (e.key === 'Escape' && !mobileMenu.hidden) setMenu(false); });
-if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, sound, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), trio, keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
+if (new URLSearchParams(location.search).has('debug')) window.__goual = { goto: v => (target = progress = v), progress: () => progress, state: () => state, open: openFilm, sound, view: (p, l) => (freeCam = p && [V(...p), V(...l)]), stars, keys: () => KEYS.map(k => [+k.p.toFixed(4), k.station ?? '', k.pos.toArray().map(v => +v.toFixed(2))]), scene, camera, THREE };
