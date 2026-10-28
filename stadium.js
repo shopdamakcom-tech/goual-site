@@ -1458,7 +1458,7 @@ addEventListener('pointermove', e => {
 });
 
 /* ----------------------------------------------------------------- loader */
-const counterEl = $('#counter'), tagEl = $('#tagwrap');
+const counterEl = $('#counter');
 const loadStart = performance.now();
 let loaded = 0;
 const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, cityReady, playerReady, tunnelReady, lockerReady, gymReady, officeReady, coachReady, ...screens.filter(Boolean).map(s => new Promise(res => {
@@ -1471,7 +1471,7 @@ const loadTimeout = setTimeout(() => (loaded = toLoad.length), 9000);
 function updateLoader() {
   const n = Math.max(0, Math.round(99 * (1 - Math.min((performance.now() - loadStart) / 2400, loaded / toLoad.length))));
   counterEl.textContent = String(n).padStart(2, '0');
-  tagEl?.style.setProperty('--p', (1 - n / 99).toFixed(3));   // spray the logo on as we load
+  window.__tagP = 1 - n / 99;   // real progress for the spray-tag loading screen
   if (n === 0 && loaded >= toLoad.length) {
     clearTimeout(loadTimeout);
     // Compile every shader now (all rooms visible) so nothing stutters the first time a room appears.
