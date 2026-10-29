@@ -1,16 +1,17 @@
 // STREET FOOT — The Ballon d'Or. A short third-person street football adventure in a Rio favela.
-// You play Mbappé, Yamal or Kane: the Ballon d'Or has vanished on Morro da Goual. Ask around, earn the
-// street's respect, cross paths with Ronaldo and Messi, follow the tags over the rooftops and win it
-// back from "O Fantasma" in a penalty shoot-out. Everything in English, with subtitles.
+// You play Mbappé, Yamal or Kane: the Ballon d'Or has vanished. Cristiano Ronaldo is waiting at the
+// favela's cage court and knows where it went: beat him in goal from the penalty spot (as many tries as
+// it takes) and his driver takes you to the building where it is hidden. Episode 1; to be continued.
+// Everything in English, with subtitles.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { buildWorld, buildBackdrop } from './world.js?v=3';
 import { Character, dress } from './rig.js?v=4';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=3';
+import { loadFavela, makeSky, makeClouds } from './favela.js?v=3';
 import { Builder, kitMaterials, dog, clutter, laundry } from './favela-kit.js';
-import { audio } from './audio.js?v=2';
+import { audio } from './audio.js?v=3';
 
 const $ = s => document.querySelector(s);
 const V3 = THREE.Vector3;
@@ -81,7 +82,7 @@ const manager = new THREE.LoadingManager();
 manager.onProgress = (u, a, b) => { const k = Math.round(a / b * 100); $('#loading .bar i').style.width = k + '%'; $('#loadPct').textContent = k + '%'; };
 const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
 const load = url => new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
-const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), load('models/mbappe.glb'), load('models/yamal.glb'), load('models/kane.glb')]);
+const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc, carSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), load('models/mbappe.glb'), load('models/yamal.glb'), load('models/kane.glb'), load('models/car.glb')]);
 
 // ================= characters =================
 // The three playable stars (models made by GOUAL ART with Meshy). `me` is the one you picked.
@@ -93,14 +94,41 @@ const HEROES = {
 let hero = HEROES[params.get('hero')] || HEROES.mbappe, me = hero.ch;
 for (const h of Object.values(HEROES)) { scene.add(h.ch.root); h.ch.root.visible = h === hero; }
 function pickHero(id) { hero = HEROES[id] || hero; me = hero.ch; for (const h of Object.values(HEROES)) h.ch.root.visible = h === hero; }
-// Ronaldo and Messi are on the hill too, hunting for the same trophy.
+// Cristiano waits in the cage court, juggling on the east half, by the goal he will defend.
 const ronaldo = new Character(cr7Src, { kind: 'valve', height: 1.87 });
-ronaldo.root.position.set(16.5, 6, -25.2); ronaldo.root.rotation.y = -Math.PI / 2; scene.add(ronaldo.root);
-const messi = new Character(kidSrc, { kind: 'mixamo', height: 1.70 }); dress(messi, { top: '#75b6e8', bottom: '#151515', shoes: '#f2f2f2', skin: '#d9a982' });
-messi.root.position.set(12.5, 3, -8.6); messi.root.rotation.y = Math.PI / 2; scene.add(messi.root);
-// The Ballon d'Or, on a crate next to the Ghost on the rooftop.
+const CR7_HOME = new V3(8.2, 0, 13.2);
+ronaldo.root.position.copy(CR7_HOME); ronaldo.root.rotation.y = -2.4; scene.add(ronaldo.root);
+// Goalkeeper gloves, hidden until he goes in goal.
+const gloves = (() => {
+  const m = new THREE.MeshStandardMaterial({ color: 0xf2f2f2, roughness: 0.55 }), band = new THREE.MeshStandardMaterial({ color: 0xffd400, roughness: 0.4 });
+  const list = [];
+  ronaldo.root.updateMatrixWorld(true);
+  for (const side of ['lHand', 'rHand']) {
+    const bone = ronaldo.bones[side]; if (!bone) continue;
+    const g = new THREE.Group();
+    // Point the glove down the fingers (towards the hand's first child bone), whatever the rig's axes.
+    const ws = bone.getWorldScale(new V3()); g.scale.set(1 / ws.x, 1 / ws.y, 1 / ws.z);
+    const kid = bone.children.find(c => c.isBone), dir = kid ? kid.position.clone().multiply(ws).normalize() : new V3(0, 1, 0);
+    const q = new THREE.Quaternion().setFromUnitVectors(new V3(0, 1, 0), dir);
+    const palm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.17, 0.07), m); palm.quaternion.copy(q); palm.position.copy(dir).multiplyScalar(0.06); g.add(palm);
+    const cuff = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.052, 0.05, 12), band); cuff.quaternion.copy(q); cuff.position.copy(dir).multiplyScalar(-0.015); g.add(cuff);
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    g.visible = false; bone.add(g); list.push(g);
+  }
+  return { set: on => list.forEach(g => { g.visible = on; }) };
+})();
 const ENV = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-const trophy = makeBallonDor(ENV); trophy.scale.setScalar(1.25); scene.add(trophy);
+// Cristiano's car: a Bugatti Chiron (model by Bob Kimani, Kimz Auto), 4.54 m long, nose along +x.
+function makeCar() {
+  const g = new THREE.Group(), m = carSrc;
+  m.rotation.y = Math.PI / 2; m.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(m), k = 4.54 / (b.max.x - b.min.x);
+  m.scale.setScalar(k); m.updateMatrixWorld(true); b.setFromObject(m);
+  m.position.set(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+  m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; const mt = o.material; if (mt.metalness > 0.3) { mt.envMap = ENV; if (mt.color.r + mt.color.g + mt.color.b < 0.08) { mt.metalness = 0.15; mt.envMapIntensity = 0.35; } } } });
+  g.add(m); return g;
+}
+const car = makeCar(); car.visible = false; scene.add(car);
 // The painted Rio sky (panorama, horizon band and clouds made by GOUAL ART), facing the bay to the south.
 scene.add(makeSky(art.T, art.meta, { turn: 0.125, low: -0.16, high: 0.26 }));
 const clouds = makeClouds(art.T, art.meta, 18); clouds.scale.setScalar(1.6); scene.add(clouds);
@@ -123,8 +151,6 @@ const thiago = streetKid({ top: '#ffd400', bottom: '#1d3fa8', shoes: '#f2f2f2', 
 thiago.root.position.set(0, 0, 15.6); thiago.root.rotation.y = 0;
 const lucas = streetKid({ top: '#ff7a1a', bottom: '#2b2b2b', shoes: '#e23b2e', skin: '#8f5f42' }, 1.42);
 lucas.root.position.set(-10, 3, -9.2); lucas.root.rotation.y = 0.3;
-const davi = streetKid({ top: '#fbe14a', bottom: '#1f9d55', shoes: '#ffffff', skin: '#7c5038' }, 1.56);
-davi.root.position.set(2, W.laje.y, -50.5); davi.root.rotation.y = 0;
 const KID_LOOKS = [{ top: '#d62828', bottom: '#111111', skin: '#9a6a4a', shoes: '#ffffff' }, { top: '#f2f2f2', bottom: '#2a4fb5', skin: '#6e4630', shoes: '#111' }, { top: '#1f9d55', bottom: '#f2f2f2', skin: '#c49070', shoes: '#ffd400' }, { top: '#2a2a2a', bottom: '#d62828', skin: '#7a4e33', shoes: '#2ee6ff' }];
 const kids = KID_LOOKS.map((l, i) => {
   const ch = streetKid(l, 1.45 + i * 0.06);
@@ -186,16 +212,8 @@ class Ball {
 }
 const ball = new Ball(new V3(0, 0.3, 33));
 const courtBall = new Ball(new V3(0, 0.3, 8));
-const daviBall = new Ball(new V3(2, W.laje.y + 1, -50)); daviBall.frozen = true;
-// The trophy on a crate by the wall, lit by a little spotlight so it shines from the stairs.
-const STAND = new V3(7.6, W.laje.y, -54.6);
-{
-  const crateM = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 0.8), new THREE.MeshStandardMaterial({ color: 0x2f6fd0, roughness: 0.5 }));
-  crateM.position.copy(STAND).add(new V3(0, 0.35, 0)); crateM.castShadow = crateM.receiveShadow = true; scene.add(crateM);
-  colliders.push({ x0: STAND.x - 0.4, y0: STAND.y, z0: STAND.z - 0.4, x1: STAND.x + 0.4, y1: STAND.y + 0.7, z1: STAND.z + 0.4 }); indexColliders();
-  const glow = new THREE.PointLight(0xffd27a, 6, 6, 1.5); glow.position.copy(STAND).add(new V3(0, 1.6, 0.6)); scene.add(glow);
-}
-trophy.position.copy(STAND).add(new V3(0, 0.7, 0));
+const cr7Ball = new Ball(CR7_HOME.clone().add(new V3(0, 1, 0))); cr7Ball.frozen = true;
+indexColliders();
 
 // ================= player =================
 const P = {
@@ -259,7 +277,7 @@ canvasEl.addEventListener('mousedown', e => {
   if (TOUCH) return;
   if (state.paused) return;
   if (mode() === 'dialog') { IN.skip = true; return; }
-  if (mode() === 'pen' || mode() === 'juggle') return;
+  if (mode() === 'pen') return;
   if (document.pointerLockElement === canvasEl) { if (e.button === 0) IN.shoot = true; return; }
   if (mode() === 'free') canvasEl.requestPointerLock?.();
   dragging = { x: e.clientX, y: e.clientY };
@@ -340,7 +358,7 @@ function frameTalk(a, b) {
 }
 
 // ================= HUD helpers =================
-const state = { paused: false, started: false, stage: 0, cards: 0, style: 0, t0: 0, playTime: 0, modeStack: ['cut'], target: null, juggle: null, pen: null, goalsScored: 0 };
+const state = { paused: false, started: false, stage: 0, cards: 0, style: 0, t0: 0, playTime: 0, modeStack: ['cut'], target: null, pen: null };
 const mode = () => state.modeStack[state.modeStack.length - 1];
 const pushMode = m => { state.modeStack.push(m); P.mode = m === 'free' ? 'free' : P.mode; };
 const popMode = () => { state.modeStack.pop(); };
@@ -367,8 +385,8 @@ function updateMarker() {
 }
 
 // ================= dialogue =================
-const COLORS = { CR7: '#ffd400', MESSI: '#8fd0ff', AGENT: '#2ee6ff', 'ZÉ': '#ff8a3d', THIAGO: '#7cfc00', LUCAS: '#ff6bd6', DAVI: '#4dd2ff', KIDS: '#ffffff' };
-const speakers = () => ({ HERO: me, CR7: ronaldo, MESSI: messi, 'ZÉ': ze, THIAGO: thiago, LUCAS: lucas, DAVI: davi });
+const COLORS = { CR7: '#ffd400', AGENT: '#2ee6ff', DRIVER: '#c9c9c9', 'ZÉ': '#ff8a3d', THIAGO: '#7cfc00', LUCAS: '#ff6bd6', KIDS: '#ffffff' };
+const speakers = () => ({ HERO: me, CR7: ronaldo, 'ZÉ': ze, THIAGO: thiago, LUCAS: lucas });
 // Lines are written with HERO for whoever you play and {HERO} for their name; each hero has its own voice.
 const heroText = t => t.replaceAll('{HERO}', hero.name);
 let talking = null;
@@ -376,7 +394,7 @@ function line(who, text) {
   return new Promise(res => {
     const sub = $('#sub'), whoEl = sub.querySelector('.who'), lineEl = sub.querySelector('.line');
     text = heroText(text);
-    sub.classList.remove('hidden'); whoEl.textContent = who === 'AGENT' ? 'AGENT (PHONE)' : who === 'HERO' ? hero.label : who; whoEl.style.color = who === 'HERO' ? hero.color : COLORS[who] || '#fff';
+    sub.classList.remove('hidden'); whoEl.textContent = who === 'AGENT' ? 'AGENT (PHONE)' : who === 'DRIVER' ? 'CR7\'S DRIVER' : who === 'HERO' ? hero.label : who; whoEl.style.color = who === 'HERO' ? hero.color : COLORS[who] || '#fff';
     const sp = speakers()[who]; talking = sp || null;
     let shown = 0, done = false, spoke = false;
     const t0 = performance.now();
@@ -409,10 +427,11 @@ const interactables = [
   { who: ze, label: 'Talk to Zé', r: 3.2, use: () => talkZe() },
   { who: thiago, label: 'Talk to Thiago', r: 2.4, use: () => talkThiago() },
   { who: lucas, label: 'Talk to Lucas', r: 2.4, use: () => talkLucas() },
+  { who: { root: car }, label: 'Get in the car', r: 3.4, use: () => rideAway(), when: () => state.stage === STAGES.CAR },
 ];
 function nearestInteractable() {
   let best = null, bd = 1e9;
-  for (const it of interactables) { const d = it.who.root.position.distanceTo(P.pos); if (d < it.r && d < bd && Math.abs(it.who.root.position.y - P.pos.y) < 1.5) { best = it; bd = d; } }
+  for (const it of interactables) { if (it.when && !it.when()) continue; const d = it.who.root.position.distanceTo(P.pos); if (d < it.r && d < bd && Math.abs(it.who.root.position.y - P.pos.y) < 1.5) { best = it; bd = d; } }
   return best;
 }
 
@@ -420,7 +439,10 @@ function nearestInteractable() {
 const waits = [];
 const waitFor = fn => new Promise(r => waits.push({ fn, r }));
 const sleep = s => new Promise(r => setTimeout(r, s * 1000));
-const STAGES = { INTRO: 0, ZE: 1, THIAGO: 2, JUGGLE: 3, TAGS: 4, ROOF: 5, DAVI: 6, PENS: 7, END: 8 };
+const STAGES = { INTRO: 0, FIND: 1, CR7: 2, PENS: 3, CAR: 4, RIDE: 5, END: 6 };
+// Ease a value from a to b over `dur` seconds, calling fn(k) every frame (k = 0..1, smooth).
+const tween = (dur, fn) => new Promise(res => { let t = 0; tweens.push(dt => { t += dt; const k = Math.min(1, t / dur); fn(k * k * (3 - 2 * k), k); if (k >= 1) { res(); return true; } }); });
+const tweens = [];
 
 async function intro() {
   state.stage = STAGES.INTRO; pushMode('cut'); $('#letterbox').classList.add('on');
@@ -432,8 +454,8 @@ async function intro() {
   await say([
     ['AGENT', '{HERO}, are you there? We have a problem. A big one.'],
     ['AGENT', 'The Ballon d\'Or was on show at a charity match here, in Morro da Goual. This morning, it was gone.'],
-    ['AGENT', 'The ceremony is tonight. Find it before anybody else does.'],
-    ['HERO', 'I am on it.'],
+    ['AGENT', 'Cristiano Ronaldo was seen at the cage court. If anybody knows something, it is him.'],
+    ['HERO', 'I am on my way.'],
   ]);
   act(null, 0); P.action = null;
   $('#letterbox').classList.remove('on'); release(); popMode(); pushMode('free'); P.mode = 'free';
@@ -441,141 +463,122 @@ async function intro() {
   audio.base = 0; audio.carnival = 0;
   state.t0 = performance.now();
   hint(TOUCH ? 'Left thumb to move · drag to look · SHOOT, TRICK and CELEBRATE buttons' : 'WASD / ZQSD to move · mouse to look · Shift to sprint · Space to jump / climb', 7);
-  setObjective('CHAPTER 1 · THE RUMOUR', 'Ask around at Bar do Zé', ze.root.position.clone().add(new V3(2, 0, 0)));
-  state.stage = STAGES.ZE;
+  setObjective('CHAPTER 1 · THE CAGE', 'Find Cristiano at the cage court', () => ronaldo.root.position);
+  state.stage = STAGES.FIND;
   setTimeout(() => { if (mode() === 'free') hint(TOUCH ? 'TRICK = rainbow flick · SHOOT = strike · CELEBRATE = show off' : 'F = rainbow flick · Left click or K = shoot · C = celebrate', 6); }, 9000);
 }
 async function talkZe() {
-  if (state.stage === STAGES.ZE) {
-    await conversation(ze, [
-      ['ZÉ', 'Well, well. {HERO} in my bar! Today the whole world comes up this hill.'],
-      ['HERO', 'Somebody took the Ballon d\'Or. Have you seen anything?'],
-      ['ZÉ', 'Ronaldo and Messi came by an hour ago, asking the same question. They are still up there somewhere.'],
-      ['ZÉ', 'But if something disappears on this hill, Thiago knows. Go see him at the cage.'],
-    ]);
-    state.stage = STAGES.THIAGO;
-    setObjective('CHAPTER 1 · THE RUMOUR', 'Find Thiago at the cage', thiago.root.position);
-  } else {
-    await conversation(ze, [pick([
-      ['ZÉ', 'A cold drink? No? Water then. Athletes…'],
-      ['ZÉ', 'In my day we played barefoot on this hill. And we were happy.'],
-      ['ZÉ', 'Ronaldo drank three coconuts and did not pay. Tell him that.'],
-    ])]);
-  }
+  await conversation(ze, [pick(state.stage <= STAGES.FIND ? [
+    ['ZÉ', 'Well, well. {HERO} in my bar! Cristiano is at the cage, showing off as usual.'],
+    ['ZÉ', 'Ronaldo drank three coconuts and did not pay. He is at the cage. Tell him that.'],
+  ] : [
+    ['ZÉ', 'A cold drink? No? Water then. Athletes…'],
+    ['ZÉ', 'In my day we played barefoot on this hill. And we were happy.'],
+  ])]);
 }
 async function talkThiago() {
-  if (state.stage === STAGES.THIAGO) {
-    await conversation(thiago, [
-      ['THIAGO', 'No way… {HERO}?! Today is crazy, bro!'],
-      ['HERO', 'I need the Ballon d\'Or. Do you know where it is?'],
-      ['THIAGO', 'Info is not free here. Show us what you got.'],
-      ['THIAGO', 'Fifteen juggles. No drop. Everybody is watching.'],
-    ], { keep: true });
-    popMode();
-    await juggleChallenge();
-    await conversation(thiago, [
-      ['THIAGO', 'Okay, okay. You are legit.'],
-      ['THIAGO', 'Last night O Fantasma took the golden ball up to the rooftops. He says it belongs to the street now.'],
-      ['THIAGO', 'Follow the yellow tags. That is how his friends find him.'],
-    ]);
-    state.stage = STAGES.TAGS; nextTag();
-  } else if (state.stage < STAGES.THIAGO) {
-    await conversation(thiago, [['THIAGO', '{HERO}?! Here?! … Wait, why are you here?']]);
-  } else {
-    await conversation(thiago, [pick([['THIAGO', 'Yellow tags, bro. Up the hill!'], ['THIAGO', 'Messi went up the rainbow stairs. Ronaldo too. Hurry!'], ['THIAGO', 'When you find the Ghost, tell him Thiago says hi.']])]);
-  }
+  await conversation(thiago, [pick(state.stage <= STAGES.FIND ? [
+    ['THIAGO', 'No way… {HERO}?! Cristiano is right there, bro! In the cage!'],
+    ['THIAGO', 'Today is crazy! First Cristiano, now you!'],
+  ] : [
+    ['THIAGO', 'You scored on Cristiano! Nobody will believe me!'],
+    ['THIAGO', 'Bro, that penalty… I filmed everything!'],
+  ])]);
 }
 async function talkLucas() {
   await conversation(lucas, [pick([
-    ['LUCAS', 'Looking for the Ghost? He goes over the roofs. Climb the crates, it is quicker!'],
+    ['LUCAS', 'Cristiano? He is down at the cage. I saw him do one hundred juggles!'],
     ['LUCAS', 'Jump on the crates, then the roofs. That is how we go up.'],
   ])]);
-  if (state.stage === STAGES.TAGS) hint(TOUCH ? 'Face a ledge and press JUMP to climb' : 'Face a ledge and press Space to climb', 5);
-}
-// Ronaldo and Messi: met on the way up, the first time you walk past them.
-const met = { messi: false, ronaldo: false };
-async function meetMessi() {
-  met.messi = true;
-  await conversation(messi, [
-    ['MESSI', 'Ah, {HERO}. You are looking for it too?'],
-    ['HERO', 'Everybody is looking for it.'],
-    ['MESSI', 'I have eight already. This one, I let the young ones find.'],
-    ['MESSI', 'The tags go up the rainbow stairs. Go, before Cristiano gets there.'],
-  ]);
-  addStyle(100, 'MET THE GOAT');
-}
-async function meetRonaldo() {
-  met.ronaldo = true;
-  await conversation(ronaldo, [
-    ['CR7', '{HERO}! Do not even think about it. The Ballon d\'Or is mine.'],
-    ['HERO', 'Then why are you still down here?'],
-    ['CR7', 'I am… warming up. The kid is on the roof. He saved all my penalties.'],
-    ['CR7', 'Show me what you can do!'],
-  ]);
-  ronaldoSiu = 0; setTimeout(() => audio.siu(), 380);
-  addStyle(100, 'MET CR7');
 }
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-// Yellow tags leading up the hill: [checkpoint, decal position, rotation, flip, rotateZ].
-const TAGS = [
-  { at: new V3(21, 0, 30.2), wall: [21, 1.9, 27.5 + 0.05, 0, false, 0], text: 'East, towards the alley' },
-  { at: new V3(25.8, 0, 14), wall: [24.6 + 0.05, 1.9, 14, Math.PI / 2, false, 0], text: 'Up the alley' },
-  { at: new V3(25.8, 3, -8.5), wall: [22, 4.9, -11.5 + 0.05, 0, true, 0], text: 'West along the lane' },
-  { at: new V3(0, 3, -10.5), wall: [4 - 0.05, 4.9, -14.5, -Math.PI / 2, true, 0], text: 'Up the rainbow stairs' },
-  { at: new V3(5, 6, -25), wall: [6, 7.9, -28 + 0.05, 0, false, 0], text: 'East, to the next stairs' },
-  { at: new V3(14.2, 9, -40.5), wall: [12, 12.7, -44.5 + 0.05, 0, false, Math.PI / 2], text: 'Climb to the rooftop' },
-];
-const tagMeshes = TAGS.map(t => { const [x, y, z, ry, flip, rz] = t.wall; const m = W.arrowAt(x, y, z, ry, flip); if (rz) m.rotateZ(rz); m.material.emissiveIntensity = 0.05; return m; });
-let tagIdx = -1;
-function nextTag() {
-  tagIdx++;
-  tagMeshes.forEach((m, i) => { m.material.emissiveIntensity = i === tagIdx ? 1 : 0.05; });
-  if (tagIdx < TAGS.length) setObjective('CHAPTER 2 · THE TAGS', 'Follow the yellow tags · ' + TAGS[tagIdx].text, TAGS[tagIdx].at);
-  else { state.stage = STAGES.ROOF; setObjective('CHAPTER 2 · THE TAGS', 'Climb up to the rooftop', new V3(2, W.laje.y, -49)); }
-  if (tagIdx > 0) { addStyle(50, 'TAG FOUND'); audio.chime(); }
-}
-async function meetDavi() {
-  state.stage = STAGES.DAVI; pushMode('dialog'); if (document.pointerLockElement) document.exitPointerLock();
-  $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0);
-  daviJuggle.on = true;
-  shot(new V3(6.5, W.laje.y + 2.2, -46.5), new V3(4.5, W.laje.y + 1.0, -52.5), { cut: true });
-  await sleep(2.4);
-  daviJuggle.on = false; daviBall.frozen = true; daviBall.mesh.visible = false;
-  faceEachOther(davi); frameTalk(P.pos, davi.root.position);
+// ----- Cristiano at the cage: the deal, the gloves, the penalty -----
+const cr7 = { juggle: true, t: 0, walk: 0, keeper: false };
+async function meetRonaldo() {
+  state.stage = STAGES.CR7; pushMode('dialog'); if (document.pointerLockElement) document.exitPointerLock();
+  $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0); prompt(null);
+  // He keeps juggling a moment, catches the ball, then turns to you.
+  shot(CR7_HOME.clone().add(new V3(-2.6, 1.6, 2.4)), CR7_HOME.clone().add(new V3(0, 1.1, 0)), { cut: true });
+  await sleep(1.6);
+  cr7.juggle = false; cr7Ball.frozen = true; cr7Ball.mesh.visible = false;
+  faceEachOther(ronaldo); frameTalk(P.pos, ronaldo.root.position);
   await say([
-    ['DAVI', 'You are… you are {HERO}!'],
-    ['HERO', 'And you are the Ghost. That trophy is not yours, kid.'],
-    ['DAVI', 'It belongs to the street! Everybody wants it. Nobody plays for it.'],
-    ['DAVI', 'Penalties. Three shots. Score two and the golden ball is yours.'],
+    ['CR7', '{HERO}! I knew you would come up here.'],
+    ['HERO', 'Cristiano. The Ballon d\'Or is gone. What do you know?'],
+    ['CR7', 'Maybe I know where it is. Maybe not.'],
+    ['CR7', 'Here is the deal. Score a penalty against me, and I give you a clue.'],
+    ['HERO', 'You? In goal?'],
+    ['CR7', 'Nobody scores on Cristiano. Nobody!'],
   ]);
+  // The little show: SIUUU, the gloves go on, and he jogs to his line while the kids gather round.
+  ronaldoSiu = 0; setTimeout(() => audio.siu(), 380);
+  shot(ronaldo.root.position.clone().add(new V3(-3.4, 1.4, -1.2)), ronaldo.root.position.clone().add(new V3(0, 1.2, 0)), { follow: 2 });
+  await sleep(2.1);
+  gloves.set(true); audio.blip(520); toast('CR7 IN GOAL!', '#ffd400'); cr7.clap = 0;
+  await sleep(1.0);
+  kids.forEach((k, i) => { k.target.set(SPOT.x - 2.2 - (i % 2) * 0.8, 0, 10 + (i < 2 ? -3.2 - i * 0.9 : 3.2 + (i - 2) * 0.9)); k.watch = true; });
+  thiago.root.position.set(SPOT.x - 3.4, 0, 14.6); thiago.root.rotation.y = 2.2;
+  const from = ronaldo.root.position.clone(), to = keeperBase(0);
+  ronaldo.root.rotation.y = Math.atan2(to.x - from.x, to.z - from.z); cr7.walk = 3.2;
+  shot(new V3(SPOT.x - 1, 2.2, 15.5), to.clone().add(new V3(0, 1, 0)), { follow: 1.5 });
+  await tween(from.distanceTo(to) / 3.2, k => { ronaldo.root.position.lerpVectors(from, to, k); });
+  cr7.walk = 0; ronaldo.root.rotation.y = Math.atan2(GOAL.n.x, GOAL.n.z); cr7.keeper = true;
+  // You put the ball on the spot.
+  P.pos.copy(SPOT).addScaledVector(GOAL.n, 1.1); P.yaw = Math.atan2(-GOAL.n.x, -GOAL.n.z);
+  ball.frozen = true; ball.vel.set(0, 0, 0); ball.pos.copy(SPOT).add(new V3(0, BALL_R, 0)); ball.mesh.position.copy(ball.pos);
+  shot(SPOT.clone().add(new V3(-0.9, 0.35, 0.9)), keeperBase(0).add(new V3(0, 0.9, 0)), { cut: true });
+  await sleep(1.4);
+  await say([['CR7', 'Come on, {HERO}. Show me.']]);
   $('#letterbox').classList.remove('on'); popMode();
   state.stage = STAGES.PENS;
-  setObjective('CHAPTER 3 · THE GHOST', 'Score 2 penalties out of 3 against the Ghost', null);
-  let won = false;
+  setObjective('CHAPTER 1 · THE CAGE', 'Score a penalty against Cristiano', null);
+  let tries = 0, won = false;
   while (!won) {
-    won = await penaltyChallenge();
-    if (!won) await conversation(davi, [pick([['DAVI', 'Ha! Again?'], ['DAVI', 'Too easy. Again!']])]);
+    won = await penaltyChallenge(tries++);
+    if (!won) await conversation(ronaldo, [pick([['CR7', 'Saved! Again, again!'], ['CR7', 'Ha! Too easy. One more!'], ['CR7', 'Is that all? Try again.'], ['CR7', 'Come on, you can do better than that!']])]);
   }
-  pushMode('dialog'); faceEachOther(davi); frameTalk(P.pos, davi.root.position); $('#letterbox').classList.add('on');
+  await afterGoal();
+}
+async function afterGoal() {
+  pushMode('dialog'); cr7.keeper = false; gloves.set(false); $('#letterbox').classList.add('on');
+  ronaldo.root.position.copy(keeperBase(0)).addScaledVector(GOAL.n, 2.2);
+  P.pos.copy(ronaldo.root.position).addScaledVector(GOAL.n, 2.2);
+  faceEachOther(ronaldo); frameTalk(P.pos, ronaldo.root.position);
   await say([
-    ['DAVI', '…Okay. You deserve it.'],
-    ['HERO', 'Come with me. Tonight you sit at the ceremony, front row.'],
-    ['DAVI', 'For real?! Let us go!'],
+    ['CR7', '…Okay. Good penalty. Very good.'],
+    ['HERO', 'A deal is a deal. The clue.'],
+    ['CR7', 'The Ballon d\'Or is not in the favela any more. It is in a building, down in the city.'],
+    ['CR7', 'My driver will take you there. Go, he is waiting for you on the road.'],
   ]);
-  // Ronaldo and Messi come up to the roof; you lift the Ballon d'Or.
-  ronaldo.root.position.set(-1.8, W.laje.y, -46.4); ronaldo.root.rotation.y = 2.4;
-  messi.root.position.set(5.8, W.laje.y, -46.2); messi.root.rotation.y = -2.4;
-  P.pos.set(2, W.laje.y, -49.4); P.yaw = 0; trophyHeld = true;
-  shot(new V3(2, W.laje.y + 1.5, -44.6), new V3(2, W.laje.y + 1.6, -49.4), { cut: true });
-  await say([
-    ['CR7', 'Not bad. Not bad at all.'],
-    ['MESSI', 'Bravo. It is in good hands.'],
-  ]);
-  celebrate(true); daviCheer = 4; npcCheer = 4; audio.cheer(1); audio.fiesta(4);
-  await sleep(2.6);
-  shot(new V3(-14, W.laje.y + 9, -30), new V3(2, W.laje.y, -49), { follow: 0.35, speed: 1.5 });
-  await sleep(2.2);
+  // The car pulls up on the road, in front of the plaza.
+  car.visible = true; car.position.set(CAR_FROM, 0, CAR_Z); car.rotation.y = Math.PI;
+  shot(new V3(-4, 2.4, CAR_Z - 7.5), new V3(6, 0.8, CAR_Z), { cut: true });
+  audio.engine?.(3);
+  await tween(3.2, k => { car.position.x = lerp(CAR_FROM, CAR_STOP, 1 - (1 - k) * (1 - k)); });
+  colliders.push(carBox); indexColliders();
+  await sleep(0.4);
+  await say([['DRIVER', 'Senhor {HERO}? Mister Ronaldo sent me. Please, get in.']]);
+  ronaldo.root.position.set(4.5, 0, 12); cr7.juggle = true; cr7Ball.mesh.visible = true;
+  $('#letterbox').classList.remove('on'); release(); popMode();
+  state.stage = STAGES.CAR;
+  setObjective('CHAPTER 1 · THE CAGE', 'Get in Cristiano\'s car, on the road', car.position.clone().add(new V3(0, 0, -1.3)));
+}
+const CAR_Z = 33.2, CAR_FROM = 62, CAR_STOP = 1.8;
+const carBox = { x0: CAR_STOP - 2.6, y0: 0, z0: CAR_Z - 1, x1: CAR_STOP + 2.6, y1: 1.4, z1: CAR_Z + 1 };
+async function rideAway() {
+  state.stage = STAGES.RIDE; pushMode('cut'); prompt(null); $('#letterbox').classList.add('on'); if (document.pointerLockElement) document.exitPointerLock();
+  $('#touch').classList.add('hidden');
+  colliders.splice(colliders.indexOf(carBox), 1); indexColliders();
+  shot(new V3(CAR_STOP + 1, 1.8, CAR_Z - 5.5), car.position.clone().add(new V3(0, 1, 0)), { cut: true });
+  await sleep(0.5);
+  me.root.visible = false; ball.mesh.visible = false; audio.kick(0.25);
+  await sleep(0.7);
+  audio.engine?.(4);
+  shot(new V3(-22, 3.2, CAR_Z - 9), new V3(-12, 0.8, CAR_Z), { follow: 0.8 });
+  await tween(4.2, (k, raw) => { car.position.x = CAR_STOP - 80 * raw * raw; });
+  $('#fade').classList.add('on');
+  await sleep(0.9);
   endScreen();
 }
 function endScreen() {
@@ -583,109 +586,46 @@ function endScreen() {
   const t = Math.round(state.playTime); $('#eTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   $('#eCards').textContent = `${state.cards}/${cards.length}`; $('#eStyle').textContent = state.style.toLocaleString('en');
   $('#eWho').textContent = `Well played, ${hero.name}`;
-  $('#letterbox').classList.remove('on'); $('#end').classList.remove('hidden'); $('#hud').classList.add('hidden'); $('#touch').classList.add('hidden');
+  $('#letterbox').classList.remove('on'); $('#fade').classList.remove('on'); $('#end').classList.remove('hidden'); $('#hud').classList.add('hidden'); $('#touch').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
   post('complete', { time: t, cards: state.cards, style: state.style, hero: hero.id });
 }
 
-// ================= challenge 1: juggling =================
-const JUG_TARGET = 15;
-function juggleChallenge() {
-  return new Promise(res => {
-    pushMode('juggle'); if (document.pointerLockElement) document.exitPointerLock(); $('#touch').classList.add('hidden');
-    P.pos.set(0, 0, 10); P.yaw = 0; P.vel.set(0, 0, 0);
-    ball.frozen = true;
-    // Kids stop and gather around.
-    kids.forEach((k, i) => { const a = -1.1 + i * 0.73; k.target.set(Math.sin(a) * 3.8, 0, 10 - Math.cos(a) * 3.8); k.watch = true; });
-    thiago.root.position.set(-2.6, 0, 11.2); thiago.root.rotation.y = 1.9;
-    shot(new V3(1.7, 1.35, 13.4), new V3(-0.1, 0.95, 10));
-    $('#meter').classList.remove('hidden'); $('#count').classList.remove('hidden');
-    const zone = [0.18, 0.78], perfect = [0.3, 0.52], H = 2.6;
-    $('#meter .zone').style.cssText = `bottom:${zone[0] / H * 100}%;height:${(zone[1] - zone[0]) / H * 100}%`;
-    $('#meter .perfect').style.cssText = `bottom:${perfect[0] / H * 100}%;height:${(perfect[1] - perfect[0]) / H * 100}%`;
-    const J = state.juggle = { n: 0, y: 1.2, vy: 1.5, g: 9.8, x: 0, vx: 0, H, zone, perfect, wait: 1.2, fails: 0, res };
-    hint(TOUCH ? 'Tap when the ball is in the green zone' : 'Press Space (or click) when the ball is in the green zone', 6);
-    updateCount();
-  });
-}
-function updateCount() { $('#count').innerHTML = `${state.juggle.n}<small> / ${JUG_TARGET}</small>`; }
-function updateJuggle(dt) {
-  const J = state.juggle; if (!J) return;
-  const tap = IN.jump || IN.shoot || IN.skip || IN.use || clickTap; clickTap = false;
-  if (J.wait > 0) { J.wait -= dt; if (J.wait <= 0) { J.y = 1.3; J.vy = 2; } }
-  else {
-    J.vy -= J.g * dt; J.y += J.vy * dt; J.x += J.vx * dt; J.vx *= 0.98;
-    if (tap) {
-      if (J.vy < 0 && J.y >= J.zone[0] && J.y <= J.zone[1]) {
-        const perfect = J.y >= J.perfect[0] && J.y <= J.perfect[1];
-        J.n++; J.vy = 4.3 + Math.random() * 1.3 + J.n * 0.05; J.g = 9.8 * (1 + J.n * 0.035); J.vx = (Math.random() - 0.5) * 0.25 - J.x * 0.8;
-        act('juggle', 0.32); audio.kick(0.15); updateCount();
-        if (perfect) addStyle(30, 'PERFECT TOUCH'); else addStyle(10, 'TOUCH');
-        if (J.n === 5 || J.n === 10) { audio.cheer(0.5); kidsCheer = 1.2; }
-        if (J.n >= JUG_TARGET) return finishJuggle(true);
-      } else if (J.y > J.zone[1]) hint('Too early! Wait for the green zone', 1.2);
-    }
-    if (J.y <= BALL_R) { J.fails++; audio.ooh(); toast('DROPPED!', '#ff2d55'); J.n = 0; updateCount(); J.wait = 1.4; J.y = BALL_R; J.vy = 0; J.g = 9.8; }
-  }
-  const f = fwd(); ball.pos.set(P.pos.x + f.x * 0.42 + J.x, P.pos.y + Math.max(BALL_R, J.y), P.pos.z + f.z * 0.42); ball.mesh.position.copy(ball.pos); ball.mesh.rotation.x += dt * 6;
-  $('#meter .ball').style.top = (100 - clamp(J.y / J.H, 0, 1) * 100) + '%';
-  if (J.wait <= 0 && P.action !== 'juggle') act('jugglePose', 99);
-}
-function finishJuggle(ok) {
-  const J = state.juggle; state.juggle = null;
-  $('#meter').classList.add('hidden'); $('#count').classList.add('hidden');
-  ball.frozen = false; ball.vel.set(0, 3, 0.8);
-  toast('RESPECT!'); audio.cheer(1); audio.shout(1, -0.4); setTimeout(() => audio.shout(1, 0.5), 300); audio.fiesta(4); kidsCheer = 2.5; addStyle(300, 'STREET RESPECT');
-  kids.forEach(k => { k.watch = false; });
-  thiago.root.position.set(0, 0, 15.6);
-  act(null, 0); P.action = null; release(); popMode(); if (TOUCH) $('#touch').classList.remove('hidden');
-  J.res(ok);
-}
-
-// ================= challenge 2: penalties on the rooftop =================
-// The kid's goal: painted on the wall, with a real frame in front.
-{
-  const c = document.createElement('canvas'); c.width = 600; c.height = 400; const g = c.getContext('2d');
-  g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 3; for (let i = 0; i <= 600; i += 30) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, 400); g.stroke(); } for (let i = 0; i <= 400; i += 30) { g.beginPath(); g.moveTo(0, i); g.lineTo(600, i); g.stroke(); }
-  g.strokeStyle = '#ffffff'; g.lineWidth = 22; g.strokeRect(11, 11, 578, 420);
-  g.fillStyle = '#ffd400'; g.font = '900 34px Impact, Arial Black'; g.textAlign = 'center'; g.fillText('O FANTASMA', 300, 200);
-  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 2.13), new THREE.MeshStandardMaterial({ map: t, transparent: true, polygonOffset: true, polygonOffsetFactor: -4, depthWrite: false }));
-  m.position.set(W.lajeGoal.x, W.laje.y + 1.07, W.lajeGoal.z + 0.02); scene.add(m);
-  const white = new THREE.MeshStandardMaterial({ color: 0xf4f4f4, roughness: 0.4 });
-  for (const s of [-1, 1]) { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2, 10), white); p.position.set(W.lajeGoal.x + s * 1.5, W.laje.y + 1, W.lajeGoal.z + 0.35); p.castShadow = true; scene.add(p); }
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.1, 10), white); bar.rotation.z = Math.PI / 2; bar.position.set(W.lajeGoal.x, W.laje.y + 2, W.lajeGoal.z + 0.35); bar.castShadow = true; scene.add(bar);
-}
-const GOAL = { x: W.lajeGoal.x, z: W.lajeGoal.z + 0.35, w: 3, h: 2 };
-const SPOT = new V3(GOAL.x, W.laje.y, -49.2);
+// ================= the penalty: Cristiano in goal on the cage court =================
+// The east goal of the cage. n points from the goal towards the shooter, l along the goal line
+// (it is also the keeper's own x axis, so his dive tilt works in his frame).
+const PG = W.goals[1];
+const GOAL = { c: new V3(PG.x, 0, PG.z), n: new V3(PG.dir, 0, 0), l: new V3(0, 0, -PG.dir), w: PG.w, h: PG.h };
+const SPOT = GOAL.c.clone().addScaledVector(GOAL.n, 6);
+const lat = p => (p.x - GOAL.c.x) * GOAL.l.x + (p.z - GOAL.c.z) * GOAL.l.z;
+const keeperBase = off => GOAL.c.clone().addScaledVector(GOAL.n, 0.45).addScaledVector(GOAL.l, off);
 const reticle = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.3, 32), new THREE.MeshBasicMaterial({ color: 0xffd400, transparent: true, opacity: 0.9, depthTest: false }));
-reticle.renderOrder = 10; reticle.visible = false; scene.add(reticle);
+reticle.renderOrder = 10; reticle.visible = false; reticle.rotation.y = Math.atan2(GOAL.n.x, GOAL.n.z); scene.add(reticle);
 let mouseNDC = new THREE.Vector2(), pointerDown = false, clickTap = false;
 addEventListener('pointermove', e => { mouseNDC.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); });
 canvasEl.addEventListener('pointerdown', e => { mouseNDC.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); pointerDown = true; clickTap = true; });
 addEventListener('pointerup', () => { pointerDown = false; });
-function penaltyChallenge() {
+function penaltyChallenge(tries = 0) {
   return new Promise(res => {
     pushMode('pen'); if (document.pointerLockElement) document.exitPointerLock(); $('#touch').classList.add('hidden');
-    P.pos.copy(SPOT).add(new V3(0, 0, 1.1)); P.yaw = Math.PI; P.vel.set(0, 0, 0);
-    davi.root.position.set(GOAL.x, W.laje.y, GOAL.z + 0.45); davi.root.rotation.y = 0;
-    shot(new V3(GOAL.x + 0.6, W.laje.y + 1.75, SPOT.z + 3.6), new V3(GOAL.x, W.laje.y + 0.9, GOAL.z), { follow: 3 });
-    $('#tally').classList.remove('hidden'); $('#tally').innerHTML = '<span></span><span></span><span></span>';
-    state.pen = { shot: 0, goals: 0, phase: 'place', t: 0, power: 0, aim: new V3(GOAL.x, W.laje.y + 1, GOAL.z), res, dive: 0, diveT: 0, keeperX: GOAL.x };
-    hint(TOUCH ? 'Drag to aim · hold to charge · release to shoot (not too hard!)' : 'Aim with the mouse · hold the button to charge · release to shoot', 7);
+    P.pos.copy(SPOT).addScaledVector(GOAL.n, 1.1); P.yaw = Math.atan2(-GOAL.n.x, -GOAL.n.z); P.vel.set(0, 0, 0);
+    ronaldo.root.rotation.set(0, Math.atan2(GOAL.n.x, GOAL.n.z), 0);
+    shot(SPOT.clone().addScaledVector(GOAL.n, 3.6).addScaledVector(GOAL.l, 0.6).add(new V3(0, 1.75, 0)), GOAL.c.clone().add(new V3(0, 0.9, 0)), { follow: 3 });
+    $('#tally').classList.remove('hidden'); $('#tally').innerHTML = `<span>${tries + 1}</span>`;
+    state.pen = { tries, phase: 'place', t: 0, power: 0, aim: GOAL.c.clone().add(new V3(0, 1, 0)), res, dive: 0, diveT: 0, keeperX: 0, scored: false };
+    if (!tries) hint(TOUCH ? 'Drag to aim · hold to charge · release to shoot (not too hard!)' : 'Aim with the mouse · hold the button to charge · release to shoot', 7);
     placeBall();
   });
 }
-function placeBall() { const S = state.pen; ball.frozen = true; ball.pos.copy(SPOT).add(new V3(0, BALL_R, 0)); ball.mesh.position.copy(ball.pos); S.phase = 'aim'; S.dive = 0; S.diveT = 0; S.keeperX = GOAL.x; davi.root.position.x = GOAL.x; davi.root.position.y = W.laje.y; davi.root.rotation.z = 0; }
-const raycaster = new THREE.Raycaster(), goalPlane = new THREE.Plane(new V3(0, 0, 1), 0);
+function placeBall() { const S = state.pen; ball.frozen = true; ball.mesh.visible = true; ball.pos.copy(SPOT).add(new V3(0, BALL_R, 0)); ball.mesh.position.copy(ball.pos); S.phase = 'aim'; S.dive = 0; S.diveT = 0; S.keeperX = 0; }
+const raycaster = new THREE.Raycaster(), goalPlane = new THREE.Plane(GOAL.n.clone(), -GOAL.n.dot(GOAL.c));
 function updatePen(dt) {
   const S = state.pen; if (!S) return;
   S.t += dt;
-  goalPlane.constant = -GOAL.z;
   if (S.phase === 'aim' || S.phase === 'power') {
     raycaster.setFromCamera(mouseNDC, camera); const hit = new V3();
-    if (raycaster.ray.intersectPlane(goalPlane, hit)) S.aim.set(clamp(hit.x, GOAL.x - GOAL.w / 2 - 0.6, GOAL.x + GOAL.w / 2 + 0.6), clamp(hit.y, W.laje.y + 0.12, W.laje.y + GOAL.h + 0.7), GOAL.z);
-    reticle.visible = true; reticle.position.copy(S.aim).add(new V3(0, 0, 0.05));
+    if (raycaster.ray.intersectPlane(goalPlane, hit)) S.aim.copy(GOAL.c).addScaledVector(GOAL.l, clamp(lat(hit), -GOAL.w / 2 - 0.6, GOAL.w / 2 + 0.6)).setY(clamp(hit.y, 0.12, GOAL.h + 0.7));
+    reticle.visible = true; reticle.position.copy(S.aim).addScaledVector(GOAL.n, 0.05);
     if (S.phase === 'aim' && pointerDown) { S.phase = 'power'; S.pt = 0; $('#power').classList.remove('hidden'); }
     if (S.phase === 'power') {
       S.pt += dt; S.power = 1 - Math.abs(1 - (S.pt * 0.9) % 2); $('#power i').style.width = (S.power * 100) + '%';
@@ -699,62 +639,64 @@ function updatePen(dt) {
     if (S.ft > 0.1) S.diveT = Math.min(1, S.diveT + dt / 0.42);
     if (k >= 1) resolveShot();
   }
-  if (S.phase === 'after') { S.at += dt; if (S.after) S.after(dt); if (S.at > 1.8) { S.shot++; if (S.shot >= 3 || S.goals >= 2 || S.goals + (3 - S.shot) < 2) endPens(); else placeBall(); } }
-  // Keeper: ready stance, sways, then dives.
+  if (S.phase === 'after') { S.at += dt; if (S.after) S.after(dt); if (S.at > 1.8) endPens(); }
+  // Keeper: ready stance, sways along his line, then dives.
   const d = S.dive * S.diveT;
-  davi.root.position.x = S.keeperX + d * 1.15; davi.root.position.y = W.laje.y + Math.sin(S.diveT * Math.PI) * 0.35 * Math.abs(S.dive) * (S.high ? 1.4 : 0.6) - (S.diveT > 0.8 ? (S.diveT - 0.8) * 0.4 : 0);
-  davi.root.rotation.z = -d * 1.2;
-  if (S.phase === 'aim' || S.phase === 'power') S.keeperX = GOAL.x + Math.sin(S.t * 2.1) * 0.25;
+  ronaldo.root.position.copy(keeperBase(S.keeperX + d * 1.15));
+  ronaldo.root.position.y = Math.sin(S.diveT * Math.PI) * 0.35 * Math.abs(S.dive) * (S.high ? 1.4 : 0.6) - (S.diveT > 0.8 ? (S.diveT - 0.8) * 0.4 : 0);
+  ronaldo.root.rotation.z = -d * 1.2;
+  if (S.phase === 'aim' || S.phase === 'power') S.keeperX = Math.sin(S.t * 2.1) * 0.25;
 }
 function shoot() {
   const S = state.pen; S.phase = 'kick'; S.kickT = 0.25; reticle.visible = false; act('kick', 0.7);
 }
 function strike() {
   const S = state.pen;
-  {
-    audio.kick(S.power);
-    const p = S.power, spread = Math.max(0, p - 0.55) * 0.9;
-    const to = S.aim.clone().add(new V3((Math.random() - 0.5) * spread, (Math.random() - 0.3) * spread + (p > 0.92 ? 0.9 : 0), 0));
-    S.from = ball.pos.clone(); S.to = to; S.dur = 6.6 / (11 + 15 * p); S.arc = 0.25 + (1 - p) * 0.5; S.ft = 0; ball.frozen = true; S.phase = 'flight';
-    // The kid reads soft shots and guesses on hard ones.
-    const reads = Math.random() < 0.6 - 0.45 * p;
-    const side = reads ? Math.sign(to.x - GOAL.x) * Math.min(1, Math.abs(to.x - GOAL.x) / 1.2) : (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
-    S.dive = Math.abs(to.x - GOAL.x) < 0.35 && reads ? 0.05 : side; S.high = to.y - W.laje.y > 1.2; S.reads = reads;
-  }
+  audio.kick(S.power);
+  const p = S.power, spread = Math.max(0, p - 0.55) * 0.9;
+  const to = S.aim.clone().addScaledVector(GOAL.l, (Math.random() - 0.5) * spread); to.y += (Math.random() - 0.3) * spread + (p > 0.92 ? 0.9 : 0);
+  S.from = ball.pos.clone(); S.to = to; S.dur = 6.6 / (11 + 15 * p); S.arc = 0.25 + (1 - p) * 0.5; S.ft = 0; ball.frozen = true; S.phase = 'flight';
+  // Cristiano reads soft shots and guesses on hard ones; he gets a little tired after a few tries.
+  const reads = Math.random() < (0.62 - 0.45 * p) * (S.tries >= 3 ? 0.45 : 1);
+  const L = lat(to);
+  const side = reads ? Math.sign(L) * Math.min(1, Math.abs(L) / 1.2) : (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
+  S.dive = Math.abs(L) < 0.35 && reads ? 0.05 : side; S.high = to.y > 1.2; S.reads = reads;
 }
 function resolveShot() {
-  const S = state.pen, to = S.to;
-  const inGoal = Math.abs(to.x - GOAL.x) < GOAL.w / 2 - 0.05 && to.y - W.laje.y < GOAL.h - 0.05 && to.y > W.laje.y;
-  const kx = davi.root.position.x, reach = 0.62 + (S.high ? -0.08 : 0.18);
-  const saved = inGoal && Math.abs(to.x - kx) < reach && (to.y - W.laje.y < 1.6 + Math.abs(S.dive) * 0.5);
-  const spans = $('#tally').children;
-  if (inGoal && !saved) { S.goals++; spans[S.shot].className = 'g'; spans[S.shot].textContent = '✓'; toast('GOOOL!'); audio.net(); audio.cheer(0.8); audio.fiesta(3); addStyle(400, 'PENALTY'); netKick = 0.5; S.after = dt => { ball.pos.z -= dt * 0.4; ball.pos.y = Math.max(W.laje.y + BALL_R, ball.pos.y - dt * 2); ball.mesh.position.copy(ball.pos); }; }
-  else { spans[S.shot].className = 'm'; spans[S.shot].textContent = '✕'; toast(saved ? 'SAVED!' : 'MISSED!', '#ff2d55'); audio.ooh(); const v = new V3((Math.random() - 0.5) * 6, 3, 4); S.after = dt => { v.y -= 9.8 * dt; ball.pos.addScaledVector(v, dt); if (ball.pos.y < W.laje.y + BALL_R) { ball.pos.y = W.laje.y + BALL_R; v.y *= -0.4; v.x *= 0.8; v.z *= 0.8; } ball.mesh.position.copy(ball.pos); }; }
+  const S = state.pen, to = S.to, L = lat(to);
+  const inGoal = Math.abs(L) < GOAL.w / 2 - 0.05 && to.y < GOAL.h - 0.05 && to.y > 0;
+  const kx = lat(ronaldo.root.position), reach = 0.62 + (S.high ? -0.08 : 0.18);
+  const saved = inGoal && Math.abs(L - kx) < reach && (to.y < 1.6 + Math.abs(S.dive) * 0.5);
+  const span = $('#tally').children[0];
+  if (inGoal && !saved) {
+    S.scored = true; span.className = 'g'; span.textContent = '✓'; toast('GOOOL!'); audio.net(); audio.cheer(1); audio.fiesta(4); addStyle(500, 'PENALTY ON CR7'); kidsCheer = 2.5;
+    const back = GOAL.n.clone().negate();
+    S.after = dt => { ball.pos.addScaledVector(back, dt * 0.4); ball.pos.y = Math.max(BALL_R, ball.pos.y - dt * 2); ball.mesh.position.copy(ball.pos); };
+    setTimeout(() => celebrate(true), 500);
+  } else {
+    span.className = 'm'; span.textContent = '✕'; toast(saved ? 'SAVED!' : 'MISSED!', '#ff2d55'); audio.ooh();
+    const v = GOAL.l.clone().multiplyScalar((Math.random() - 0.5) * 6).addScaledVector(GOAL.n, 4); v.y = 3;
+    S.after = dt => { v.y -= 9.8 * dt; ball.pos.addScaledVector(v, dt); if (ball.pos.y < BALL_R) { ball.pos.y = BALL_R; v.y *= -0.4; v.x *= 0.8; v.z *= 0.8; } ball.mesh.position.copy(ball.pos); };
+  }
   S.phase = 'after'; S.at = 0;
 }
 function endPens() {
   const S = state.pen; state.pen = null;
-  $('#tally').classList.add('hidden'); reticle.visible = false; davi.root.rotation.z = 0; davi.root.position.set(GOAL.x, W.laje.y, GOAL.z + 0.45);
+  $('#tally').classList.add('hidden'); reticle.visible = false; ronaldo.root.rotation.z = 0; ronaldo.root.position.copy(keeperBase(0));
   ball.frozen = false; ball.pos.copy(SPOT).add(new V3(0.5, 0.3, 0.5)); ball.vel.set(0, 0, 0);
-  release(); popMode(); if (TOUCH && S.goals < 2) $('#touch').classList.remove('hidden'); S.res(S.goals >= 2);
+  release(); popMode(); S.res(S.scored);
 }
-let netKick = 0;
 
 // ================= celebration =================
 // Each star has a shout; the move is a little run-up, a jump and a half turn to face the camera.
 const CELEB = { mbappe: 'MBAPPÉÉÉ!', yamal: 'LAMINE!', kane: 'HARRY KANE!' };
-let siuT = -1, trophyHeld = false, ronaldoSiu = -1, npcCheer = 0;
+let siuT = -1, ronaldoSiu = -1;
 function celebrate(auto = false) {
   if (siuT >= 0) return;
   siuT = 0; act('siu', 1.9); P.vel.set(0, 0, 0);
   if (!auto) addStyle(200, 'CELEBRATION');
   toast(CELEB[hero.id]);
   setTimeout(() => { audio.cheer(1); kidsCheer = 2; cam.shake = 0.35; }, 1100);
-}
-// The Ballon d'Or held up high in the right hand (after the body pose is set).
-function holdTrophy() {
-  me.rot('rArm', new V3(1, 0, 0), -2.75); me.rot('rFore', new V3(1, 0, 0), -0.35); me.root.updateMatrixWorld(true);
-  trophy.position.copy(me.bones.rHand.getWorldPosition(new V3())); trophy.position.y -= 0.08; trophy.rotation.set(0, me.root.rotation.y, 0);
 }
 
 // ================= cards (collectibles) =================
@@ -777,16 +719,17 @@ const cards = CARD_SPOTS.map(([x, z]) => {
 $('#cardsN').textContent = `0/${cards.length}`;
 
 // ================= NPC behaviour =================
-let kidsCheer = 0, daviCheer = 0, courtHolder = 0, passT = 2, courtRecv = -1;
-const daviJuggle = { on: true, t: 0 };
+let kidsCheer = 0, courtHolder = 0, passT = 2, courtRecv = -1;
+// The kids play on the west half of the court: the east half is Cristiano's.
+const KX0 = -11, KX1 = 3;
 function updateKids(dt) {
   const CB = courtBall;
   kids.forEach((k, i) => {
     let tgt = k.target;
-    if (!k.watch && state.stage !== STAGES.JUGGLE) {
+    if (!k.watch) {
       if (i === courtRecv) tgt = CB.pos;
-      else if (i === courtHolder) { k.think -= dt; if (k.think <= 0) { k.think = 1 + Math.random() * 1.5; k.target.set(-10 + Math.random() * 20, 0, 4 + Math.random() * 7); } }
-      else { k.think -= dt; if (k.think <= 0) { k.think = 1.5 + Math.random() * 2; k.target.set(-10 + Math.random() * 20, 0, 4 + Math.random() * 8); } }
+      else if (i === courtHolder) { k.think -= dt; if (k.think <= 0) { k.think = 1 + Math.random() * 1.5; k.target.set(KX0 + Math.random() * (KX1 - KX0), 0, 4 + Math.random() * 7); } }
+      else { k.think -= dt; if (k.think <= 0) { k.think = 1.5 + Math.random() * 2; k.target.set(KX0 + Math.random() * (KX1 - KX0), 0, 4 + Math.random() * 8); } }
     }
     const dx = tgt.x - k.pos.x, dz = tgt.z - k.pos.z, d = Math.hypot(dx, dz);
     const want = k.watch ? (d > 0.3 ? 3 : 0) : (i === courtRecv ? 5.2 : i === courtHolder ? 3.4 : d > 1 ? 2.6 : 0);
@@ -799,7 +742,7 @@ function updateKids(dt) {
     k.ch.animate({ dt, speed: k.speed, grounded: true, action: kidsCheer > 0 ? 'cheer' : null, actionT: kidsCheer });
   });
   // The ball game: the holder dribbles, then passes to someone; the receiver runs onto it.
-  if (state.stage !== STAGES.JUGGLE && !kids.some(k => k.watch)) {
+  if (!kids.some(k => k.watch)) {
     if (courtHolder >= 0) {
       const k = kids[courtHolder], f = new V3(Math.sin(k.yaw), 0, Math.cos(k.yaw));
       const want = k.pos.clone().addScaledVector(f, 0.45 + k.speed * 0.08); CB.vel.x = (want.x - CB.pos.x) * 8; CB.vel.z = (want.z - CB.pos.z) * 8;
@@ -816,7 +759,7 @@ function updateKids(dt) {
     }
   }
   CB.update(dt);
-  if (CB.pos.x < -12.9 || CB.pos.x > 12.9 || CB.pos.z < 2.1 || CB.pos.z > 17.9) { CB.pos.set(clamp(CB.pos.x, -12, 12), 0.3, clamp(CB.pos.z, 3, 17)); CB.vel.set(0, 0, 0); }
+  if (CB.pos.x < -12.9 || CB.pos.x > KX1 + 2 || CB.pos.z < 2.1 || CB.pos.z > 17.9) { CB.pos.set(clamp(CB.pos.x, -12, KX1), 0.3, clamp(CB.pos.z, 3, 17)); CB.vel.set(0, 0, 0); }
   kidsCheer = Math.max(0, kidsCheer - dt);
   for (const f of fans) f.animate({ dt, speed: 0, grounded: true, action: kidsCheer > 0 ? 'cheer' : 'sit', actionT: kidsCheer });
 }
@@ -830,20 +773,18 @@ function updateNPCs(dt) {
   ze.animate({ dt, speed: 0, grounded: true, action: tk(ze) || 'lean', actionT: performance.now() / 1000, look: lookAtPlayer(ze) });
   thiago.animate({ dt, speed: 0, grounded: true, action: tk(thiago) || (kidsCheer > 0 ? 'cheer' : null), actionT: performance.now() / 1000, look: lookAtPlayer(thiago) });
   lucas.animate({ dt, speed: 0, grounded: true, action: tk(lucas), actionT: performance.now() / 1000, look: lookAtPlayer(lucas) });
-  // Davi juggles until you get there; in goal he is a keeper.
-  if (state.pen) davi.animate({ dt, speed: 0, grounded: true, action: 'keeper', dive: state.pen.dive * state.pen.diveT });
-  else if (daviJuggle.on) {
-    daviJuggle.t += dt; const tl = 0.55, ph = (daviJuggle.t % tl) / tl;
-    davi.animate({ dt, speed: 0, grounded: true, action: 'juggle', actionT: daviJuggle.t % tl, tapLen: tl });
-    const f = new V3(Math.sin(davi.root.rotation.y), 0, Math.cos(davi.root.rotation.y));
-    daviBall.pos.copy(davi.root.position).addScaledVector(f, 0.38); daviBall.pos.y += 0.35 + Math.sin(ph * Math.PI) * 1.0; daviBall.frozen = true; daviBall.update(dt); daviBall.mesh.rotation.x += dt * 8;
-  } else davi.animate({ dt, speed: 0, grounded: true, action: tk(davi) || (daviCheer > 0 ? 'cheer' : null), actionT: performance.now() / 1000, look: lookAtPlayer(davi) });
-  daviCheer = Math.max(0, daviCheer - dt);
-  // Ronaldo (does a SIUUU when you meet him) and Messi.
+  // Cristiano: juggles while he waits, SIUUU, walks to his line, keeper stance and dives in the penalty.
   if (ronaldoSiu >= 0) { ronaldoSiu += dt; if (ronaldoSiu > 1.9) ronaldoSiu = -1; }
-  ronaldo.animate({ dt, speed: 0, grounded: true, action: ronaldoSiu >= 0 ? 'siu' : tk(ronaldo) || (npcCheer > 0 ? 'cheer' : null), actionT: ronaldoSiu >= 0 ? ronaldoSiu : performance.now() / 1000, look: lookAtPlayer(ronaldo) });
-  messi.animate({ dt, speed: 0, grounded: true, action: tk(messi) || (npcCheer > 0 ? 'cheer' : null), actionT: performance.now() / 1000, look: lookAtPlayer(messi) });
-  npcCheer = Math.max(0, npcCheer - dt);
+  if (state.pen) ronaldo.animate({ dt, speed: 0, grounded: true, action: 'keeper', dive: state.pen.dive * state.pen.diveT });
+  else if (cr7.keeper) ronaldo.animate({ dt, speed: 0, grounded: true, action: tk(ronaldo) || 'keeper', actionT: performance.now() / 1000 });
+  else if (cr7.walk > 0) ronaldo.animate({ dt, speed: cr7.walk, grounded: true });
+  else if (ronaldoSiu >= 0) ronaldo.animate({ dt, speed: 0, grounded: true, action: 'siu', actionT: ronaldoSiu });
+  else if (cr7.juggle) {
+    cr7.t += dt; const tl = 0.5, ph = (cr7.t % tl) / tl;
+    ronaldo.animate({ dt, speed: 0, grounded: true, action: 'juggle', actionT: cr7.t % tl, tapLen: tl });
+    const f = new V3(Math.sin(ronaldo.root.rotation.y), 0, Math.cos(ronaldo.root.rotation.y));
+    cr7Ball.pos.copy(ronaldo.root.position).addScaledVector(f, 0.4); cr7Ball.pos.y += 0.35 + Math.sin(ph * Math.PI) * 1.1; cr7Ball.update(dt); cr7Ball.mesh.rotation.x += dt * 8;
+  } else ronaldo.animate({ dt, speed: 0, grounded: true, action: tk(ronaldo) || (kidsCheer > 0 && state.stage >= STAGES.CAR ? 'cheer' : null), actionT: performance.now() / 1000, look: lookAtPlayer(ronaldo) });
 }
 
 // ================= player update =================
@@ -901,14 +842,13 @@ function updatePlayer(dt) {
   if (P.grounded && P.speed > 0.8 && P.mode !== 'climb') { const ph = Math.floor(me.phase / Math.PI); if (ph !== P.stepPhase) { P.stepPhase = ph; audio.step(); } }
   // Character pose.
   me.root.position.copy(P.pos); me.root.rotation.y = P.yaw + P.spin;
-  const actName = P.action === 'jugglePose' ? 'juggle' : P.action;
+  const actName = P.action;
   me.animate({ dt, speed: P.mode === 'climb' ? 0 : P.speed, grounded: P.grounded || P.mode === 'climb', action: talking === me && !actName ? 'talk' : actName, actionT: P.action === 'climb' ? P.actT / P.actLen : P.actT, tapLen: 0.32, lean: 0 });
-  if (trophyHeld) holdTrophy();
   IN.jump = IN.use = IN.trick = IN.shoot = IN.siu = false;
 }
 // Ball at your feet: touches while running, settles when you stop, comes back if you lose it.
 function updateBall(dt) {
-  if (state.juggle || state.pen) return;
+  if (state.pen) return;
   const f = fwd(), right = new V3(f.z, 0, -f.x);
   const d = ball.pos.clone().sub(P.pos); const dy = d.y; d.y = 0; const dist = d.length();
   const ahead = d.dot(f), lat = d.dot(right);
@@ -969,25 +909,19 @@ function update(dt) {
   if (!state.paused) {
     for (let i = waits.length - 1; i >= 0; i--) if (waits[i].fn()) { const w = waits.splice(i, 1)[0]; w.r(); }
     if (state.started) state.playTime = (performance.now() - state.t0) / 1000;
-    if (state.juggle) { updateJuggle(dt); me.root.position.copy(P.pos); me.root.rotation.y = P.yaw; me.animate({ dt, speed: 0, grounded: true, action: P.action === 'jugglePose' ? null : P.action, actionT: P.actT, tapLen: 0.32 }); P.actT += dt; if (P.action === 'juggle' && P.actT > 0.32) P.action = null; IN.jump = IN.use = IN.shoot = false; IN.skip = false; }
-    else if (state.pen) { updatePen(dt); me.root.position.copy(P.pos); me.root.rotation.y = P.yaw; P.actT += dt; if (P.action && P.actT > P.actLen) P.action = null; me.animate({ dt, speed: 0, grounded: true, action: P.action, actionT: P.actT }); IN.jump = IN.use = IN.shoot = false; }
+    for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i](dt)) tweens.splice(i, 1);
+    if (state.pen) { updatePen(dt); me.root.position.copy(P.pos); me.root.rotation.y = P.yaw; P.actT += dt; if (P.action && P.actT > P.actLen) P.action = null; me.animate({ dt, speed: 0, grounded: true, action: P.action, actionT: P.actT }); IN.jump = IN.use = IN.shoot = false; }
     else { updatePlayer(dt); updateBall(dt); }
     updateNPCs(dt);
     // Mission triggers by position.
-    if (state.stage === STAGES.TAGS && tagIdx < TAGS.length && P.pos.distanceTo(TAGS[tagIdx].at) < 3.2) nextTag();
-    if ((state.stage === STAGES.ROOF || state.stage === STAGES.TAGS) && P.pos.y > W.laje.y - 0.2 && P.pos.x > W.laje.x0 && P.pos.x < W.laje.x1 && P.pos.z > W.laje.z0 && P.pos.z < W.laje.z1 && mode() === 'free' && P.mode === 'free') { tagIdx = TAGS.length; meetDavi(); }
-    // Ronaldo and Messi stop you the first time you pass them on the way up.
-    if (state.stage === STAGES.TAGS && mode() === 'free' && P.mode === 'free') {
-      if (!met.messi && P.pos.distanceTo(messi.root.position) < 3.6) meetMessi();
-      else if (!met.ronaldo && P.pos.distanceTo(ronaldo.root.position) < 3.6) meetRonaldo();
-    }
+    // Cristiano stops you when you walk up to him in the cage.
+    if (state.stage === STAGES.FIND && mode() === 'free' && P.mode === 'free' && P.pos.distanceTo(ronaldo.root.position) < 3.6) meetRonaldo();
     // Cards.
     for (const c of cards) if (!c.got) {
       c.m.rotation.y += dt * 2; c.m.position.y = c.y + Math.sin(performance.now() / 400) * 0.1;
       if (c.m.position.distanceTo(new V3(P.pos.x, P.pos.y + 0.9, P.pos.z)) < 1.1) { c.got = true; c.m.visible = false; state.cards++; $('#cardsN').textContent = `${state.cards}/${cards.length}`; audio.chime(); addStyle(150, 'STREET CARD'); }
     }
     // Glowing tag pulse.
-    if (tagIdx >= 0 && tagIdx < tagMeshes.length) tagMeshes[tagIdx].material.emissiveIntensity = 0.7 + Math.sin(performance.now() / 250) * 0.3;
     if (W.cloth) W.cloth.rotation.y = 0;
   }
   if (!state.started) { const t = performance.now() / 1000; shot(new V3(Math.sin(t * 0.05) * 60, 34, 70 + Math.cos(t * 0.05) * 20), new V3(0, 4, -12), { cut: true }); }
@@ -1066,4 +1000,4 @@ me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
 frame();
 post('ready');
 // Test hooks.
-window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, davi, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, meetDavi, winPens: () => { if (state.pen) { state.pen.goals = 2; endPens(); } }, meetMessi, meetRonaldo, finishJuggle, nextTag, celebrate, pickHero, heroes: HEROES, ronaldo, messi, trophy, groundAt, IN, mode: () => mode() };
+window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };

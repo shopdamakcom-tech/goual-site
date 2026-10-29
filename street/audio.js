@@ -114,6 +114,15 @@ export const audio = {
   },
   ooh() { if (!this.ctx) return; const t = this.ctx.currentTime; this.noise(this.sfx, t, { f: 500, q: 3, level: 0.16, a: 0.2, d: 1.0, to: 300 }); },
   chime() { if (!this.ctx) return; const t = this.ctx.currentTime; [880, 1320, 1760].forEach((f, i) => this.tone(this.sfx, t + i * 0.07, { f, type: 'triangle', level: 0.08, d: 0.35 })); },
+  // A big engine purring for `sec` seconds (Cristiano's car).
+  engine(sec = 3) {
+    if (!this.ctx) return; const t = this.ctx.currentTime, ctx = this.ctx;
+    const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    o.type = 'sawtooth'; o.frequency.setValueAtTime(38, t); o.frequency.linearRampToValueAtTime(62, t + sec * 0.6); o.frequency.linearRampToValueAtTime(44, t + sec);
+    f.type = 'lowpass'; f.frequency.value = 260;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.4); g.gain.setValueAtTime(0.16, t + sec - 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + sec);
+    o.connect(f).connect(g).connect(this.sfx); o.start(t); o.stop(t + sec + 0.05);
+  },
   blip(f = 660) { if (!this.ctx) return; this.tone(this.sfx, this.ctx.currentTime, { f, type: 'triangle', level: 0.06, d: 0.08 }); },
   whistle() { if (!this.ctx) return; const t = this.ctx.currentTime; const o = this.ctx.createOscillator(), g = this.ctx.createGain(), v = this.ctx.createOscillator(), vg = this.ctx.createGain(); o.frequency.value = 2900; v.frequency.value = 30; vg.gain.value = 150; v.connect(vg).connect(o.frequency); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); o.connect(g).connect(this.sfx); o.start(t); v.start(t); o.stop(t + 0.55); v.stop(t + 0.55); },
 

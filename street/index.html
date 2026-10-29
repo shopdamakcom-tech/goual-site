@@ -111,6 +111,7 @@
   @media (max-width: 700px) { #loading .ld-art { background-position: center; opacity: .45; } #loading .ld-heroes img { width: 56px; height: 56px; } }
   @media (max-height: 520px) { #loading .ld-logo { font-size: 46px; margin: 4px 0 8px; } #loading .ld-heroes { margin-bottom: 10px; } #loading .ld-heroes img { width: 46px; height: 46px; } #loading .ld-tip { margin-top: 10px; } }
   #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 4; }
+  #fade.on { opacity: 1; }
   #letterbox::before, #letterbox::after { content: ''; position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .5s; z-index: 1; }
   #letterbox::before { top: 0; } #letterbox::after { bottom: 0; }
   #letterbox.on::before, #letterbox.on::after { height: 7vh; }
@@ -193,7 +194,7 @@
   <div class="panel">
     <div class="kicker">GOUAL ART PRESENTS</div>
     <h1 class="logo">STREET FOOT<span>The Ballon d'Or</span></h1>
-    <p class="lede">Rio de Janeiro, Morro da Goual. The <b>Ballon d'Or</b> was on show at a charity match… and this morning it was gone. Ronaldo and Messi are already looking for it. Get there first.</p>
+    <p class="lede">Rio de Janeiro, Morro da Goual. The <b>Ballon d'Or</b> was on show at a charity match… and this morning it was gone. Cristiano Ronaldo knows where it went… if you can beat him from the penalty spot.</p>
     <div class="pickT">CHOOSE YOUR STAR</div>
     <div id="heroPick">
       <button type="button" data-hero="mbappe" style="--c:#2f6fe0"><img src="heroes/mbappe.webp" alt=""><b>MBAPPÉ</b><small>France · 10</small></button>
@@ -217,13 +218,13 @@
       <button id="restartBtn">Restart the mission</button>
       <button id="quitBtn">Back to the GOUAL ART tour</button>
     </div>
-    <p class="credits">Mbappé, Yamal and Kane models made by GOUAL ART with Meshy. CR7 model: “3D Rigged Cristiano Ronaldo Al Nassr” by Lean_Lo1786 (Sketchfab), CC BY 4.0. Unofficial fan game. Voices generated with Kokoro TTS (Apache 2.0). Favela, music and animation made in code by GOUAL ART.</p>
+    <p class="credits">Mbappé, Yamal and Kane models made by GOUAL ART with Meshy. CR7 model: “3D Rigged Cristiano Ronaldo Al Nassr” by Lean_Lo1786 (Sketchfab), CC BY 4.0. Bugatti Chiron model by Bob Kimani (Kimz Auto). Unofficial fan game. Voices generated with Kokoro TTS (Apache 2.0). Favela, music and animation made in code by GOUAL ART.</p>
   </div>
 </div>
 <div id="end" class="screen hidden">
   <div class="panel">
-    <div class="kicker">MISSION COMPLETE</div>
-    <h2 class="big">BALLON D'OR FOUND<span id="eWho">Well played</span></h2>
+    <div class="kicker">EPISODE 1 COMPLETE · NEXT: THE BUILDING OF THE BALLON D'OR</div>
+    <h2 class="big">TO BE CONTINUED…<span id="eWho">Well played</span></h2>
     <div class="scores"><div><b id="eTime">0:00</b><small>Time</small></div><div><b id="eCards">0/8</b><small>Cards</small></div><div><b id="eStyle">0</b><small>Style</small></div></div>
     <div class="menu">
       <button class="primary" id="tourBtn">BACK TO THE TOUR</button>
@@ -254,6 +255,6 @@
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=7"></script>
+<script type="module" src="game.js?v=10"></script>
 </body>
 </html>
