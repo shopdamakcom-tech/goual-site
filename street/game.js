@@ -82,7 +82,7 @@ const manager = new THREE.LoadingManager();
 manager.onProgress = (u, a, b) => { const k = Math.round(a / b * 100); $('#loading .bar i').style.width = k + '%'; $('#loadPct').textContent = k + '%'; };
 const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
 const load = url => new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
-const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc, casaSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), load('models/mbappe.glb'), load('models/yamal.glb'), load('models/kane.glb'), load('models/casa.glb').catch(() => null)]);
+const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), load('models/mbappe.glb'), load('models/yamal.glb'), load('models/kane.glb')]);
 
 // ================= characters =================
 // The three playable stars (models made by GOUAL ART with Meshy). `me` is the one you picked.
@@ -156,20 +156,6 @@ function makeCar() {
   return g;
 }
 const car = makeCar(); car.visible = false; scene.add(car);
-// "House Low Poly" by Igor Ribeiro (BlendSwap, CC BY 3.0): a little brick house with a water tank on a
-// grassy morro, with its stairs. Two of them rise from the slope below the plaza, either side of the
-// view on the bay; a grass skirt carries each hill down the slope so it never floats.
-if (casaSrc) for (const [x, z, ry, s] of [[-29, 58, 0.3, 1.2], [31, 60, -0.35, 1.1]]) {
-  const m = casaSrc.clone(); m.scale.setScalar(s); m.rotation.y = ry; m.position.set(x, 7.9 * s - 3.5, z);
-  let grass = null;
-  m.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; if (/morro/i.test(o.name)) grass = o; } });
-  scene.add(m); m.updateMatrixWorld(true);
-  if (grass) {
-    const b = new THREE.Box3().setFromObject(grass), c = b.getCenter(new V3()), r = Math.min(b.max.x - b.min.x, b.max.z - b.min.z) * 0.42;
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 2.2, 24, 24, 1, true), grass.material);
-    skirt.position.set(c.x, b.min.y + 0.6 - 12, c.z); skirt.receiveShadow = true; scene.add(skirt);
-  }
-}
 // The painted Rio sky (panorama, horizon band and clouds made by GOUAL ART), facing the bay to the south.
 scene.add(makeSky(art.T, art.meta, { turn: 0.125, low: -0.16, high: 0.26 }));
 const clouds = makeClouds(art.T, art.meta, 18); clouds.scale.setScalar(1.6); scene.add(clouds);
