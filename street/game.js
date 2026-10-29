@@ -138,7 +138,7 @@ const clouds = makeClouds(art.T, art.meta, 18); clouds.scale.setScalar(1.6); sce
   const at = (x, z, yMax = 30) => new V3(x, groundAt(x, z, yMax), z);
   const put = (p, rot, fn) => { b.push(p, rot); fn(); b.pop(); };
   for (const [x, z, y, r, pose] of [[-12.6, 21, 0.6, 0.8, 'lie'], [-16.5, 30.5, 0.6, 2.4, 'stand'], [14.5, 30, 0.6, -1.2, 'lie'], [-3.5, -8.2, 3.6, 1.4, 'stand'], [9, -23.6, 6.6, -2, 'lie'], [-20, -9, 3.6, 0.3, 'lie']]) put(at(x, z, y), r, () => dog(b, K, RR, pose));
-  for (const [x, z, y, r] of [[-17.5, 31.5, 0.6, 0.4], [16, 33, 0.6, 1.2], [-8, -12.6, 3.6, 2.1]]) put(at(x, z, y), r, () => clutter(b, K, RR, 'chairs'));
+  for (const [x, z, y, r] of [[-8, -12.6, 3.6, 2.1]]) put(at(x, z, y), r, () => clutter(b, K, RR, 'chairs'));
   for (const [x, z, y, k] of [[-21, 31, 0.6, 'gas'], [22.5, 25, 0.6, 'crates'], [18, -12.2, 3.6, 'bags'], [-14, -24, 6.6, 'crates'], [3, -27.4, 6.6, 'gas']]) put(at(x, z, y), RR() * 6, () => clutter(b, K, RR, k));
   laundry(b, K, RR, new V3(-6, 5.2, 27.6), new V3(6, 5.4, 27.6));
   laundry(b, K, RR, new V3(-12, 8.4, -11.3), new V3(-2, 8.6, -11.3));
@@ -639,7 +639,7 @@ function updatePen(dt) {
     if (S.ft > 0.1) S.diveT = Math.min(1, S.diveT + dt / 0.42);
     if (k >= 1) resolveShot();
   }
-  if (S.phase === 'after') { S.at += dt; if (S.after) S.after(dt); if (S.at > 1.8) endPens(); }
+  if (S.phase === 'after') { S.at += dt; if (S.after) S.after(dt); if (S.at > 1.8) return endPens(); }
   // Keeper: ready stance, sways along his line, then dives.
   const d = S.dive * S.diveT;
   ronaldo.root.position.copy(keeperBase(S.keeperX + d * 1.15));
