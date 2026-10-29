@@ -82,7 +82,7 @@ const manager = new THREE.LoadingManager();
 manager.onProgress = (u, a, b) => { const k = Math.round(a / b * 100); $('#loading .bar i').style.width = k + '%'; $('#loadPct').textContent = k + '%'; };
 const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
 const load = url => new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
-const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), load('models/mbappe.glb'), load('models/yamal.glb'), load('models/kane.glb')]);
+const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc, carSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), load('models/mbappe.glb'), load('models/yamal.glb'), load('models/kane.glb'), load('models/car.glb')]);
 
 // ================= characters =================
 // The three playable stars (models made by GOUAL ART with Meshy). `me` is the one you picked.
@@ -118,42 +118,15 @@ const gloves = (() => {
   return { set: on => list.forEach(g => { g.visible = on; }) };
 })();
 const ENV = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-// Cristiano's car: a long black saloon with tinted windows, chrome and a CR7 plate. Built in code.
+// Cristiano's car: a Bugatti Chiron (model by Bob Kimani, Kimz Auto), 4.54 m long, nose along +x.
 function makeCar() {
-  const g = new THREE.Group();
-  const paint = new THREE.MeshPhysicalMaterial({ color: 0x050608, metalness: 0.25, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.08, envMap: ENV, envMapIntensity: 0.45 });
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0x06090b, metalness: 0.1, roughness: 0.06, envMap: ENV, envMapIntensity: 0.9 });
-  const chrome = new THREE.MeshStandardMaterial({ color: 0xdddddd, metalness: 1, roughness: 0.18, envMap: ENV });
-  const tyre = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
-  const lamp = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xfff2d0, emissiveIntensity: 2.2 });
-  const tail = new THREE.MeshStandardMaterial({ color: 0x550000, emissive: 0xff1a1a, emissiveIntensity: 1.6 });
-  // Side profile (x = length, y = height), extruded across the width with soft bevels.
-  const prof = (pts, depth, bevel) => {
-    const sh = new THREE.Shape(); sh.moveTo(...pts[0]); for (let i = 1; i < pts.length; i += 2) sh.quadraticCurveTo(...pts[i], ...pts[i + 1]);
-    const e = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 4, curveSegments: 12 });
-    e.translate(0, 0, -depth / 2); return e;
-  };
-  const body = new THREE.Mesh(prof([[2.45, 0.32], [2.58, 0.45], [2.5, 0.72], [2.3, 0.84], [1.2, 0.92], [0.55, 1.38], [-0.2, 1.42], [-1.2, 1.42], [-1.75, 0.98], [-2.45, 0.94], [-2.5, 0.6], [-2.52, 0.32], [0, 0.3], [1.5, 0.3], [2.45, 0.32]], 1.62, 0.14), paint);
-  const win = new THREE.Mesh(prof([[1.15, 0.92], [0.6, 1.3], [-0.15, 1.36], [-0.6, 1.37], [-1.1, 1.35], [-1.5, 1.0], [-0.2, 0.94], [0.5, 0.92], [1.15, 0.92]], 1.66, 0.12), glass);
-  g.add(body, win);
-  const wheelGeo = new THREE.CylinderGeometry(0.36, 0.36, 0.26, 24), rimGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.28, 16);
-  for (const sx of [-1.55, 1.6]) for (const sz of [-1, 1]) {
-    const w = new THREE.Mesh(wheelGeo, tyre); w.rotation.x = Math.PI / 2; w.position.set(sx, 0.36, sz * 0.86); g.add(w);
-    const r = new THREE.Mesh(rimGeo, chrome); r.rotation.x = Math.PI / 2; r.position.copy(w.position); g.add(r);
-  }
-  for (const sz of [-1, 1]) {
-    const h = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.42), lamp); h.position.set(2.62, 0.68, sz * 0.58); g.add(h);
-    const t = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.48), tail); t.position.set(-2.6, 0.8, sz * 0.56); g.add(t);
-  }
-  const grille = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.7), chrome); grille.position.set(2.66, 0.52, 0); g.add(grille);
-  const strip = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.04, 1.92), chrome); strip.position.set(0.1, 0.92, 0); strip.scale.y = 0.6; g.add(strip);
-  // Number plate.
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d');
-  x.fillStyle = '#f4f4f4'; x.fillRect(0, 0, 256, 64); x.fillStyle = '#111'; x.font = '900 44px Arial'; x.textAlign = 'center'; x.fillText('CR7 · 007', 128, 48);
-  const pt = new THREE.CanvasTexture(c); pt.colorSpace = THREE.SRGBColorSpace;
-  for (const s of [1, -1]) { const p = new THREE.Mesh(new THREE.PlaneGeometry(0.52, 0.13), new THREE.MeshStandardMaterial({ map: pt, roughness: 0.4 })); p.position.set(s * 2.68, 0.45, 0); p.rotation.y = s * Math.PI / 2; g.add(p); }
-  g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  return g;
+  const g = new THREE.Group(), m = carSrc;
+  m.rotation.y = Math.PI / 2; m.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(m), k = 4.54 / (b.max.x - b.min.x);
+  m.scale.setScalar(k); m.updateMatrixWorld(true); b.setFromObject(m);
+  m.position.set(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+  m.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; const mt = o.material; if (mt.metalness > 0.3) { mt.envMap = ENV; if (mt.color.r + mt.color.g + mt.color.b < 0.08) { mt.metalness = 0.15; mt.envMapIntensity = 0.35; } } } });
+  g.add(m); return g;
 }
 const car = makeCar(); car.visible = false; scene.add(car);
 // The painted Rio sky (panorama, horizon band and clouds made by GOUAL ART), facing the bay to the south.
