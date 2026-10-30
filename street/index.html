@@ -112,6 +112,19 @@
   @media (max-height: 520px) { #loading .ld-logo { font-size: 46px; margin: 4px 0 8px; } #loading .ld-heroes { margin-bottom: 10px; } #loading .ld-heroes img { width: 46px; height: 46px; } #loading .ld-tip { margin-top: 10px; } }
   #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 4; }
   #fade.on { opacity: 1; }
+  /* While the car drives to the airport: a little road with the car on it, instead of a black screen. */
+  #fade .trip { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: radial-gradient(ellipse at 50% 60%, #1b2d6b 0%, #0d1b4d 55%, #070f2c 100%); color: #fff; font: 800 15px/1.2 Inter, Arial, sans-serif; letter-spacing: .18em; }
+  #fade.trip .trip { display: flex; }
+  #fade .trip b { color: #ffd400; font: 400 30px/1 'Bebas Neue', Impact, sans-serif; letter-spacing: .08em; }
+  #fade .road { position: relative; width: min(420px, 80vw); height: 46px; overflow: hidden; }
+  #fade .road::before { content: ''; position: absolute; left: 0; right: 0; bottom: 6px; height: 4px; background: repeating-linear-gradient(90deg, #ffd400 0 26px, transparent 26px 48px); animation: tripRoad .5s linear infinite; }
+  #fade .car { position: absolute; left: 50%; bottom: 12px; width: 74px; height: 22px; margin-left: -37px; border-radius: 12px 26px 5px 5px; background: linear-gradient(90deg, #0b1230 0 46%, #2f62d9 46%); animation: tripBob .35s ease-in-out infinite alternate; }
+  #fade .car::before, #fade .car::after { content: ''; position: absolute; bottom: -7px; width: 15px; height: 15px; border-radius: 50%; background: #111; border: 3px solid #b9c3d6; }
+  #fade .car::before { left: 8px; } #fade .car::after { right: 9px; }
+  #fade .dots::after { content: ''; animation: tripDots 1.2s steps(4) infinite; }
+  @keyframes tripRoad { to { background-position: -48px 0; } }
+  @keyframes tripBob { to { transform: translateY(-2px); } }
+  @keyframes tripDots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
   #letterbox::before, #letterbox::after { content: ''; position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .5s; z-index: 1; }
   #letterbox::before { top: 0; } #letterbox::after { bottom: 0; }
   #letterbox.on::before, #letterbox.on::after { height: 7vh; }
@@ -218,7 +231,7 @@
       <button id="restartBtn">Restart the mission</button>
       <button id="quitBtn">Back to the GOUAL ART tour</button>
     </div>
-    <p class="credits">Mbappé, Yamal and Kane models made by GOUAL ART with Meshy. CR7 model: “3D Rigged Cristiano Ronaldo Al Nassr” by Lean_Lo1786 (Sketchfab), CC BY 4.0. Bugatti Chiron model by Bob Kimani (Kimz Auto). Airport: “Airport Final Big Scene” by assetfactory (Sketchfab). Unofficial fan game. Voices generated with Kokoro TTS (Apache 2.0). Favela, music and animation made in code by GOUAL ART.</p>
+    <p class="credits">Mbappé, Yamal and Kane models made by GOUAL ART with Meshy. CR7 model: “3D Rigged Cristiano Ronaldo Al Nassr” by Lean_Lo1786 (Sketchfab), CC BY 4.0. Bugatti Chiron model by Bob Kimani (Kimz Auto). Airport: “Airport Final Big Scene” by assetfactory (Sketchfab). City buildings: Downtown City MegaKit by Quaternius (CC0). Unofficial fan game. Voices generated with Kokoro TTS (Apache 2.0). Favela, music and animation made in code by GOUAL ART.</p>
   </div>
 </div>
 <div id="end" class="screen hidden">
@@ -233,7 +246,7 @@
     </div>
   </div>
 </div>
-<div id="fade"></div>
+<div id="fade"><div class="trip"><b>CHAPTER 2 · THE AIRPORT</b><div class="road"><div class="car"></div></div><span class="dots">ON THE WAY TO THE AIRPORT</span></div></div>
 <div id="loading">
   <div class="ld-art"></div>
   <div class="ld-box">
@@ -255,6 +268,6 @@
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=13"></script>
+<script type="module" src="game.js?v=14"></script>
 </body>
 </html>

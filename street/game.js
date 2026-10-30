@@ -577,7 +577,7 @@ async function rideAway() {
   audio.engine?.(4);
   shot(new V3(-22, 3.2, CAR_Z - 9), new V3(-12, 0.8, CAR_Z), { follow: 0.8 });
   await tween(4.2, (k, raw) => { car.position.x = CAR_STOP - 80 * raw * raw; });
-  $('#fade').classList.add('on');
+  $('#fade').classList.add('on', 'trip');
   await sleep(0.9);
   await enterAirport();
   await arriveAirport();
@@ -608,7 +608,7 @@ let thief = null;
 const trophy = makeBallonDor(ENV); trophy.visible = false; scene.add(trophy);
 const theft = { i: 0, run: false, fallen: false };
 async function enterAirport() {
-  const [{ wallColliders, carve }, src] = await Promise.all([import('./airport.js?v=2'), load('models/airport.glb')]);
+  const [{ wallColliders, carve }, src, ...blds] = await Promise.all([import('./airport.js?v=2'), load('models/airport.glb'), ...['Large_2', 'Medium_2_001', 'Small_1'].map(n => load(`models/bld-${n}.glb`))]);
   // Leave the favela: hide it all (lights, sky, car and the stars stay), swap the colliders.
   const keep = new Set([sun, sun.target, sky, clouds, car, ball.mesh, trophy, ...Object.values(HEROES).map(h => h.ch.root)]);
   for (const o of scene.children) if (!keep.has(o) && !o.isLight) o.visible = false;
@@ -623,6 +623,7 @@ async function enterAirport() {
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.03; ground.receiveShadow = true; scene.add(ground);
   const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 600), new THREE.MeshStandardMaterial({ color: 0x3a3b3d, roughness: 0.9 }));
   road.rotation.x = -Math.PI / 2; road.position.set(31, -0.01, 0); road.receiveShadow = true; scene.add(road);
+  buildCity(blds);
   // The thief: black suit, cap, the golden ball under his arm.
   thief = new Character(kidSrc, { kind: 'mixamo', height: 1.82 }); dress(thief, { top: '#151515', bottom: '#151515', shoes: '#0b0b0b', skin: '#c79c78' });
   thief.root.position.copy(AP.THIEF_START); thief.root.rotation.y = Math.PI / 2; scene.add(thief.root);
@@ -630,12 +631,46 @@ async function enterAirport() {
   for (let i = 1; i < AP.PATH.length; i++) for (let k = 0; k <= 1; k += 0.02) { const p = AP.PATH[i - 1].clone().lerp(AP.PATH[i], k); if (W2.has(p.x, p.z)) { console.warn('thief path blocked at', p.x.toFixed(1), p.z.toFixed(1)); break; } }
   return W2;
 }
+// Across the road from the terminal: a row of city buildings ("Downtown City MegaKit" by Quaternius, CC0),
+// sidewalks, lane markings and people walking by.
+const walkers = [];
+function buildCity(blds) {
+  const side = new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.9 }), white = new THREE.MeshBasicMaterial({ color: 0xf2f2f2 });
+  for (const [x, w] of [[39.5, 5], [23, 4]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.16, 600), side); m.position.set(x, 0.06, 0); m.receiveShadow = true; scene.add(m); }
+  const dash = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.15, 3), white, 100); const M4 = new THREE.Matrix4();
+  for (let i = 0; i < 100; i++) { M4.makeRotationX(-Math.PI / 2).setPosition(31, 0.01, -300 + i * 6); dash.setMatrixAt(i, M4); } scene.add(dash);
+  colliders.push({ x0: 41.5, x1: 44, z0: -300, z1: 300, y0: 0, y1: 3 }); indexColliders();
+  // Buildings, fronts facing the airport (model front is +z; turned to face -x).
+  for (const b of blds) b.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; o.geometry.deleteAttribute('color'); for (const m of [].concat(o.material)) m.vertexColors = false; } });
+  const W8 = [20.6, 15, 12.4], order = [0, 2, 1, 0, 1, 2, 1, 0, 2, 1];
+  let z = -125;
+  for (const k of order) {
+    const m = blds[k].clone(); m.rotation.y = -Math.PI / 2; m.position.set(42, 0, z + W8[k] / 2 - (k === 0 ? 1 : k === 1 ? 0 : -1)); scene.add(m);
+    z += W8[k] + 3;
+  }
+  // People walking along both sidewalks.
+  const LOOKS = [{ top: '#2b3a55', bottom: '#1c1c1c', skin: '#e0b48f' }, { top: '#c23b3b', bottom: '#2a2a2a', skin: '#8f5f42' }, { top: '#f2f2f2', bottom: '#3d4f7a', skin: '#c99a76' }, { top: '#e8b923', bottom: '#222', skin: '#6e4630' }, { top: '#3a7d44', bottom: '#d9cbb0', skin: '#b98566' }, { top: '#6b4fa0', bottom: '#111', skin: '#e3c09c' }];
+  for (let i = 0; i < 10; i++) {
+    const ch = new Character(kidSrc, { kind: 'mixamo', height: 1.62 + (i % 4) * 0.07 }); dress(ch, { ...LOOKS[i % LOOKS.length], shoes: '#222' });
+    const far = i % 2 === 0, x = far ? 39 + (i % 3) * 0.6 : 23.2 + (i % 3) * 0.5;
+    const w = { ch, x, z: -110 + i * 19, dir: i % 4 < 2 ? 1 : -1, speed: 1.1 + (i % 3) * 0.2, z0: -120, z1: 70 };
+    ch.root.position.set(x, 0, w.z); scene.add(ch.root); walkers.push(w);
+  }
+}
+function updateWalkers(dt) {
+  for (const w of walkers) {
+    w.z += w.dir * w.speed * dt;
+    if (w.z > w.z1) w.dir = -1; else if (w.z < w.z0) w.dir = 1;
+    w.ch.root.position.set(w.x, 0, w.z); w.ch.root.rotation.y += angDiff(w.ch.root.rotation.y, w.dir > 0 ? 0 : Math.PI) * (1 - Math.exp(-dt * 6));
+    w.ch.animate({ dt, speed: w.speed, grounded: true });
+  }
+}
 async function arriveAirport() {
   state.stage = STAGES.AIRPORT;
   car.visible = true; car.position.set(AP.CAR_STOP.x, 0, AP.CAR_Z0); car.rotation.y = Math.PI / 2;
   me.root.visible = false;
   shot(new V3(40, 3.2, -62), new V3(30, 1.2, -32), { cut: true });
-  $('#fade').classList.remove('on');
+  $('#fade').classList.remove('on', 'trip');
   setObjective('CHAPTER 2 · THE AIRPORT', 'Rio International Airport', null);
   audio.engine?.(4.5);
   await tween(4.6, k => { car.position.z = lerp(AP.CAR_Z0, AP.CAR_STOP.z, 1 - (1 - k) * (1 - k)); });
@@ -1011,8 +1046,10 @@ function update(dt) {
     // Mission triggers by position.
     // Cristiano stops you when you walk up to him in the cage.
     if (state.stage === STAGES.FIND && mode() === 'free' && P.mode === 'free' && P.pos.distanceTo(ronaldo.root.position) < 3.6) meetRonaldo();
+    // Touch controls whenever you are free to move (and only then).
+    if (TOUCH && state.started) $('#touch').classList.toggle('hidden', !(mode() === 'free' && state.stage !== STAGES.END));
     // Airport: the thief runs; you spot him once you are inside the hall.
-    updateThief(dt);
+    updateThief(dt); if (walkers.length) updateWalkers(dt);
     if (state.stage === STAGES.TERMINAL && mode() === 'free' && P.mode === 'free' && P.pos.x < 12 && P.pos.x > -17 && P.pos.z > -72 && P.pos.z < -4) spotThief();
     // Cards.
     for (const c of cards) if (!c.got) {
