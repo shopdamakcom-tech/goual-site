@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { buildWorld, buildBackdrop } from './world.js?v=3';
-import { Character, dress } from './rig.js?v=4';
+import { Character, dress } from './rig.js?v=5';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { loadFavela, makeSky, makeClouds } from './favela.js?v=3';
 import { Builder, kitMaterials, dog, clutter, laundry } from './favela-kit.js';
@@ -307,7 +307,7 @@ if (TOUCH) {
   canvasEl.addEventListener('pointerdown', e => { if (mode() === 'dialog') { IN.skip = true; return; } looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); });
   const btn = (id, f) => $(id).addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); f(); });
   btn('#bJump', () => { IN.jump = true; IN.skip = true; }); btn('#bAct', () => { IN.use = true; IN.skip = true; });
-  btn('#bShoot', () => { IN.shoot = true; }); btn('#bTrick', () => { IN.trick = true; }); btn('#bSiu', () => { IN.siu = true; });
+  btn('#bSiu', () => { IN.siu = true; });
   btn('#bRun', () => { sprintToggle = !sprintToggle; $('#bRun').classList.toggle('on', sprintToggle); });
   $('#sub').addEventListener('pointerdown', () => { IN.skip = true; });
 }
@@ -462,10 +462,10 @@ async function intro() {
   if (TOUCH) $('#touch').classList.remove('hidden');
   audio.base = 0; audio.carnival = 0;
   state.t0 = performance.now();
-  hint(TOUCH ? 'Left thumb to move · drag to look · SHOOT, TRICK and CELEBRATE buttons' : 'WASD / ZQSD to move · mouse to look · Shift to sprint · Space to jump / climb', 7);
+  hint(TOUCH ? 'Left thumb to move · drag to look · CELEBRATE button' : 'WASD / ZQSD to move · mouse to look · Shift to sprint · Space to jump / climb', 7);
   setObjective('CHAPTER 1 · THE CAGE', 'Find Cristiano at the cage court', () => ronaldo.root.position);
   state.stage = STAGES.FIND;
-  setTimeout(() => { if (mode() === 'free') hint(TOUCH ? 'TRICK = rainbow flick · SHOOT = strike · CELEBRATE = show off' : 'F = rainbow flick · Left click or K = shoot · C = celebrate', 6); }, 9000);
+  setTimeout(() => { if (mode() === 'free') hint(TOUCH ? 'CELEBRATE = show off' : 'C = celebrate', 6); }, 9000);
 }
 async function talkZe() {
   await conversation(ze, [pick(state.stage <= STAGES.FIND ? [
@@ -806,8 +806,6 @@ function updatePlayer(dt) {
     if (ledge && mv.m > 0) prompt('Climb', TOUCH ? 'JUMP' : 'SPACE');
     else { const it = nearestInteractable(); prompt(it ? it.label : null); if (IN.use && it) { IN.use = false; it.use(); } }
     if (IN.jump) { if (ledge) startClimb(ledge); else if (P.grounded) { P.vy = 7.2; P.grounded = false; } }
-    if (IN.trick) trick();
-    if (IN.shoot) shootBall();
     if (IN.siu && P.grounded) celebrate();
   } else prompt(null);
   if (P.mode === 'climb') {
@@ -846,53 +844,6 @@ function updatePlayer(dt) {
   me.animate({ dt, speed: P.mode === 'climb' ? 0 : P.speed, grounded: P.grounded || P.mode === 'climb', action: talking === me && !actName ? 'talk' : actName, actionT: P.action === 'climb' ? P.actT / P.actLen : P.actT, tapLen: 0.32, lean: 0 });
   IN.jump = IN.use = IN.trick = IN.shoot = IN.siu = false;
 }
-// Ball at your feet: touches while running, settles when you stop, comes back if you lose it.
-function updateBall(dt) {
-  if (state.pen) return;
-  const f = fwd(), right = new V3(f.z, 0, -f.x);
-  const d = ball.pos.clone().sub(P.pos); const dy = d.y; d.y = 0; const dist = d.length();
-  const ahead = d.dot(f), lat = d.dot(right);
-  P.ctlBall = Math.max(0, P.ctlBall - dt);
-  const free = mode() === 'free' && P.mode === 'free';
-  if (free && P.ctlBall <= 0) {
-    const ballLow = ball.pos.y - groundAt(ball.pos.x, ball.pos.z, ball.pos.y + 0.2) < 0.35;
-    if (dist > 3.4 || dy > 2.5 || dy < -1.5) {
-      P.lostT += dt;
-      if (P.lostT > (P.mode === 'climb' ? 9 : 0.7) && P.grounded) { const to = P.pos.clone().addScaledVector(f, 0.9); to.y += BALL_R; ball.lob(to, 0.65); P.lostT = 0; P.ctlBall = 0.7; }
-    } else {
-      P.lostT = 0;
-      if (P.grounded && P.speed > 0.7 && dist < 1.0 && ahead < 0.45 && ballLow) {
-        ball.vel.set(f.x * P.speed * 1.42 - right.x * lat * 3, 0.5, f.z * P.speed * 1.42 - right.z * lat * 3);
-        audio.kick(0.06); P.ctlBall = 0.12;
-      } else if (P.grounded && P.speed <= 0.7 && dist < 1.4 && ballLow) {
-        const tgt = P.pos.clone().addScaledVector(f, 0.42);
-        ball.vel.x = damp(ball.vel.x, (tgt.x - ball.pos.x) * 4, 8, dt); ball.vel.z = damp(ball.vel.z, (tgt.z - ball.pos.z) * 4, 8, dt);
-      }
-    }
-  }
-  ball.update(dt);
-  // Goals on the cage court (free play).
-  for (const g of W.goals) {
-    const inMouth = Math.abs(ball.pos.z - g.z) < g.w / 2 - BALL_R && ball.pos.y < g.h;
-    const crossed = g.dir > 0 ? ball.pos.x < g.x - 0.1 : ball.pos.x > g.x + 0.1;
-    if (crossed && inMouth && !g.scored) { g.scored = true; toast('GOOOL!'); audio.net(); audio.cheer(0.9); audio.shout(1, -0.3); setTimeout(() => audio.shout(1, 0.4), 350); audio.fiesta(3.5); kidsCheer = 2; addStyle(250, 'STREET GOAL'); }
-    if (!crossed) g.scored = false;
-  }
-}
-function trick() {
-  const d = ball.pos.distanceTo(P.pos);
-  if (d > 1.6 || !P.grounded) return;
-  act('trick', 0.5); const f = fwd(); const to = P.pos.clone().addScaledVector(f, 2.2 + P.speed * 0.75); to.y = groundAt(to.x, to.z, P.pos.y + 0.5) + BALL_R;
-  ball.pos.copy(P.pos).addScaledVector(f, -0.15).add(new V3(0, 0.35, 0)); ball.lob(to, 0.85, false); P.ctlBall = 0.8; audio.kick(0.2);
-  addStyle(120, 'RAINBOW FLICK');
-}
-function shootBall() {
-  const d = ball.pos.distanceTo(P.pos), f = fwd();
-  if (d > 1.7) { if (d < 25) { const to = P.pos.clone().addScaledVector(f, 0.8); to.y += BALL_R + 0.2; ball.lob(to, 0.6); P.ctlBall = 0.6; } return; }
-  act('kick', 0.7);
-  setTimeout(() => { const lift = clamp(cam.pitch * -1.2 + 0.25, 0.08, 0.5); ball.vel.set(f.x * 19, 19 * lift, f.z * 19); P.ctlBall = 1.2; audio.kick(0.9); }, 230);
-}
-
 // ================= main loop =================
 const clock = new THREE.Clock(); let fpsAcc = 0, fpsN = 0, lowQ = false;
 function frame() {
@@ -911,7 +862,7 @@ function update(dt) {
     if (state.started) state.playTime = (performance.now() - state.t0) / 1000;
     for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i](dt)) tweens.splice(i, 1);
     if (state.pen) { updatePen(dt); me.root.position.copy(P.pos); me.root.rotation.y = P.yaw; P.actT += dt; if (P.action && P.actT > P.actLen) P.action = null; me.animate({ dt, speed: 0, grounded: true, action: P.action, actionT: P.actT }); IN.jump = IN.use = IN.shoot = false; }
-    else { updatePlayer(dt); updateBall(dt); }
+    else { updatePlayer(dt); ball.mesh.visible = state.stage === STAGES.CR7 && ball.frozen; }   // the ball only exists for the penalty
     updateNPCs(dt);
     // Mission triggers by position.
     // Cristiano stops you when you walk up to him in the cage.
@@ -952,8 +903,8 @@ const leaveFullscreen = () => { if (document.fullscreenElement) document.exitFul
 // ================= menus =================
 function controlsHTML() {
   const rows = TOUCH
-    ? [['Left thumb', 'Move'], ['Drag right side', 'Look around'], ['JUMP', 'Jump · climb a ledge'], ['E', 'Talk'], ['SPRINT', 'Toggle sprint'], ['SHOOT', 'Strike the ball'], ['TRICK', 'Rainbow flick'], ['CELEB', 'Celebrate']]
-    : [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd>', 'Move'], ['Mouse', 'Look around (click to lock)'], ['<kbd>Shift</kbd>', 'Sprint'], ['<kbd>Space</kbd>', 'Jump · climb a ledge · next line'], ['<kbd>E</kbd>', 'Talk'], ['Click / <kbd>K</kbd>', 'Shoot'], ['<kbd>F</kbd>', 'Rainbow flick'], ['<kbd>C</kbd>', 'Celebrate'], ['<kbd>Esc</kbd>', 'Pause']];
+    ? [['Left thumb', 'Move'], ['Drag right side', 'Look around'], ['JUMP', 'Jump · climb a ledge'], ['E', 'Talk'], ['SPRINT', 'Toggle sprint'], ['CELEB', 'Celebrate']]
+    : [['<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd>', 'Move'], ['Mouse', 'Look around (click to lock)'], ['<kbd>Shift</kbd>', 'Sprint'], ['<kbd>Space</kbd>', 'Jump · climb a ledge · next line'], ['<kbd>E</kbd>', 'Talk'], ['<kbd>C</kbd>', 'Celebrate'], ['<kbd>Esc</kbd>', 'Pause']];
   return rows.map(([a, b]) => `<div>${a}</div><div>${b}</div>`).join('');
 }
 $('#ctrlList').innerHTML = controlsHTML();

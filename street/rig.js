@@ -76,6 +76,8 @@ export class Character {
       this.frames[k] = charQuat(b.parent, rootInv, new THREE.Quaternion()).invert();
     }
     this.restPos = bones.hips.position.clone();
+    // Meshy players (big heads, short arms): looser elbows, wider arm swing, more forward lean.
+    this.style = kind === 'meshy' ? { arm: 1.35, elb: 0.55, lean: 0.14 } : { arm: 1, elb: 1, lean: 0 };
     this.height = height;
     this.t = 0; this.phase = 0; this.blend = { walk: 0, run: 0, air: 0 };
     this.pose = {};
@@ -101,7 +103,7 @@ export class Character {
     const p = this.phase, s = Math.sin(p), c = Math.cos(p);
     const W = B.walk * (1 - B.air);
     const thA = THREE.MathUtils.lerp(0.42, 0.85, B.run), knA = THREE.MathUtils.lerp(0.7, 1.55, B.run);
-    const arA = THREE.MathUtils.lerp(0.32, 0.75, B.run), elb = THREE.MathUtils.lerp(0.25, 1.35, B.run);
+    const St = this.style, arA = THREE.MathUtils.lerp(0.32, 0.75, B.run) * St.arm, elb = THREE.MathUtils.lerp(0.25, 1.35, B.run) * St.elb;
     this.reset();
     // Legs (negative X = forward swing for a hanging limb).
     this.rot('lThigh', X, (-s * thA) * W); this.rot('rThigh', X, (s * thA) * W);
@@ -112,7 +114,7 @@ export class Character {
     this.rot('lFore', X, -(0.12 + elb * W)); this.rot('rFore', X, -(0.12 + elb * W));
     // Torso: lean forward running, counter twist, breathing at rest.
     const idle = 1 - W;
-    this.rot('spine', X, 0.04 + 0.16 * B.run * W + (o.lean || 0));
+    this.rot('spine', X, 0.04 + (0.16 + St.lean) * B.run * W + (o.lean || 0));
     this.rot('chest', Y, -s * 0.18 * W);
     this.rot('hips', Y, s * 0.12 * W);
     this.rot('chest', X, Math.sin(this.t * 1.8) * 0.015 * idle);
