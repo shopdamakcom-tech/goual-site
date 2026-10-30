@@ -334,8 +334,8 @@ export function buildWorld(scene, { quality = 1, logoUrl } = {}) {
   const fence = (x0, z0, x1, z1) => { const L = Math.hypot(x1 - x0, z1 - z0), g = new THREE.PlaneGeometry(L, fenceH - wallH); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * L / 0.5, uv.getY(i) * (fenceH - wallH) / 0.5); g.rotateY(-Math.atan2(z1 - z0, x1 - x0)); g.translate((x0 + x1) / 2, (wallH + fenceH) / 2, (z0 + z1) / 2); fenceGeos.push(g); };
   fence(cage.x0, cage.z0 - 0.1, cage.x1, cage.z0 - 0.1); fence(cage.x0, cage.z1 + 0.1, -1.3, cage.z1 + 0.1); fence(1.3, cage.z1 + 0.1, cage.x1, cage.z1 + 0.1);
   fence(cage.x0 - 0.1, cage.z0, cage.x0 - 0.1, cage.z1); fence(cage.x1 + 0.1, cage.z0, cage.x1 + 0.1, cage.z1);
-  { const g = new THREE.PlaneGeometry(2.6, fenceH - 2.4); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 5.2, uv.getY(i) * (fenceH - 2.4) / 0.5); g.translate(0, 2.4 + (fenceH - 2.4) / 2, cage.z1 + 0.1); fenceGeos.push(g); solid(-1.3, 2.4, cage.z1, 1.3, fenceH, cage.z1 + 0.25); }
-  for (let x = cage.x0; x <= cage.x1 + 0.01; x += 3.25) for (const z of [cage.z0 - 0.1, cage.z1 + 0.1]) block(M.metal, x - 0.05, wallH, z - 0.05, x + 0.05, fenceH + 0.1, z + 0.05, { collide: false });
+  // The gate in the south wall is left fully open (no fence over it, no post in the middle).
+  for (let x = cage.x0; x <= cage.x1 + 0.01; x += 3.25) for (const z of [cage.z0 - 0.1, cage.z1 + 0.1]) if (!(z > cage.z1 && Math.abs(x) < 1.4)) block(M.metal, x - 0.05, wallH, z - 0.05, x + 0.05, fenceH + 0.1, z + 0.05, { collide: false });
   for (let z = cage.z0; z <= cage.z1 + 0.01; z += 4) for (const x of [cage.x0 - 0.1, cage.x1 + 0.1]) block(M.metal, x - 0.05, wallH, z - 0.05, x + 0.05, fenceH + 0.1, z + 0.05, { collide: false });
   const fenceMesh = new THREE.Mesh(mergeGeometries(fenceGeos), M.chain); scene.add(fenceMesh);
   // Court floor.

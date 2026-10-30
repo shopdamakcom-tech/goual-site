@@ -6,10 +6,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-import { buildWorld, buildBackdrop } from './world.js?v=3';
+import { buildWorld, buildBackdrop } from './world.js?v=4';
 import { Character, dress } from './rig.js?v=5';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { loadFavela, makeSky, makeClouds } from './favela.js?v=3';
+import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=3';
 import { Builder, kitMaterials, dog, clutter, laundry } from './favela-kit.js';
 import { audio } from './audio.js?v=3';
 
@@ -130,7 +130,7 @@ function makeCar() {
 }
 const car = makeCar(); car.visible = false; scene.add(car);
 // The painted Rio sky (panorama, horizon band and clouds made by GOUAL ART), facing the bay to the south.
-scene.add(makeSky(art.T, art.meta, { turn: 0.125, low: -0.16, high: 0.26 }));
+const sky = makeSky(art.T, art.meta, { turn: 0.125, low: -0.16, high: 0.26 }); scene.add(sky);
 const clouds = makeClouds(art.T, art.meta, 18); clouds.scale.setScalar(1.6); scene.add(clouds);
 // Street life from the favela kit: caramel dogs, plastic chairs, gas bottles, crates and laundry.
 {
@@ -385,8 +385,8 @@ function updateMarker() {
 }
 
 // ================= dialogue =================
-const COLORS = { CR7: '#ffd400', AGENT: '#2ee6ff', DRIVER: '#c9c9c9', 'ZÉ': '#ff8a3d', THIAGO: '#7cfc00', LUCAS: '#ff6bd6', KIDS: '#ffffff' };
-const speakers = () => ({ HERO: me, CR7: ronaldo, 'ZÉ': ze, THIAGO: thiago, LUCAS: lucas });
+const COLORS = { CR7: '#ffd400', AGENT: '#2ee6ff', DRIVER: '#c9c9c9', THIEF: '#ff4d4d', 'ZÉ': '#ff8a3d', THIAGO: '#7cfc00', LUCAS: '#ff6bd6', KIDS: '#ffffff' };
+const speakers = () => ({ HERO: me, CR7: ronaldo, 'ZÉ': ze, THIAGO: thiago, LUCAS: lucas, THIEF: thief });
 // Lines are written with HERO for whoever you play and {HERO} for their name; each hero has its own voice.
 const heroText = t => t.replaceAll('{HERO}', hero.name);
 let talking = null;
@@ -394,7 +394,7 @@ function line(who, text) {
   return new Promise(res => {
     const sub = $('#sub'), whoEl = sub.querySelector('.who'), lineEl = sub.querySelector('.line');
     text = heroText(text);
-    sub.classList.remove('hidden'); whoEl.textContent = who === 'AGENT' ? 'AGENT (PHONE)' : who === 'DRIVER' ? 'CR7\'S DRIVER' : who === 'HERO' ? hero.label : who; whoEl.style.color = who === 'HERO' ? hero.color : COLORS[who] || '#fff';
+    sub.classList.remove('hidden'); whoEl.textContent = who === 'AGENT' ? 'AGENT (PHONE)' : who === 'DRIVER' ? 'CR7\'S DRIVER' : who === 'THIEF' ? 'THE THIEF' : who === 'HERO' ? hero.label : who; whoEl.style.color = who === 'HERO' ? hero.color : COLORS[who] || '#fff';
     const sp = speakers()[who]; talking = sp || null;
     let shown = 0, done = false, spoke = false;
     const t0 = performance.now();
@@ -439,7 +439,7 @@ function nearestInteractable() {
 const waits = [];
 const waitFor = fn => new Promise(r => waits.push({ fn, r }));
 const sleep = s => new Promise(r => setTimeout(r, s * 1000));
-const STAGES = { INTRO: 0, FIND: 1, CR7: 2, PENS: 3, CAR: 4, RIDE: 5, END: 6 };
+const STAGES = { INTRO: 0, FIND: 1, CR7: 2, PENS: 3, CAR: 4, RIDE: 5, END: 6, AIRPORT: 7, TERMINAL: 8, SPOT: 9, CHASE: 10, ESCAPE: 11, WIN: 12 };
 // Ease a value from a to b over `dur` seconds, calling fn(k) every frame (k = 0..1, smooth).
 const tween = (dur, fn) => new Promise(res => { let t = 0; tweens.push(dt => { t += dt; const k = Math.min(1, t / dur); fn(k * k * (3 - 2 * k), k); if (k >= 1) { res(); return true; } }); });
 const tweens = [];
@@ -579,16 +579,159 @@ async function rideAway() {
   await tween(4.2, (k, raw) => { car.position.x = CAR_STOP - 80 * raw * raw; });
   $('#fade').classList.add('on');
   await sleep(0.9);
-  endScreen();
+  await enterAirport();
+  await arriveAirport();
 }
 function endScreen() {
   state.stage = STAGES.END; audio.base = 1; audio.carnival = 1;
   const t = Math.round(state.playTime); $('#eTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   $('#eCards').textContent = `${state.cards}/${cards.length}`; $('#eStyle').textContent = state.style.toLocaleString('en');
+  $('#end .kicker').textContent = 'EPISODE 2 COMPLETE · TO BE CONTINUED'; $('#end h2').firstChild.textContent = 'BALLON D\'OR RECOVERED';
   $('#eWho').textContent = `Well played, ${hero.name}`;
   $('#letterbox').classList.remove('on'); $('#fade').classList.remove('on'); $('#end').classList.remove('hidden'); $('#hud').classList.add('hidden'); $('#touch').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
   post('complete', { time: t, cards: state.cards, style: state.style, hero: hero.id });
+}
+
+// ================= episode 2: the airport =================
+// The car drops you at the terminal. The Ballon d'Or is inside... in the arms of a thief who runs for a
+// private jet. Catch him before he reaches the stairs (as many tries as it takes).
+const AP = {
+  DOORS: [{ x0: 14, x1: 24, z0: -43, z1: -35, y1: 30 }, { x0: -4, x1: 4, z0: -6, z1: 1, y1: 30 }, { x0: -21, x1: -8, z0: 30, z1: 36, y1: 30 }],
+  CAR_Z0: 120, CAR_STOP: new V3(30, 0, -42),
+  THIEF_START: new V3(2, 0, -11),
+  PATH: [new V3(0, 0, -7), new V3(0, 0, 3), new V3(0, 0, 30.8), new V3(-22, 0, 30.8), new V3(-21, 0, 60), new V3(-23, 0, 84)],
+  STAIRS_TOP: new V3(-33, 7.4, 84),
+  THIEF_SPEED: 4.8,
+};
+let thief = null;
+const trophy = makeBallonDor(ENV); trophy.visible = false; scene.add(trophy);
+const theft = { i: 0, run: false, fallen: false };
+async function enterAirport() {
+  const [{ wallColliders, carve }, src] = await Promise.all([import('./airport.js?v=2'), load('models/airport.glb')]);
+  // Leave the favela: hide it all (lights, sky, car and the stars stay), swap the colliders.
+  const keep = new Set([sun, sun.target, sky, clouds, car, ball.mesh, trophy, ...Object.values(HEROES).map(h => h.ch.root)]);
+  for (const o of scene.children) if (!keep.has(o) && !o.isLight) o.visible = false;
+  for (const c of cards) c.got = true;
+  carve(src, AP.DOORS);
+  src.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(src);
+  const W2 = wallColliders(src, { open: AP.DOORS, skip: o => /LandingTrack/.test(o.name + (o.parent ? o.parent.name : '')) });
+  colliders.length = 0; colliders.push({ x0: -600, x1: 600, z0: -600, z1: 600, y0: -2, y1: 0 }, ...W2.boxes); indexColliders();
+  // Ground: concrete apron, and the road on the city side where the car arrives.
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshStandardMaterial({ color: 0x9a9d96, roughness: 0.95 }));
+  ground.rotation.x = -Math.PI / 2; ground.position.y = -0.03; ground.receiveShadow = true; scene.add(ground);
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 600), new THREE.MeshStandardMaterial({ color: 0x3a3b3d, roughness: 0.9 }));
+  road.rotation.x = -Math.PI / 2; road.position.set(31, -0.01, 0); road.receiveShadow = true; scene.add(road);
+  // The thief: black suit, cap, the golden ball under his arm.
+  thief = new Character(kidSrc, { kind: 'mixamo', height: 1.82 }); dress(thief, { top: '#151515', bottom: '#151515', shoes: '#0b0b0b', skin: '#c79c78' });
+  thief.root.position.copy(AP.THIEF_START); thief.root.rotation.y = Math.PI / 2; scene.add(thief.root);
+  trophy.visible = true;
+  for (let i = 1; i < AP.PATH.length; i++) for (let k = 0; k <= 1; k += 0.02) { const p = AP.PATH[i - 1].clone().lerp(AP.PATH[i], k); if (W2.has(p.x, p.z)) { console.warn('thief path blocked at', p.x.toFixed(1), p.z.toFixed(1)); break; } }
+  return W2;
+}
+async function arriveAirport() {
+  state.stage = STAGES.AIRPORT;
+  car.visible = true; car.position.set(AP.CAR_STOP.x, 0, AP.CAR_Z0); car.rotation.y = Math.PI / 2;
+  me.root.visible = false;
+  shot(new V3(40, 3.2, -62), new V3(30, 1.2, -32), { cut: true });
+  $('#fade').classList.remove('on');
+  setObjective('CHAPTER 2 · THE AIRPORT', 'Rio International Airport', null);
+  audio.engine?.(4.5);
+  await tween(4.6, k => { car.position.z = lerp(AP.CAR_Z0, AP.CAR_STOP.z, 1 - (1 - k) * (1 - k)); });
+  await sleep(0.4);
+  P.pos.set(AP.CAR_STOP.x - 2.4, 0, AP.CAR_STOP.z + 1); P.yaw = -Math.PI / 2; P.vel.set(0, 0, 0); P.lastSafe.copy(P.pos);
+  me.root.visible = true; audio.kick(0.3);
+  shot(new V3(AP.CAR_STOP.x + 1.5, 1.8, AP.CAR_STOP.z + 6), new V3(AP.CAR_STOP.x - 3, 1.5, AP.CAR_STOP.z), { cut: true });
+  await say([
+    ['DRIVER', 'Here we are, senhor {HERO}. Mister Ronaldo says the Ballon d\'Or is inside.'],
+    ['DRIVER', 'Be careful. Somebody wants to fly away with it tonight.'],
+    ['HERO', 'Then I better hurry.'],
+  ]);
+  colliders.push({ x0: AP.CAR_STOP.x - 1, x1: AP.CAR_STOP.x + 1, z0: AP.CAR_STOP.z - 2.3, z1: AP.CAR_STOP.z + 2.3, y0: 0, y1: 1.3 }); indexColliders();
+  cam.yaw = -Math.PI / 2;
+  $('#letterbox').classList.remove('on'); release(); state.modeStack = ['free']; P.mode = 'free';
+  if (TOUCH) $('#touch').classList.remove('hidden');
+  state.stage = STAGES.TERMINAL;
+  setObjective('CHAPTER 2 · THE AIRPORT', 'Find the Ballon d\'Or inside the terminal', new V3(12, 0, -39));
+}
+// Holding the trophy: on the thief (carried at the hip) or up high in your right hand.
+function carryTrophy(ch, up) {
+  if (up) { ch.rot('rArm', new V3(1, 0, 0), -2.75); ch.rot('rFore', new V3(1, 0, 0), -0.35); }
+  ch.root.updateMatrixWorld(true);
+  trophy.position.copy(ch.bones.rHand.getWorldPosition(new V3())); trophy.position.y -= up ? 0.08 : 0.15; trophy.rotation.set(0, ch.root.rotation.y, 0);
+}
+async function spotThief() {
+  state.stage = STAGES.SPOT; pushMode('dialog'); if (document.pointerLockElement) document.exitPointerLock();
+  $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0); prompt(null);
+  faceEachOther(thief);
+  { const t = thief.root.position, d = t.clone().sub(P.pos).setY(0).normalize();
+    shot(P.pos.clone().addScaledVector(d, -2.6).add(new V3(d.z * 0.9, 1.9, -d.x * 0.9)), t.clone().add(new V3(0, 1.3, 0)), { cut: true }); }
+  await say([
+    ['THIEF', 'Ha! Too late, {HERO}! This beauty is flying to Dubai tonight.'],
+    ['HERO', 'Stop! That trophy belongs to football!'],
+    ['THIEF', 'Catch me if you can!'],
+  ]);
+  $('#letterbox').classList.remove('on'); release(); popMode();
+  startChase();
+}
+function startChase() {
+  state.stage = STAGES.CHASE; theft.i = 0; theft.run = true; theft.fallen = false;
+  thief.root.position.copy(AP.THIEF_START); thief.root.rotation.set(0, 0, 0);
+  setObjective('CHAPTER 2 · THE AIRPORT', 'Stop the thief before he boards the jet!', () => thief.root.position);
+  hint(TOUCH ? 'Tap SPRINT and chase him!' : 'Hold Shift to sprint!', 5);
+}
+function updateThief(dt) {
+  if (!thief) return;
+  let speed = 0;
+  if (state.stage === STAGES.CHASE && theft.run) {
+    const tgt = AP.PATH[theft.i], p = thief.root.position, d = Math.hypot(tgt.x - p.x, tgt.z - p.z);
+    if (d < 0.4) { theft.i++; if (theft.i >= AP.PATH.length) { theft.run = false; escaped(); } }
+    else {
+      const yaw = Math.atan2(tgt.x - p.x, tgt.z - p.z); thief.root.rotation.y += angDiff(thief.root.rotation.y, yaw) * (1 - Math.exp(-dt * 10));
+      const step = Math.min(d, AP.THIEF_SPEED * dt); p.x += (tgt.x - p.x) / d * step; p.z += (tgt.z - p.z) / d * step; speed = AP.THIEF_SPEED;
+    }
+    if (Math.hypot(P.pos.x - p.x, P.pos.z - p.z) < 1.5) { theft.run = false; caught(); }
+  }
+  thief.animate({ dt, speed: theft.fallen ? 0 : speed, grounded: true, action: talking === thief ? 'talk' : null, actionT: performance.now() / 1000 });
+  if (!theft.fallen && !trophyHeld) carryTrophy(thief, false);
+}
+async function escaped() {
+  state.stage = STAGES.ESCAPE; pushMode('cut'); $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0);
+  const from = thief.root.position.clone();
+  shot(new V3(-8, 4, 70), from.clone().add(new V3(-5, 2.5, 0)), { cut: true });
+  await tween(1.8, k => { thief.root.position.lerpVectors(from, AP.STAIRS_TOP, k); });
+  toast('HE GOT AWAY!', '#ff2d55'); audio.ooh();
+  await say([['THIEF', 'Bye bye, {HERO}!']]);
+  $('#fade').classList.add('on'); await sleep(0.7);
+  P.pos.set(10, 0, -24); P.yaw = Math.PI; P.vel.set(0, 0, 0); P.lastSafe.copy(P.pos); cam.yaw = Math.PI;
+  thief.root.position.copy(AP.THIEF_START);
+  release(); $('#fade').classList.remove('on'); $('#letterbox').classList.remove('on'); popMode();
+  await conversation(null, [['HERO', 'Again. This time he is mine.']]);
+  startChase();
+}
+async function caught() {
+  state.stage = STAGES.WIN; pushMode('cut'); $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0);
+  toast('STOPPED!'); cam.shake = 0.4; audio.kick(0.8); audio.cheer(0.8); addStyle(800, 'BALLON D\'OR SAVED');
+  // He trips and goes down; the trophy rolls out of his hands.
+  theft.fallen = true;
+  const tp = thief.root.position.clone(), fwdT = new V3(Math.sin(thief.root.rotation.y), 0, Math.cos(thief.root.rotation.y));
+  const drop = tp.clone().addScaledVector(fwdT, 1.6).setY(0.02);
+  const t0 = trophy.position.clone();
+  shot(tp.clone().add(new V3(3.2, 2.2, 3.2)), tp.clone().add(new V3(0, 0.6, 0)), { cut: true });
+  await tween(0.6, k => { thief.root.rotation.x = 1.45 * k; thief.root.position.y = 0.25 * Math.sin(Math.PI * k); trophy.position.lerpVectors(t0, drop, k); trophy.position.y += Math.sin(Math.PI * k) * 0.6; });
+  await sleep(0.4);
+  P.pos.copy(drop).addScaledVector(fwdT, 0.6); P.yaw = Math.atan2(-fwdT.x, -fwdT.z);
+  faceEachOther(thief); thief.root.rotation.x = 1.45;
+  await say([
+    ['THIEF', 'No! My jet! My Ballon d\'Or!'],
+    ['HERO', 'It was never yours. The Ballon d\'Or belongs to football.'],
+  ]);
+  trophyHeld = true; P.yaw = Math.atan2(fwdT.x, fwdT.z) + Math.PI * 0.75;
+  shot(P.pos.clone().add(new V3(Math.sin(P.yaw) * 3.4, 1.6, Math.cos(P.yaw) * 3.4)), P.pos.clone().add(new V3(0, 1.6, 0)), { cut: true });
+  audio.cheer(1); audio.fiesta(5); toast(CELEB[hero.id]);
+  await sleep(3);
+  endScreen(true);
 }
 
 // ================= the penalty: Cristiano in goal on the cage court =================
@@ -690,7 +833,7 @@ function endPens() {
 // ================= celebration =================
 // Each star has a shout; the move is a little run-up, a jump and a half turn to face the camera.
 const CELEB = { mbappe: 'MBAPPÉÉÉ!', yamal: 'LAMINE!', kane: 'HARRY KANE!' };
-let siuT = -1, ronaldoSiu = -1;
+let siuT = -1, ronaldoSiu = -1, trophyHeld = false;
 function celebrate(auto = false) {
   if (siuT >= 0) return;
   siuT = 0; act('siu', 1.9); P.vel.set(0, 0, 0);
@@ -842,6 +985,7 @@ function updatePlayer(dt) {
   me.root.position.copy(P.pos); me.root.rotation.y = P.yaw + P.spin;
   const actName = P.action;
   me.animate({ dt, speed: P.mode === 'climb' ? 0 : P.speed, grounded: P.grounded || P.mode === 'climb', action: talking === me && !actName ? 'talk' : actName, actionT: P.action === 'climb' ? P.actT / P.actLen : P.actT, tapLen: 0.32, lean: 0 });
+  if (trophyHeld) carryTrophy(me, true);
   IN.jump = IN.use = IN.trick = IN.shoot = IN.siu = false;
 }
 // ================= main loop =================
@@ -867,6 +1011,9 @@ function update(dt) {
     // Mission triggers by position.
     // Cristiano stops you when you walk up to him in the cage.
     if (state.stage === STAGES.FIND && mode() === 'free' && P.mode === 'free' && P.pos.distanceTo(ronaldo.root.position) < 3.6) meetRonaldo();
+    // Airport: the thief runs; you spot him once you are inside the hall.
+    updateThief(dt);
+    if (state.stage === STAGES.TERMINAL && mode() === 'free' && P.mode === 'free' && P.pos.x < 12 && P.pos.x > -17 && P.pos.z > -72 && P.pos.z < -4) spotThief();
     // Cards.
     for (const c of cards) if (!c.got) {
       c.m.rotation.y += dt * 2; c.m.position.y = c.y + Math.sin(performance.now() / 400) * 0.1;
@@ -951,4 +1098,4 @@ me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
 frame();
 post('ready');
 // Test hooks.
-window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
+window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, theft, AP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
