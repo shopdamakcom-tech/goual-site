@@ -427,8 +427,7 @@ const interactables = [
   { who: ze, label: 'Talk to Zé', r: 3.2, use: () => talkZe() },
   { who: thiago, label: 'Talk to Thiago', r: 2.4, use: () => talkThiago() },
   { who: lucas, label: 'Talk to Lucas', r: 2.4, use: () => talkLucas() },
-  { who: { root: car }, label: 'Get in the car', r: 3.4, use: () => rideAway(), when: () => state.stage === STAGES.CAR },
-];
+  ];
 function nearestInteractable() {
   let best = null, bd = 1e9;
   for (const it of interactables) { if (it.when && !it.when()) continue; const d = it.who.root.position.distanceTo(P.pos); if (d < it.r && d < bd && Math.abs(it.who.root.position.y - P.pos.y) < 1.5) { best = it; bd = d; } }
@@ -571,8 +570,14 @@ async function rideAway() {
   $('#touch').classList.add('hidden');
   colliders.splice(colliders.indexOf(carBox), 1); indexColliders();
   shot(new V3(CAR_STOP + 1, 1.8, CAR_Z - 5.5), car.position.clone().add(new V3(0, 1, 0)), { cut: true });
-  await sleep(0.5);
-  me.root.visible = false; ball.mesh.visible = false; audio.kick(0.25);
+  // Walk to the driver-side door, turn, step in.
+  const door = new V3(CAR_STOP - 0.3, 0, CAR_Z - 1.25), from = P.pos.clone();
+  P.yaw = Math.atan2(door.x - from.x, door.z - from.z);
+  await tween(Math.max(0.35, from.distanceTo(door) / 2.4), k => { P.pos.lerpVectors(from, door, k); P.vel.set(Math.sin(P.yaw) * 2.4, 0, Math.cos(P.yaw) * 2.4); });
+  P.vel.set(0, 0, 0); P.yaw = 0; audio.kick(0.15);
+  await tween(0.45, k => { P.pos.z = door.z + 0.7 * k; P.vel.set(0, 0, 1); });
+  P.vel.set(0, 0, 0);
+  me.root.visible = false; ball.mesh.visible = false; audio.kick(0.35); cam.shake = 0.12;
   await sleep(0.7);
   audio.engine?.(4);
   shot(new V3(-22, 3.2, CAR_Z - 9), new V3(-12, 0.8, CAR_Z), { follow: 0.8 });
@@ -1048,6 +1053,8 @@ function update(dt) {
     if (state.stage === STAGES.FIND && mode() === 'free' && P.mode === 'free' && P.pos.distanceTo(ronaldo.root.position) < 3.6) meetRonaldo();
     // Touch controls whenever you are free to move (and only then).
     if (TOUCH && state.started) $('#touch').classList.toggle('hidden', !(mode() === 'free' && state.stage !== STAGES.END));
+    // Walk up to Cristiano's car and you get in by yourself (no button needed on phones).
+    if (state.stage === STAGES.CAR && mode() === 'free' && P.mode === 'free' && Math.hypot(P.pos.x - car.position.x, P.pos.z - car.position.z) < 3.6) rideAway();
     // Airport: the thief runs; you spot him once you are inside the hall.
     updateThief(dt); if (walkers.length) updateWalkers(dt);
     if (state.stage === STAGES.TERMINAL && mode() === 'free' && P.mode === 'free' && P.pos.x < 12 && P.pos.x > -17 && P.pos.z > -72 && P.pos.z < -4) spotThief();
