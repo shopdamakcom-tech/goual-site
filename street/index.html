@@ -185,8 +185,8 @@
 <div id="touch" class="hidden">
   <div id="stick"><div class="base"><div class="nub"></div></div></div>
   <div id="btns">
-    <button id="bTrick">TRICK</button><button id="bSiu">CELEB</button>
-    <button id="bShoot">SHOOT</button><button id="bJump" class="big">JUMP</button>
+    <button id="bSiu">CELEB</button>
+    <button id="bJump" class="big">JUMP</button>
     <button id="bRun">SPRINT</button><button id="bAct" class="big">E</button>
   </div>
 </div>
@@ -242,19 +242,19 @@
     <div class="ld-heroes"><img src="heroes/mbappe.webp" alt=""><img src="heroes/yamal.webp" alt=""><img src="heroes/kane.webp" alt=""></div>
     <div class="ld-bar"><div class="bar"><i></i></div><span class="ld-ball">⚽</span><b id="loadPct">0%</b></div>
     <div id="loadTxt">Warming up on Morro da Goual…</div>
-    <div class="ld-tip"><b>TIP</b> <span id="loadTip">Press F for a rainbow flick over a defender.</span></div>
+    <div class="ld-tip"><b>TIP</b> <span id="loadTip">Face a ledge and press Space to climb onto the roofs.</span></div>
   </div>
 </div>
 <script>
   // Rotating loading lines and tips (plain script: runs while the game module downloads).
   (() => {
     const lines = ['Warming up on Morro da Goual…', 'Painting the yellow tags…', 'Pumping up the ball…', 'Waking up Zé at the bar…', 'Hiding the Ballon d\u2019Or…'];
-    const tips = ['Press F for a rainbow flick over a defender.', 'Face a ledge and press Space to climb onto the roofs.', 'Collect the 8 golden street cards for style points.', 'Penalties: hold to charge, not too hard or it flies over.', 'Press C to celebrate after a goal.'];
+    const tips = ['Face a ledge and press Space to climb onto the roofs.', 'Collect the 8 golden street cards for style points.', 'Penalties: hold to charge, not too hard or it flies over.', 'Press C to celebrate after a goal.'];
     let i = 0; const t = setInterval(() => { const el = document.getElementById('loading'); if (!el || el.classList.contains('hidden')) return clearInterval(t); i++;
       document.getElementById('loadTxt').textContent = lines[i % lines.length]; document.getElementById('loadTip').textContent = tips[i % tips.length]; }, 2600);
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=11"></script>
+<script type="module" src="game.js?v=12"></script>
 </body>
 </html>
