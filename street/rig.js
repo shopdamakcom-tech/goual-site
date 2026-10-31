@@ -36,7 +36,7 @@ function charQuat(obj, rootInv, out) { obj.getWorldQuaternion(out); return out.p
 
 // A loaded character: `model` is a clone of the glTF scene, inside `this.root` (the object you move).
 export class Character {
-  constructor(source, { kind, height = 1.8, faceZ = 1 } = {}) {
+  constructor(source, { kind, height = 1.8, faceZ = 1, run = null } = {}) {
     this.root = new THREE.Group();
     this.model = SkeletonUtils.clone(source);
     this.model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; o.frustumCulled = false; } });
@@ -81,6 +81,14 @@ export class Character {
     this.height = height;
     this.t = 0; this.phase = 0; this.blend = { walk: 0, run: 0, air: 0 };
     this.pose = {};
+    // A real running cycle from the model file (Meshy/Mixamo), blended in when running. Only rotations are
+    // kept (no root motion); every other pose stays procedural.
+    if (run) {
+      const clip = run.clone(); clip.tracks = clip.tracks.filter(t => t.name.endsWith('.quaternion'));
+      this.mixer = new THREE.AnimationMixer(this.model); this.runAct = this.mixer.clipAction(clip); this.runAct.play();
+      this.allBones = []; this.model.traverse(o => { if (o.isBone) this.allBones.push({ b: o, rest: o.quaternion.clone(), mapped: Object.values(bones).includes(o) }); });
+      this._pq = new Map();
+    }
   }
   // Rotate a bone around a character-space axis (added on top of what is already set this frame).
   rot(k, axis, a) {
@@ -88,6 +96,14 @@ export class Character {
     _v.copy(axis).applyQuaternion(this.frames[k]);
     _q.setFromAxisAngle(_v, a);
     this.bones[k].quaternion.premultiply(_q);
+  }
+  // Mix the clip's run pose over the procedural pose with weight w (0..1).
+  blendRun(w, sp, dt) {
+    if (w < 0.01) { if (this._runOn) { for (const e of this.allBones) if (!e.mapped) e.b.quaternion.copy(e.rest); this._runOn = false; } return; }
+    this._runOn = true;
+    for (const e of this.allBones) this._pq.set(e.b, (this._pq.get(e.b) || new THREE.Quaternion()).copy(e.mapped ? e.b.quaternion : e.rest));
+    this.mixer.update(dt * THREE.MathUtils.clamp(sp / 6, 0.6, 1.4));
+    for (const e of this.allBones) { const q = this._pq.get(e.b); e.b.quaternion.copy(q.slerp(e.b.quaternion, w)); }
   }
   reset() { for (const k in this.bones) this.bones[k].quaternion.copy(this.rest[k]); }
   // Locomotion + overlay poses. `o` = { speed, grounded, dt, lean, look, action, actionT }
@@ -128,6 +144,7 @@ export class Character {
     if (o.action) this.overlay(o.action, o.actionT || 0, o);
     if (o.look) { this.rot('neck', Y, o.look * 0.5); this.rot('head', Y, o.look * 0.5); }
     if (o.lookUp) this.rot('head', X, -o.lookUp);
+    if (this.mixer) this.blendRun(B.run * W * (o.action ? 0 : 1), sp, dt);
     // Body bob (applied by caller on the root's child).
     this.model.position.y = this.baseY ??= this.model.position.y;
     this.model.position.y = this.baseY + (Math.abs(Math.sin(p)) * 0.06 * W - 0.03 * W) * (1 + B.run);
