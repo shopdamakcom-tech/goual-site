@@ -112,19 +112,22 @@
   @media (max-height: 520px) { #loading .ld-logo { font-size: 46px; margin: 4px 0 8px; } #loading .ld-heroes { margin-bottom: 10px; } #loading .ld-heroes img { width: 46px; height: 46px; } #loading .ld-tip { margin-top: 10px; } }
   #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 4; }
   #fade.on { opacity: 1; }
-  /* While the car drives to the airport: a little road with the car on it, instead of a black screen. */
-  #fade .trip { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 22px; background: radial-gradient(ellipse at 50% 60%, #1b2d6b 0%, #0d1b4d 55%, #070f2c 100%); color: #fff; font: 800 15px/1.2 Inter, Arial, sans-serif; letter-spacing: .18em; }
+  /* While the car drives to the airport: a GPS map of Rio, the route drawing itself from the favela to the
+     airport, the car following it, the arrival time counting down. */
+  #fade .trip { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(ellipse at 50% 45%, #15296b 0%, #0b1740 60%, #060d28 100%); color: #fff; font: 800 13px/1.2 Inter, Arial, sans-serif; letter-spacing: .18em; }
   #fade.trip .trip { display: flex; }
   #fade .trip b { color: #ffd400; font: 400 30px/1 'Bebas Neue', Impact, sans-serif; letter-spacing: .08em; }
-  #fade .road { position: relative; width: min(420px, 80vw); height: 46px; overflow: hidden; }
-  #fade .road::before { content: ''; position: absolute; left: 0; right: 0; bottom: 6px; height: 4px; background: repeating-linear-gradient(90deg, #ffd400 0 26px, transparent 26px 48px); animation: tripRoad .5s linear infinite; }
-  #fade .car { position: absolute; left: 50%; bottom: 12px; width: 74px; height: 22px; margin-left: -37px; border-radius: 12px 26px 5px 5px; background: linear-gradient(90deg, #0b1230 0 46%, #2f62d9 46%); animation: tripBob .35s ease-in-out infinite alternate; }
-  #fade .car::before, #fade .car::after { content: ''; position: absolute; bottom: -7px; width: 15px; height: 15px; border-radius: 50%; background: #111; border: 3px solid #b9c3d6; }
-  #fade .car::before { left: 8px; } #fade .car::after { right: 9px; }
+  #fade .gps { position: relative; width: min(600px, 90vw); border-radius: 18px; overflow: hidden; border: 2px solid rgba(255,255,255,.14); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+  #fade .gps svg { display: block; width: 100%; height: auto; }
+  #fade .gps .route { stroke-dasharray: 900; stroke-dashoffset: 900; }
+  #fade.trip .gps .route { animation: gpsDraw 5s ease-out forwards; }
+  #fade .gps .ping { transform-origin: center; transform-box: fill-box; animation: gpsPing 1.4s ease-out infinite; }
+  #fade .gps .hud { position: absolute; left: 12px; top: 12px; display: flex; gap: 8px; }
+  #fade .gps .hud span { background: rgba(6,13,40,.82); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: 6px 10px; font-size: 11px; letter-spacing: .12em; }
+  #fade .gps .hud em { font-style: normal; color: #ffd400; }
   #fade .dots::after { content: ''; animation: tripDots 1.2s steps(4) infinite; }
-  @keyframes tripRoad { to { background-position: -48px 0; } }
-  @keyframes tripBob { to { transform: translateY(-2px); } }
-  @keyframes tripDots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
+  @keyframes gpsDraw { to { stroke-dashoffset: 0; } }
+  @keyframes gpsPing { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
   #letterbox::before, #letterbox::after { content: ''; position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .5s; z-index: 1; }
   #letterbox::before { top: 0; } #letterbox::after { bottom: 0; }
   #letterbox.on::before, #letterbox.on::after { height: 7vh; }
@@ -246,7 +249,45 @@
     </div>
   </div>
 </div>
-<div id="fade"><div class="trip"><b>CHAPTER 2 · THE AIRPORT</b><div class="road"><div class="car"></div></div><span class="dots">ON THE WAY TO THE AIRPORT</span></div></div>
+<div id="fade"><div class="trip"><b>CHAPTER 2 · THE AIRPORT</b>
+  <div class="gps">
+    <svg viewBox="0 0 600 360" aria-hidden="true">
+      <defs>
+        <pattern id="gpsGrid" width="30" height="30" patternUnits="userSpaceOnUse"><path d="M30 0H0V30" fill="none" stroke="rgba(255,255,255,.05)"/></pattern>
+        <filter id="gpsGlow"><feGaussianBlur stdDeviation="4"/></filter>
+      </defs>
+      <rect width="600" height="360" fill="#16285f"/>
+      <!-- Guanabara Bay and the ocean -->
+      <path d="M600 0 V360 H420 C440 330 470 318 486 296 C470 270 440 262 430 236 C452 214 470 186 452 160 C430 132 452 104 470 80 C486 58 470 30 492 0 Z" fill="#0b1a4a"/>
+      <path d="M0 360 V316 C60 300 120 330 180 322 C240 314 300 338 360 330 C390 326 410 344 420 360 Z" fill="#0b1a4a"/>
+      <rect width="600" height="360" fill="url(#gpsGrid)"/>
+      <!-- main roads -->
+      <path d="M40 250 C120 236 200 250 300 214 C380 186 420 140 470 70" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="7"/>
+      <path d="M60 120 C150 140 250 120 330 150 C380 168 410 206 430 236" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5"/>
+      <!-- Ilha do Governador with the airport -->
+      <path d="M470 40 C500 24 548 30 560 52 C572 76 540 98 506 96 C480 94 456 70 470 40 Z" fill="#1f3576"/>
+      <!-- landmarks: Christ the Redeemer, Sugarloaf -->
+      <path d="M232 300 C250 262 290 262 304 300 Z" fill="#1f3576"/>
+      <path d="M268 262 v-22 M258 248 h20" stroke="#cfd8ff" stroke-width="3" stroke-linecap="round"/>
+      <path d="M440 330 C446 300 460 296 468 330 Z M466 330 C470 312 480 310 486 330 Z" fill="#1f3576"/>
+      <text x="268" y="318" fill="rgba(255,255,255,.55)" font-size="10" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1">CRISTO</text>
+      <text x="462" y="346" fill="rgba(255,255,255,.55)" font-size="10" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1">PÃO DE AÇÚCAR</text>
+      <!-- the route, drawing itself, with a glow -->
+      <path id="gpsRoute" class="route" d="M96 262 C150 250 180 238 230 228 C300 214 330 196 370 170 C410 144 440 110 470 74 L500 62" fill="none" stroke="#ffd400" stroke-width="9" opacity=".35" filter="url(#gpsGlow)"/>
+      <path class="route" d="M96 262 C150 250 180 238 230 228 C300 214 330 196 370 170 C410 144 440 110 470 74 L500 62" fill="none" stroke="#ffd400" stroke-width="4" stroke-linecap="round"/>
+      <!-- start: the favela -->
+      <circle cx="96" cy="262" r="7" fill="#ff3b8d"/><circle class="ping" cx="96" cy="262" r="7" fill="none" stroke="#ff3b8d" stroke-width="2"/>
+      <text x="96" y="290" fill="#fff" font-size="12" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">MORRO DA GOUAL</text>
+      <!-- end: the airport -->
+      <circle cx="500" cy="62" r="8" fill="#2ee6ff"/><circle class="ping" cx="500" cy="62" r="8" fill="none" stroke="#2ee6ff" stroke-width="2"/>
+      <path d="M492 58 l16 4 -16 4 3 -4 z" fill="#06102e"/>
+      <text x="500" y="122" fill="#fff" font-size="12" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">RIO AIRPORT</text>
+      <!-- the car, riding the route -->
+      <g id="gpsCar" transform="translate(96 262)"><circle r="11" fill="#06102e" stroke="#ffd400" stroke-width="3"/><path d="M-6 3 h12 v-3 l-3 -4 h-6 l-3 4 z" fill="#2f62d9"/></g>
+    </svg>
+    <div class="hud"><span>ETA <em id="gpsEta">12</em> MIN</span><span>BUGATTI · <em>CR7</em></span></div>
+  </div>
+  <span class="dots">ON THE WAY TO THE AIRPORT</span></div></div><span class="dots">ON THE WAY TO THE AIRPORT</span></div></div>
 <div id="loading">
   <div class="ld-art"></div>
   <div class="ld-box">
@@ -268,6 +309,17 @@
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=17"></script>
+<script type="module" src="game.js?v=18"></script>
+<script>
+  // GPS trip card: restart the car along the route and count the minutes down each time it shows.
+  (() => { const f = document.getElementById('fade'); let t = 0;
+    new MutationObserver(() => { if (!f.classList.contains('trip')) { clearInterval(t); return; }
+      const route = document.getElementById('gpsRoute'), car = document.getElementById('gpsCar'), L = route.getTotalLength(), t0 = performance.now();
+      const step = now => { if (!f.classList.contains('trip')) return; const k = Math.min(1, (now - t0) / 5000), e = 1 - Math.pow(1 - k, 2.2), q = route.getPointAtLength(e * L);
+        car.setAttribute('transform', `translate(${q.x.toFixed(1)} ${q.y.toFixed(1)})`); if (k < 1) requestAnimationFrame(step); };
+      requestAnimationFrame(step);
+      let m = 12; const el = document.getElementById('gpsEta'); el.textContent = m; clearInterval(t);
+      t = setInterval(() => { m = Math.max(1, m - 1); el.textContent = m; if (m === 1) clearInterval(t); }, 420); }).observe(f, { attributes: true, attributeFilter: ['class'] }); })();
+</script>
 </body>
 </html>
