@@ -417,7 +417,8 @@ const screens = [];
 function makeScreen(index, w, h, parent, x, y, z, rotY = 0) {
   const st = STATIONS[index];
   const video = document.createElement('video');
-  Object.assign(video, { src: st.src, muted: true, loop: true, playsInline: true, preload: index ? 'metadata' : 'auto', crossOrigin: 'anonymous' });
+  // The film is only fetched when the camera gets near its screen (see the loop), so the site starts faster.
+  Object.assign(video, { muted: true, loop: true, playsInline: true, preload: 'none', crossOrigin: 'anonymous' });
   video.setAttribute('playsinline', '');
   const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace;
   const g = new THREE.Group(); g.position.set(x, y, z); g.rotation.y = rotY; (parent || scene).add(g);
@@ -430,7 +431,7 @@ function makeScreen(index, w, h, parent, x, y, z, rotY = 0) {
   };
   fit(); video.addEventListener('loadedmetadata', fit);
   panel.userData.station = film.userData.station = index;
-  const s = { index, video, group: g, hit: [panel, film], width: w };
+  const s = { index, video, group: g, hit: [panel, film], width: w, src: st.src };
   screens[index] = s;
   return s;
 }
@@ -439,7 +440,7 @@ function makeScreen(index, w, h, parent, x, y, z, rotY = 0) {
 function adoptScreen(target, index, { placeCamera = true, planarUV = false } = {}) {
   const st = STATIONS[index];
   const video = document.createElement('video');
-  Object.assign(video, { src: st.src, muted: true, loop: true, playsInline: true, preload: 'auto' });
+  Object.assign(video, { muted: true, loop: true, playsInline: true, preload: 'none' });   // fetched when the camera comes down (see the loop)
   video.setAttribute('playsinline', '');
   const tex = new THREE.VideoTexture(video); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = planarUV;
   if (planarUV) {
@@ -452,8 +453,7 @@ function adoptScreen(target, index, { placeCamera = true, planarUV = false } = {
   target.material = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide });
   target.userData.station = index;
   const box3 = new THREE.Box3().setFromObject(target), size = box3.getSize(new THREE.Vector3());
-  screens[index] = { index, video, group: target, hit: [target], width: Math.max(size.x, size.z) };
-  video.play().catch(() => {});
+  screens[index] = { index, video, group: target, hit: [target], width: Math.max(size.x, size.z), src: st.src };
   if (!placeCamera) return;
   // Put the camera stop in front of the screen, on the pitch side.
   const centre = box3.getCenter(new THREE.Vector3());
@@ -1461,11 +1461,11 @@ addEventListener('pointermove', e => {
 const counterEl = $('#counter'), spaceEl = $('#space'); let spaceD = -1;
 const loadStart = performance.now();
 let loaded = 0;
-const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, cityReady, playerReady, tunnelReady, lockerReady, gymReady, officeReady, coachReady, ...screens.filter(Boolean).map(s => new Promise(res => {
-  if (s.video.readyState >= 1) return res();
-  s.video.addEventListener('loadedmetadata', res, { once: true });
-  s.video.addEventListener('error', res, { once: true });
-}))];
+// The first view only needs the stadium and the city; the rooms inside keep loading in the background
+// (they are only reached after the space intro and the descent) and get their shaders compiled when done.
+const toLoad = [document.fonts ? document.fonts.ready : Promise.resolve(), stadiumReady, cityReady];
+const roomsReady = Promise.all([playerReady, tunnelReady, lockerReady, gymReady, officeReady, coachReady].map(p => Promise.resolve(p).catch(() => {})));
+roomsReady.then(() => { const wait = () => { if (state !== 'ready') return setTimeout(wait, 300); indoor.visible = true; renderer.compile(scene, camera); indoor.visible = false; renderer.shadowMap.needsUpdate = true; }; wait(); });
 toLoad.forEach(pr => pr.then(() => loaded++));
 const loadTimeout = setTimeout(() => (loaded = toLoad.length), 9000);
 function updateLoader() {
@@ -1608,6 +1608,7 @@ function frame() {
   // Play only the films near the camera.
   screens.forEach(s => {
     const d = camera.position.distanceTo(s.group.getWorldPosition(lookAt));
+    if (s.src && !s.video.src && d < (s.index === 0 ? 260 : 45)) { s.video.preload = 'auto'; s.video.src = s.src; }
     const near = state === 'ready' && d < (s.index === 0 ? 120 : 14);
     if (near && s.video.paused) s.video.play().catch(() => {});
     if (!near && !s.video.paused) s.video.pause();
