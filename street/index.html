@@ -112,6 +112,12 @@
   @media (max-height: 520px) { #loading .ld-logo { font-size: 46px; margin: 4px 0 8px; } #loading .ld-heroes { margin-bottom: 10px; } #loading .ld-heroes img { width: 46px; height: 46px; } #loading .ld-tip { margin-top: 10px; } }
   #fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .5s; z-index: 4; }
   #fade.on { opacity: 1; }
+  /* Location caption (e.g. arriving at the airport). */
+  #place { position: fixed; left: 0; right: 0; top: 18%; z-index: 5; text-align: center; pointer-events: none; opacity: 0; color: #fff; text-shadow: 0 4px 24px rgba(0,0,0,.6); }
+  #place small { display: block; font: 800 13px/1 Inter, Arial, sans-serif; letter-spacing: .4em; color: #2ee6ff; margin-bottom: 8px; }
+  #place b { display: block; font: 400 clamp(46px, 9vw, 110px)/.9 'Bebas Neue', Impact, sans-serif; letter-spacing: .06em; color: #ffd400; }
+  #place.go { animation: placeIn 4.6s ease both; }
+  @keyframes placeIn { 0% { opacity: 0; transform: translateY(14px); letter-spacing: .3em; } 15% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); } }
   /* While the car drives to the airport: a GPS map of Rio, the route drawing itself from the favela to the
      airport, the car following it, the arrival time counting down. */
   #fade .trip { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(ellipse at 50% 45%, #15296b 0%, #0b1740 60%, #060d28 100%); color: #fff; font: 800 13px/1.2 Inter, Arial, sans-serif; letter-spacing: .18em; }
@@ -249,6 +255,7 @@
     </div>
   </div>
 </div>
+<div id="place"><small></small><b></b></div>
 <div id="fade"><div class="trip"><b>CHAPTER 2 · THE AIRPORT</b>
   <div class="gps">
     <svg viewBox="0 0 600 360" aria-hidden="true">
@@ -309,7 +316,7 @@
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=21"></script>
+<script type="module" src="game.js?v=22"></script>
 <script>
   // GPS trip card: restart the car along the route and count the minutes down each time it shows.
   (() => { const f = document.getElementById('fade'); let t = 0;

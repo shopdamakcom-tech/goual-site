@@ -31,14 +31,14 @@ export function makeSky(T, meta, { turn = 0.625, low = -0.09, high = 0.3 } = {})
   const u = {
     zenith: { value: new THREE.Color('#2f7fe0') }, plateTopCol: { value: top }, haze: { value: new THREE.Color('#cfe3ec') },
     plate: { value: T.plate }, band: { value: T.band }, sunDir: { value: new V3(-0.75, 0.32, -0.6).normalize() }, sunCol: { value: new THREE.Color('#ffd9a0') },
-    plateLow: { value: low }, plateHigh: { value: high }, bandLow: { value: -0.04 }, bandHigh: { value: 0.16 }, turn: { value: turn },
+    plateLow: { value: low }, plateHigh: { value: high }, bandLow: { value: -0.04 }, bandHigh: { value: 0.16 }, turn: { value: turn }, single: { value: 0 },
   };
   const mat = new THREE.ShaderMaterial({
     uniforms: u, side: THREE.BackSide, depthWrite: false, fog: false,
     vertexShader: `varying vec3 vDir; void main(){ vDir = position; vec4 p = projectionMatrix * mat4(mat3(modelViewMatrix)) * vec4(position, 1.0); gl_Position = p.xyww; }`,
     fragmentShader: `
       uniform vec3 zenith, plateTopCol, haze, sunDir, sunCol; uniform sampler2D plate, band;
-      uniform float plateLow, plateHigh, bandLow, bandHigh, turn; varying vec3 vDir;
+      uniform float plateLow, plateHigh, bandLow, bandHigh, turn, single; varying vec3 vDir;
       void main(){
         vec3 d = normalize(vDir); float e = d.y, az = atan(d.x, d.z);
         // above the panorama: its own sky colour fading to a deeper blue overhead
@@ -50,7 +50,10 @@ export function makeSky(T, meta, { turn = 0.625, low = -0.09, high = 0.3 } = {})
         float pv = (e - plateLow) / (plateHigh - plateLow);
         if (pv < 1.08) {
           vec3 p = textureGrad(plate, vec2(fract(u * 2.0), clamp(pv, 0.0, 1.0)), gx * vec2(2.0, 1.0 / (plateHigh - plateLow)), gy * vec2(2.0, 1.0 / (plateHigh - plateLow))).rgb;
-          c = mix(c, p, 1.0 - smoothstep(0.93, 1.06, pv));
+          // The panorama repeats twice around the horizon; 'single' (1 or 2) hides one copy (the Christ once only).
+          float a = 1.0 - smoothstep(0.93, 1.06, pv);
+          if (single > 0.5) { float w = u * 2.0, seg = mod(floor(w), 2.0), f = fract(w); if (abs(seg - (single - 1.0)) < 0.5) a *= 1.0 - smoothstep(0.0, 0.1, f) * (1.0 - smoothstep(0.9, 1.0, f)); }
+          c = mix(c, p, a);
         }
         float bv = (e - bandLow) / (bandHigh - bandLow);
         if (bv > 0.0 && bv < 1.0) {

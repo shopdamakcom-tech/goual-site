@@ -9,7 +9,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { buildWorld, buildBackdrop } from './world.js?v=4';
 import { Character, dress } from './rig.js?v=7';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=3';
+import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=4';
 import { Builder, kitMaterials, dog, clutter, laundry } from './favela-kit.js';
 import { audio } from './audio.js?v=4';
 
@@ -629,6 +629,7 @@ async function enterAirport() {
   for (const o of scene.children) if (!keep.has(o) && !o.isLight) o.visible = false;
   for (const c of cards) c.got = true;
   AP.root = src;
+  sky.material.uniforms.single.value = 1;   // only one Corcovado in the sky over the airport
   carve(src, AP.DOORS);
   src.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(src);
@@ -705,6 +706,8 @@ function exitGuide() {
   };
   sign('GATES  ➜', 0, 3.6, -3, Math.PI); sign('➜  TARMAC', -12, 3.6, 30.8, Math.PI / 2); sign('EXIT  ➜', -18.5, 3.6, 30.8, Math.PI / 2);
 }
+// A big location title, like a film caption.
+function place(small, big) { const el = $('#place'); el.querySelector('small').textContent = small; el.querySelector('b').textContent = big; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
 async function arriveAirport() {
   state.stage = STAGES.AIRPORT;
   car.visible = true; car.position.set(AP.CAR_STOP.x, 0, AP.CAR_Z0); car.rotation.y = Math.PI / 2;
@@ -712,6 +715,7 @@ async function arriveAirport() {
   shot(new V3(40, 3.2, -62), new V3(30, 1.2, -32), { cut: true });
   $('#fade').classList.remove('on', 'trip');
   setObjective('CHAPTER 2 · THE AIRPORT', 'Rio International Airport', null);
+  place('RIO DE JANEIRO · BRAZIL', 'RIO AIRPORT');
   audio.airport?.();
   audio.engine?.(4.5);
   await tween(4.6, k => { car.position.z = lerp(AP.CAR_Z0, AP.CAR_STOP.z, 1 - (1 - k) * (1 - k)); });
