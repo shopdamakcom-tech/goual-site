@@ -148,6 +148,7 @@ function carDoorFor(from) {
 // The rivals' car: a Ferrari LaFerrari ("Ferrari Laferrari" by vecarz, Sketchfab), loaded in the background.
 const ferrariP = load('models/ferrari.glb').then(m => {
   m.traverse(o => { if (o.isMesh) { const mt = o.material; if (mt.color && mt.color.r > 0.55 && mt.color.g < 0.5 && mt.color.b < 0.5) { mt.color.setRGB(0.32, 0.0, 0.004); if (mt.map) mt.map = null; mt.metalness = 0.3; mt.roughness = 0.28; mt.envMap = ENV; mt.envMapIntensity = 0.55; mt.needsUpdate = true; } } });
+  m.traverse(o => { if (o.isMesh && o.material.name === 'Glasses') { o.material.opacity = 0.18; o.material.depthWrite = false; o.renderOrder = 2; } });
   const f = makeCar(m, 4.7); f.visible = false; scene.add(f); return f;
 }).catch(() => null);
 // The two stars you did not pick: they chase the Ballon d'Or too, one step behind you.
@@ -603,6 +604,7 @@ async function meetRonaldo() {
 }
 async function afterGoal() {
   pushMode('dialog'); cr7.keeper = false; gloves.set(false); $('#letterbox').classList.add('on');
+  siuT = -1; P.spin = 0; act(null, 0);   // stop the goal celebration (its half turn would put his back to CR7)
   ronaldo.root.position.copy(keeperBase(0)).addScaledVector(GOAL.n, 2.2);
   P.pos.copy(ronaldo.root.position).addScaledVector(GOAL.n, 1.5);
   faceEachOther(ronaldo);
@@ -649,13 +651,11 @@ async function rideAway() {
     P.vel.set(0, 0, 0); P.yaw = Math.atan2(-out.x, -out.z);
     await sleep(0.35);
   }
-  // ...cut: he is at the wheel, seen through the windscreen. The door shuts.
-  car.attach(me.root); P.seated = true; act('sit', 999);
-  me.root.position.copy(car.worldToLocal(seat.clone().setY(car.position.y + 0.42 - 0.5 * me.height))); me.root.rotation.set(0, Math.atan2(nose.x, nose.z) - car.rotation.y, 0);
-  if (D) D.node.rotation.y = 0;
-  audio.kick(0.35);
-  shot(car.position.clone().addScaledVector(nose, 4.2).add(new V3(0, 1.35, 0)), seat.clone().add(new V3(0, 0.75, 0)), { cut: true });
-  await sleep(1.6);
+  // ...cut: Cristiano, at the cage gate, waves him off. (The hero is in the car; the door shuts.)
+  me.root.visible = false; P.seated = true; if (D) D.node.rotation.y = 0; audio.kick(0.35);
+  ronaldo.root.position.set(0, 0, 19.5); ronaldo.root.rotation.set(0, Math.atan2(CAR_STOP, CAR_Z - 19.5), 0); cr7.juggle = false; cr7Ball.mesh.visible = false;
+  shot(new V3(-0.9, 1.7, 22.2), new V3(0, 1.45, 19.5), { cut: true });
+  await say([['CR7', 'Good luck, {HERO}. Bring it back!']]);
   // Off he goes; the red Ferrari takes its place in the same shot, stops, the other two talk, and it races off.
   audio.engine?.(4);
   shot(new V3(-8.5, 1.7, CAR_Z + 5.6), new V3(-12, 0.9, CAR_Z), { cut: true });
@@ -663,10 +663,15 @@ async function rideAway() {
   const fer = await ferrariP;
   if (fer) {
     fer.visible = true; fer.rotation.y = Math.PI; fer.position.set(46, 0, CAR_Z);
-    rivals().forEach((r, i) => { const ch = r.ch; fer.add(ch.root); ch.root.visible = true; ch.root.position.set(-0.3, -1.0, i ? 0.27 : -0.27); ch.root.rotation.set(0, Math.PI / 2, 0); });
+    rivals().forEach((r, i) => { const ch = r.ch; fer.add(ch.root); ch.root.visible = true; ch.root.position.set(-0.3, -0.82, i ? 0.27 : -0.27); ch.root.rotation.set(0, Math.PI / 2, 0); });
     rivalState.on = true; rivalState.mode = 'seated'; audio.engine?.(3);
     await tween(2.6, k => { fer.position.x = lerp(46, -12, 1 - (1 - k) * (1 - k)); });
+    fer.updateMatrixWorld(true);
+    const fFront = fer.localToWorld(new V3(1.0, 0, 0)).sub(fer.position).setY(0).normalize();   // the Ferrari's nose direction
+    const fc = fer.position.clone().add(new V3(0, 0.75, 0));
+    shot(fc.clone().addScaledVector(fFront, 3.4).add(new V3(fFront.z * 0.9, 0.45, -fFront.x * 0.9)), fc.clone().add(new V3(0, 0.15, 0)), { cut: true });
     await say([['RIVAL1', '{HERO} is in that Bugatti… Follow him!'], ['RIVAL2', 'That Ballon d\'Or is ours. Floor it!']]);
+    shot(new V3(-8.5, 1.7, CAR_Z + 5.6), new V3(-12, 0.9, CAR_Z), { cut: true });
     audio.engine?.(3);
     await tween(2.4, (k, raw) => { fer.position.x = -12 - 100 * raw * raw; });
     fer.visible = false; rivalState.mode = 'away';
@@ -712,15 +717,19 @@ const theft = { i: 0, run: false, fallen: false, slipped: false, boost: 0 };
 async function enterAirport() {
   const [{ wallColliders, carve, floorColliders }, src, ...blds] = await Promise.all([import('./airport.js?v=3'), load('models/airport.glb'), ...['Large_2', 'Medium_2_001', 'Small_1'].map(n => load(`models/bld-${n}.glb`))]);
   // Leave the favela: hide it all (lights, sky, car and the stars stay), swap the colliders.
-  const keep = new Set([sun, sun.target, sky, clouds, car, ball.mesh, trophy, ...Object.values(HEROES).map(h => h.ch.root)]);
-  for (const o of scene.children) if (!keep.has(o) && !o.isLight) o.visible = false;
+  const keep = new Set([sun, sun.target, sky, clouds, car, ball.mesh, trophy, await ferrariP, ...Object.values(HEROES).map(h => h.ch.root)]);
+  // The favela is not coming back: free its GPU memory (geometries and textures are re-uploaded if ever reused).
+  for (const o of [...scene.children]) if (!keep.has(o) && !o.isLight) {
+    o.traverse(m => { if (m.isMesh || m.isInstancedMesh) { m.geometry?.dispose(); for (const mt of [].concat(m.material)) { for (const k in mt) if (mt[k] && mt[k].isTexture) mt[k].dispose(); mt.dispose?.(); } } });
+    scene.remove(o);
+  }
   for (const c of cards) c.got = true;
+  renderer.renderLists.dispose();
   AP.root = src;
   // The runway model sits on a 1 m slab: lower it so it is flush with the apron (planes and players stood under it).
   { const rw = src.getObjectByName('LandingTrack1Straight'); if (rw) { src.updateMatrixWorld(true); const top = new THREE.Box3().setFromObject(rw).max.y; const wp = rw.getWorldPosition(new V3()); wp.y -= top - 0.02; rw.position.copy(rw.parent.worldToLocal(wp)); } }
-  AP.jetP = load('models/jet.glb').catch(() => null);   // our own jet, for the chase to Dubai (loads in the background)
-  AP.cabinP = load('models/cabin.glb').catch(() => null); // a plane's cabin (Antonov An-26 interior) for the shots on board
-  AP.rioP = load('models/rio.glb').catch(() => null);     // Rio from the sky, for the flight out
+  // The jet, the cabin and Rio from the sky load only when Messi gets away (keeps memory low on iPads).
+  AP.loadFlight = () => { AP.jetP ??= load('models/jet.glb').catch(() => null); AP.cabinP ??= load('models/cabin.glb').catch(() => null); AP.rioP ??= load('models/rio.glb').catch(() => null); };
   sky.material.uniforms.single.value = 1;   // only one Corcovado in the sky over the airport
   carve(src, AP.DOORS);
   src.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -815,7 +824,7 @@ function place(small, big) { const el = $('#place'); el.querySelector('small').t
 async function arriveAirport() {
   state.stage = STAGES.AIRPORT;
   car.visible = true; car.position.set(AP.CAR_STOP.x, 0, AP.CAR_Z0); car.rotation.y = Math.PI / 2;
-  scene.attach(me.root); P.seated = false; act(null, 0); me.root.visible = false;
+  if (me.root.parent !== scene) scene.add(me.root); me.root.rotation.set(0, 0, 0); P.seated = false; act(null, 0); me.root.visible = false;
   shot(new V3(40, 3.2, -62), new V3(30, 1.2, -32), { cut: true });
   $('#fade').classList.remove('on', 'trip');
   setObjective('CHAPTER 2 · THE AIRPORT', 'Rio International Airport', null);
@@ -940,6 +949,7 @@ function updateThief(dt) {
 let cabin = null;
 async function cabinSet() {
   if (cabin) return cabin;
+  AP.loadFlight();
   const src = await AP.cabinP; if (!src) return null;
   cabin = new THREE.Group(); cabin.add(src); cabin.scale.setScalar(0.0242); cabin.position.set(4000, 0, 4000); scene.add(cabin);
   src.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
@@ -949,6 +959,7 @@ const cab = (x, y, z) => cabin.localToWorld(new V3(x, y, z));
 // Seated on a bench: the hips (about half the height up when standing) go down onto the bench top.
 const onBench = (ch, x, z) => cab(x, 84, z).add(new V3(0, -0.5 * ch.height, 0));
 async function escaped() {
+  AP.loadFlight();
   state.stage = STAGES.ESCAPE; pushMode('cut'); $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0); prompt(null);
   // He climbs aboard with the trophy...
   thief.root.visible = false; trophy.visible = false; audio.kick(0.3);
