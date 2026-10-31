@@ -547,8 +547,8 @@ export function buildBackdrop(scene, sunDir, { painted = false } = {}) {
   }
   if (!painted) for (let i = 0; i < 260; i++) { const px = (RR() - 0.5) * 1400, pz = 340 + RR() * 300; boxes.push([px, -60, pz, 14 + RR() * 16, 30 + RR() * 70, 14 + RR() * 14, new THREE.Color(RR() < 0.7 ? '#e9e5dc' : '#c9d4dc')]); }
   // North behind our favela: more houses climbing.
-  for (let i = 0; i < 700; i++) { const px = (RR() - 0.5) * 240, pz = -66 - RR() * 160, py = 9 + (-66 - pz) * 0.32 + RR(); boxes.push([px, py - 2, pz, 4 + RR() * 5, 3 + RR() * 6, 4 + RR() * 5, cols[Math.floor(RR() * cols.length)]]); }
-  for (let i = 0; i < 500; i++) { const side = RR() < 0.5 ? -1 : 1, px = side * (55 + RR() * 140), pz = -60 + RR() * 110, py = -10 + RR() * 18 - (Math.abs(px) - 55) * 0.25; boxes.push([px, py, pz, 4 + RR() * 5, 3 + RR() * 6, 4 + RR() * 5, cols[Math.floor(RR() * cols.length)]]); }
+  if (!painted) for (let i = 0; i < 700; i++) { const px = (RR() - 0.5) * 240, pz = -66 - RR() * 160, py = 9 + (-66 - pz) * 0.32 + RR(); boxes.push([px, py - 2, pz, 4 + RR() * 5, 3 + RR() * 6, 4 + RR() * 5, cols[Math.floor(RR() * cols.length)]]); }
+  if (!painted) for (let i = 0; i < 500; i++) { const side = RR() < 0.5 ? -1 : 1, px = side * (55 + RR() * 140), pz = -60 + RR() * 110, py = -10 + RR() * 18 - (Math.abs(px) - 55) * 0.25; boxes.push([px, py, pz, 4 + RR() * 5, 3 + RR() * 6, 4 + RR() * 5, cols[Math.floor(RR() * cols.length)]]); }
   const geo = new THREE.BoxGeometry(1, 1, 1); geo.translate(0, 0.5, 0);
   // Facade texture for the far houses: light walls with rows of dark windows (tinted per house).
   const fc = document.createElement('canvas'); fc.width = fc.height = 128; const fg = fc.getContext('2d');
