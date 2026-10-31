@@ -448,6 +448,8 @@ function nearestInteractable() {
 const waits = [];
 const waitFor = fn => new Promise(r => waits.push({ fn, r }));
 const sleep = s => new Promise(r => setTimeout(r, s * 1000));
+// The duel with Cristiano: 'goal' = goal-to-goal (default, to try out), '?duel=pen' = the old penalty.
+const DUEL = params.get('duel') === 'pen' ? 'pen' : 'goal';
 const STAGES = { INTRO: 0, FIND: 1, CR7: 2, PENS: 3, CAR: 4, RIDE: 5, END: 6, AIRPORT: 7, TERMINAL: 8, SPOT: 9, CHASE: 10, ESCAPE: 11, WIN: 12 };
 // Ease a value from a to b over `dur` seconds, calling fn(k) every frame (k = 0..1, smooth).
 const tween = (dur, fn) => new Promise(res => { let t = 0; tweens.push(dt => { t += dt; const k = Math.min(1, t / dur); fn(k * k * (3 - 2 * k), k); if (k >= 1) { res(); return true; } }); });
@@ -503,7 +505,7 @@ async function talkLucas() {
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
 // ----- Cristiano at the cage: the deal, the gloves, the penalty -----
-const cr7 = { juggle: true, t: 0, walk: 0, keeper: false };
+const cr7 = { juggle: true, t: 0, walk: 0, keeper: false, kick: -1 };
 async function meetRonaldo() {
   state.stage = STAGES.CR7; pushMode('dialog'); if (document.pointerLockElement) document.exitPointerLock();
   $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0); prompt(null);
@@ -516,9 +518,16 @@ async function meetRonaldo() {
     ['CR7', '{HERO}! I knew you would come up here.'],
     ['HERO', 'Cristiano. The Ballon d\'Or is gone. What do you know?'],
     ['CR7', 'Maybe I know where it is. Maybe not.'],
-    ['CR7', 'Here is the deal. Score a penalty against me, and I give you a clue.'],
-    ['HERO', 'You? In goal?'],
-    ['CR7', 'Nobody scores on Cristiano. Nobody!'],
+    ...(DUEL === 'goal' ? [
+      ['CR7', 'Here is the deal. Goal to goal, one on one. You stay in your half, I stay in mine.'],
+      ['CR7', 'We shoot in turns, from where the ball stops. Score once, and I give you a clue.'],
+      ['HERO', 'Deal. But you will not score on me either.'],
+      ['CR7', 'Nobody scores on Cristiano. Nobody!'],
+    ] : [
+      ['CR7', 'Here is the deal. Score a penalty against me, and I give you a clue.'],
+      ['HERO', 'You? In goal?'],
+      ['CR7', 'Nobody scores on Cristiano. Nobody!'],
+    ]),
   ]);
   // The little show: SIUUU, the gloves go on, and he jogs to his line while the kids gather round.
   ronaldoSiu = 0; setTimeout(() => audio.siu(), 380);
@@ -526,8 +535,13 @@ async function meetRonaldo() {
   await sleep(2.1);
   gloves.set(true); audio.blip(520); toast('CR7 IN GOAL!', '#ffd400'); cr7.clap = 0;
   await sleep(1.0);
-  kids.forEach((k, i) => { k.target.set(SPOT.x - 2.2 - (i % 2) * 0.8, 0, 10 + (i < 2 ? -3.2 - i * 0.9 : 3.2 + (i - 2) * 0.9)); k.watch = true; });
-  thiago.root.position.set(SPOT.x - 3.4, 0, 14.6); thiago.root.rotation.y = 2.2;
+  if (DUEL === 'goal') {   // goal to goal uses the whole pitch: the kids watch from along the north wall
+    kids.forEach((k, i) => { k.target.set([-9, -5, 5, 9][i], 0, 2.9); k.watch = true; });
+    thiago.root.position.set(0, 0, 2.9); thiago.root.rotation.y = 0;
+  } else {
+    kids.forEach((k, i) => { k.target.set(SPOT.x - 2.2 - (i % 2) * 0.8, 0, 10 + (i < 2 ? -3.2 - i * 0.9 : 3.2 + (i - 2) * 0.9)); k.watch = true; });
+    thiago.root.position.set(SPOT.x - 3.4, 0, 14.6); thiago.root.rotation.y = 2.2;
+  }
   const from = ronaldo.root.position.clone(), to = keeperBase(0);
   ronaldo.root.rotation.y = Math.atan2(to.x - from.x, to.z - from.z); cr7.walk = 3.2;
   shot(new V3(SPOT.x - 1, 2.2, 15.5), to.clone().add(new V3(0, 1, 0)), { follow: 1.5 });
@@ -541,11 +555,28 @@ async function meetRonaldo() {
   await say([['CR7', 'Come on, {HERO}. Show me.']]);
   $('#letterbox').classList.remove('on'); popMode();
   state.stage = STAGES.PENS;
-  setObjective('CHAPTER 1 · THE CAGE', 'Score a penalty against Cristiano', null);
   let tries = 0, won = false;
-  while (!won) {
-    won = await penaltyChallenge(tries++);
-    if (!won) await conversation(ronaldo, [pick([['CR7', 'Saved! Again, again!'], ['CR7', 'Ha! Too easy. One more!'], ['CR7', 'Is that all? Try again.'], ['CR7', 'Come on, you can do better than that!']])]);
+  if (DUEL === 'goal') {
+    // Goal to goal: each in his own half, shooting in turns from where the ball stopped, until you score.
+    let mine = 0, his = 0, rest = new V3(-3.5, 0, 10);
+    const score = () => setObjective('CHAPTER 1 · THE CAGE', `Goal to goal · score on Cristiano  (CR7 ${his})`, null);
+    score();
+    while (true) {
+      penSpot = rest; won = await penaltyChallenge(tries++);
+      if (won) break;
+      rest = new V3(3 + Math.random() * 6, 0, 4.5 + Math.random() * 11);          // the ball stops in his half
+      const cr7Scored = await cr7Turn(rest);
+      if (cr7Scored) { his++; score(); }
+      await conversation(ronaldo, [cr7Scored ? pick([['CR7', 'Siuuu! Your turn.'], ['CR7', 'Too strong for you!']]) : pick([['CR7', 'Good save… Your turn.'], ['CR7', 'Lucky! Your turn.']])]);
+      rest = new V3(-(3 + Math.random() * 6), 0, 4.5 + Math.random() * 11);       // and back in yours
+    }
+    penSpot = SPOT;
+  } else {
+    setObjective('CHAPTER 1 · THE CAGE', 'Score a penalty against Cristiano', null);
+    while (!won) {
+      won = await penaltyChallenge(tries++);
+      if (!won) await conversation(ronaldo, [pick([['CR7', 'Saved! Again, again!'], ['CR7', 'Ha! Too easy. One more!'], ['CR7', 'Is that all? Try again.'], ['CR7', 'Come on, you can do better than that!']])]);
+    }
   }
   await afterGoal();
 }
@@ -555,7 +586,7 @@ async function afterGoal() {
   P.pos.copy(ronaldo.root.position).addScaledVector(GOAL.n, 2.2);
   faceEachOther(ronaldo); frameTalk(P.pos, ronaldo.root.position);
   await say([
-    ['CR7', '…Okay. Good penalty. Very good.'],
+    [DUEL === 'goal' ? ['CR7', '…Okay. Nice goal. Very good.'] : ['CR7', '…Okay. Good penalty. Very good.']][0],
     ['HERO', 'A deal is a deal. The clue.'],
     ['CR7', 'The Ballon d\'Or is not in the favela any more. It is in a building, down in the city.'],
     ['CR7', 'My driver will take you there. Go, he is waiting for you on the road.'],
@@ -903,6 +934,7 @@ async function caught() {
 const PG = W.goals[1];
 const GOAL = { c: new V3(PG.x, 0, PG.z), n: new V3(PG.dir, 0, 0), l: new V3(0, 0, -PG.dir), w: PG.w, h: PG.h };
 const SPOT = GOAL.c.clone().addScaledVector(GOAL.n, 6);
+let penSpot = SPOT;   // where the ball is for the next shot (the spot, or where it stopped in goal-to-goal)
 const lat = p => (p.x - GOAL.c.x) * GOAL.l.x + (p.z - GOAL.c.z) * GOAL.l.z;
 const keeperBase = off => GOAL.c.clone().addScaledVector(GOAL.n, 0.45).addScaledVector(GOAL.l, off);
 const reticle = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.3, 32), new THREE.MeshBasicMaterial({ color: 0xffd400, transparent: true, opacity: 0.9, depthTest: false }));
@@ -911,19 +943,53 @@ let mouseNDC = new THREE.Vector2(), pointerDown = false, clickTap = false;
 addEventListener('pointermove', e => { mouseNDC.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); });
 canvasEl.addEventListener('pointerdown', e => { mouseNDC.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); pointerDown = true; clickTap = true; });
 addEventListener('pointerup', () => { pointerDown = false; });
+const OG = { c: new V3(W.goals[0].x, 0, W.goals[0].z), n: new V3(W.goals[0].dir, 0, 0), l: new V3(0, 0, -W.goals[0].dir), w: W.goals[0].w, h: W.goals[0].h };
+let diveIn = 0;
+addEventListener('keydown', e => { if (!state.gk) return; if (/ArrowLeft|KeyA|KeyQ/.test(e.code)) diveIn = -1; if (/ArrowRight|KeyD/.test(e.code)) diveIn = 1; });
+canvasEl.addEventListener('pointerdown', e => { if (state.gk) diveIn = e.clientX < innerWidth / 2 ? -1 : 1; });
+async function cr7Turn(from) {
+  pushMode('cut'); state.gk = true; diveIn = 0; prompt(null);
+  const dir = OG.c.clone().sub(from).setY(0).normalize();
+  // Cristiano walks to the ball; you go back on your line.
+  cr7.keeper = false; ronaldo.root.rotation.z = 0;
+  const r0 = ronaldo.root.position.clone(), r1 = from.clone().addScaledVector(dir, -1.0); r1.y = 0;
+  ronaldo.root.rotation.y = Math.atan2(r1.x - r0.x, r1.z - r0.z); cr7.walk = 4.5;
+  ball.frozen = true; ball.mesh.visible = true; ball.pos.copy(from).setY(BALL_R); ball.mesh.position.copy(ball.pos);
+  const base = OG.c.clone().addScaledVector(OG.n, 0.45);
+  P.pos.copy(base); P.yaw = Math.atan2(OG.n.x, OG.n.z); P.vel.set(0, 0, 0); act('keeper', 99);
+  shot(from.clone().addScaledVector(dir, -3.4).add(new V3(0, 2.0, 0)), OG.c.clone().add(new V3(0, 0.9, 0)), { cut: true });
+  await tween(Math.max(0.4, r0.distanceTo(r1) / 4.5), k => { ronaldo.root.position.lerpVectors(r0, r1, k); });
+  cr7.walk = 0; ronaldo.root.rotation.y = Math.atan2(dir.x, dir.z);
+  hint(TOUCH ? 'Tap LEFT or RIGHT of the screen to dive!' : 'Press ← or → to dive!', 3);
+  await sleep(1.4);
+  // The shot.
+  cr7.kick = 0; await sleep(0.25); audio.kick(0.9);
+  const Lt = (Math.random() - 0.5) * 2.7, to = OG.c.clone().addScaledVector(OG.l, Lt); to.y = 0.25 + Math.random() * 1.5;
+  const from3 = ball.pos.clone(), dur = from3.distanceTo(to) / 17;
+  const d = diveIn, dv = d * (Math.abs(Lt) > 0.3 ? 1 : 0.6);
+  await tween(dur, (k, raw) => { ball.pos.lerpVectors(from3, to, raw); ball.pos.y += Math.sin(Math.PI * raw) * 0.3; ball.mesh.position.copy(ball.pos); ball.mesh.rotation.x += 0.4;
+    const kk = Math.min(1, raw * 1.6); P.pos.copy(base).addScaledVector(OG.l, dv * 1.15 * kk); me.root.rotation.z = -dv * 1.2 * kk; });
+  const saved = (d !== 0 && Math.sign(d) === Math.sign(Lt) && Math.abs(Lt) >= 0.3 && !(Math.abs(Lt) > 1.25 && to.y > 1.4)) || (d === 0 && Math.abs(Lt) < 0.45);
+  if (saved) { toast('SAVED!'); audio.cheer(0.7); addStyle(200, 'SAVE'); kidsCheer = 1.5; const v = OG.n.clone().multiplyScalar(5); v.y = 3;
+    await tween(0.8, () => { v.y -= 9.8 / 60; ball.pos.addScaledVector(v, 1 / 60); if (ball.pos.y < BALL_R) { ball.pos.y = BALL_R; v.y *= -0.4; } ball.mesh.position.copy(ball.pos); }); }
+  else { toast('CR7 SCORES!', '#ff2d55'); audio.net(); audio.ooh(); ronaldoSiu = 0; setTimeout(() => audio.siu(), 380); await sleep(1.6); }
+  me.root.rotation.z = 0; act(null, 0); state.gk = false; cr7.kick = -1; cr7.keeper = true;
+  release(); popMode();
+  return !saved;
+}
 function penaltyChallenge(tries = 0) {
   return new Promise(res => {
     pushMode('pen'); if (document.pointerLockElement) document.exitPointerLock(); $('#touch').classList.add('hidden');
-    P.pos.copy(SPOT).addScaledVector(GOAL.n, 1.1); P.yaw = Math.atan2(-GOAL.n.x, -GOAL.n.z); P.vel.set(0, 0, 0);
+    P.pos.copy(penSpot).addScaledVector(GOAL.n, 1.1); P.yaw = Math.atan2(-GOAL.n.x, -GOAL.n.z); P.vel.set(0, 0, 0); me.root.rotation.z = 0; act(null, 0);
     ronaldo.root.rotation.set(0, Math.atan2(GOAL.n.x, GOAL.n.z), 0);
-    shot(SPOT.clone().addScaledVector(GOAL.n, 3.6).addScaledVector(GOAL.l, 0.6).add(new V3(0, 1.75, 0)), GOAL.c.clone().add(new V3(0, 0.9, 0)), { follow: 3 });
+    shot(penSpot.clone().addScaledVector(GOAL.n, 3.6).addScaledVector(GOAL.l, 0.6).add(new V3(0, 1.75, 0)), GOAL.c.clone().add(new V3(0, 0.9, 0)), { follow: 3, cut: DUEL === 'goal' });
     $('#tally').classList.remove('hidden'); $('#tally').innerHTML = `<span>${tries + 1}</span>`;
     state.pen = { tries, phase: 'place', t: 0, power: 0, aim: GOAL.c.clone().add(new V3(0, 1, 0)), res, dive: 0, diveT: 0, keeperX: 0, scored: false };
     if (!tries) hint(TOUCH ? 'Drag to aim · hold to charge · release to shoot (not too hard!)' : 'Aim with the mouse · hold the button to charge · release to shoot', 7);
     placeBall();
   });
 }
-function placeBall() { const S = state.pen; ball.frozen = true; ball.mesh.visible = true; ball.pos.copy(SPOT).add(new V3(0, BALL_R, 0)); ball.mesh.position.copy(ball.pos); S.phase = 'aim'; S.dive = 0; S.diveT = 0; S.keeperX = 0; }
+function placeBall() { const S = state.pen; ball.frozen = true; ball.mesh.visible = true; ball.pos.copy(penSpot).add(new V3(0, BALL_R, 0)); ball.mesh.position.copy(ball.pos); S.phase = 'aim'; S.dive = 0; S.diveT = 0; S.keeperX = 0; }
 const raycaster = new THREE.Raycaster(), goalPlane = new THREE.Plane(GOAL.n.clone(), -GOAL.n.dot(GOAL.c));
 function updatePen(dt) {
   const S = state.pen; if (!S) return;
@@ -961,9 +1027,10 @@ function strike() {
   audio.kick(S.power);
   const p = S.power, spread = Math.max(0, p - 0.55) * 0.9;
   const to = S.aim.clone().addScaledVector(GOAL.l, (Math.random() - 0.5) * spread); to.y += (Math.random() - 0.3) * spread + (p > 0.92 ? 0.9 : 0);
-  S.from = ball.pos.clone(); S.to = to; S.dur = 6.6 / (11 + 15 * p); S.arc = 0.25 + (1 - p) * 0.5; S.ft = 0; ball.frozen = true; S.phase = 'flight';
+  const far = Math.max(1, ball.pos.distanceTo(to) / 6.5);
+  S.from = ball.pos.clone(); S.to = to; S.dur = 6.6 / (11 + 15 * p) * far; S.arc = 0.25 + (1 - p) * 0.5; S.ft = 0; ball.frozen = true; S.phase = 'flight';
   // Cristiano reads soft shots and guesses on hard ones; he gets a little tired after a few tries.
-  const reads = Math.random() < (0.62 - 0.45 * p) * (S.tries >= 3 ? 0.45 : 1);
+  const reads = Math.random() < Math.min(0.85, (0.62 - 0.45 * p) * (S.tries >= 3 ? 0.45 : 1) + (far - 1) * 0.18);
   const L = lat(to);
   const side = reads ? Math.sign(L) * Math.min(1, Math.abs(L) / 1.2) : (Math.random() < 0.5 ? -1 : 1) * (0.5 + Math.random() * 0.5);
   S.dive = Math.abs(L) < 0.35 && reads ? 0.05 : side; S.high = to.y > 1.2; S.reads = reads;
@@ -975,7 +1042,7 @@ function resolveShot() {
   const saved = inGoal && Math.abs(L - kx) < reach && (to.y < 1.6 + Math.abs(S.dive) * 0.5);
   const span = $('#tally').children[0];
   if (inGoal && !saved) {
-    S.scored = true; span.className = 'g'; span.textContent = '✓'; toast('GOOOL!'); audio.net(); audio.cheer(1); audio.fiesta(4); addStyle(500, 'PENALTY ON CR7'); kidsCheer = 2.5;
+    S.scored = true; span.className = 'g'; span.textContent = '✓'; toast('GOOOL!'); audio.net(); audio.cheer(1); audio.fiesta(4); addStyle(500, DUEL === 'goal' ? 'GOAL ON CR7' : 'PENALTY ON CR7'); kidsCheer = 2.5;
     const back = GOAL.n.clone().negate();
     S.after = dt => { ball.pos.addScaledVector(back, dt * 0.4); ball.pos.y = Math.max(BALL_R, ball.pos.y - dt * 2); ball.mesh.position.copy(ball.pos); };
     setTimeout(() => celebrate(true), 500);
@@ -989,7 +1056,7 @@ function resolveShot() {
 function endPens() {
   const S = state.pen; state.pen = null;
   $('#tally').classList.add('hidden'); reticle.visible = false; ronaldo.root.rotation.z = 0; ronaldo.root.position.copy(keeperBase(0));
-  ball.frozen = false; ball.pos.copy(SPOT).add(new V3(0.5, 0.3, 0.5)); ball.vel.set(0, 0, 0);
+  ball.frozen = false; ball.pos.copy(penSpot).add(new V3(0.5, 0.3, 0.5)); ball.vel.set(0, 0, 0);
   release(); popMode(); S.res(S.scored);
 }
 
@@ -1081,7 +1148,8 @@ function updateNPCs(dt) {
   lucas.animate({ dt, speed: 0, grounded: true, action: tk(lucas), actionT: performance.now() / 1000, look: lookAtPlayer(lucas) });
   // Cristiano: juggles while he waits, SIUUU, walks to his line, keeper stance and dives in the penalty.
   if (ronaldoSiu >= 0) { ronaldoSiu += dt; if (ronaldoSiu > 1.9) ronaldoSiu = -1; }
-  if (state.pen) ronaldo.animate({ dt, speed: 0, grounded: true, action: 'keeper', dive: state.pen.dive * state.pen.diveT });
+  if (cr7.kick >= 0) { cr7.kick += dt; ronaldo.animate({ dt, speed: 0, grounded: true, action: 'kick', actionT: cr7.kick }); }
+  else if (state.pen) ronaldo.animate({ dt, speed: 0, grounded: true, action: 'keeper', dive: state.pen.dive * state.pen.diveT });
   else if (cr7.keeper) ronaldo.animate({ dt, speed: 0, grounded: true, action: tk(ronaldo) || 'keeper', actionT: performance.now() / 1000 });
   else if (cr7.walk > 0) ronaldo.animate({ dt, speed: cr7.walk, grounded: true });
   else if (ronaldoSiu >= 0) ronaldo.animate({ dt, speed: 0, grounded: true, action: 'siu', actionT: ronaldoSiu });
@@ -1265,4 +1333,4 @@ me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
 frame();
 post('ready');
 // Test hooks.
-window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
+window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
