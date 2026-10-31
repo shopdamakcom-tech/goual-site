@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { buildWorld, buildBackdrop } from './world.js?v=4';
-import { Character, dress } from './rig.js?v=6';
+import { Character, dress } from './rig.js?v=7';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=3';
 import { Builder, kitMaterials, dog, clutter, laundry } from './favela-kit.js';
@@ -90,8 +90,8 @@ const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc, car
 // The three playable stars (models made by GOUAL ART with Meshy). `me` is the one you picked.
 const HEROES = {
   mbappe: { id: 'mbappe', name: 'Mbappé', label: 'MBAPPÉ', color: '#4da3ff', ch: new Character(mbappeSrc, { kind: 'meshy', height: 1.78, run: mbappeSrc.userData.run }) },
-  yamal: { id: 'yamal', name: 'Yamal', label: 'YAMAL', color: '#ff5a4a', ch: new Character(yamalSrc, { kind: 'meshy', height: 1.80 }) },
-  kane: { id: 'kane', name: 'Kane', label: 'KANE', color: '#f2f2f2', ch: new Character(kaneSrc, { kind: 'meshy', height: 1.88 }) },
+  yamal: { id: 'yamal', name: 'Yamal', label: 'YAMAL', color: '#ff5a4a', ch: new Character(yamalSrc, { kind: 'meshy', height: 1.80, run: yamalSrc.userData.run }) },
+  kane: { id: 'kane', name: 'Kane', label: 'KANE', color: '#ff4d5a', ch: new Character(kaneSrc, { kind: 'meshy', height: 1.88, run: kaneSrc.userData.run }) },
 };
 let hero = HEROES[params.get('hero')] || HEROES.mbappe, me = hero.ch;
 for (const h of Object.values(HEROES)) { scene.add(h.ch.root); h.ch.root.visible = h === hero; }

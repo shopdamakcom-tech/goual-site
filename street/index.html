@@ -95,7 +95,7 @@
   #loading .ld-kick { font: 800 11px/1 Inter, system-ui, sans-serif; letter-spacing: .3em; color: #2ee6ff; }
   #loading .ld-logo { font-size: clamp(54px, 9vw, 96px); margin: 8px 0 14px; }
   #loading .ld-heroes { display: flex; gap: 10px; margin-bottom: 20px; }
-  #loading .ld-heroes img { width: 74px; height: 74px; object-fit: cover; object-position: 50% 15%; border-radius: 50%; border: 3px solid var(--y); background: #1e5bd8; animation: ldBob 1.4s ease-in-out infinite; }
+  #loading .ld-heroes img { width: 74px; height: 74px; object-fit: cover; object-position: 50% 50%; border-radius: 50%; border: 3px solid var(--y); background: #1e5bd8; animation: ldBob 1.4s ease-in-out infinite; }
   #loading .ld-heroes img:nth-child(2) { animation-delay: .2s; } #loading .ld-heroes img:nth-child(3) { animation-delay: .4s; }
   @keyframes ldBob { 50% { transform: translateY(-6px); } }
   #loading .ld-bar { position: relative; display: flex; align-items: center; gap: 12px; }
@@ -210,9 +210,9 @@
     <p class="lede">Rio de Janeiro, Morro da Goual. The <b>Ballon d'Or</b> was on show at a charity match… and this morning it was gone. Cristiano Ronaldo knows where it went… if you can beat him from the penalty spot. Then hurry to the airport before it flies away.</p>
     <div class="pickT">CHOOSE YOUR STAR</div>
     <div id="heroPick">
-      <button type="button" data-hero="mbappe" style="--c:#2f6fe0"><img src="heroes/mbappe.webp" alt=""><b>MBAPPÉ</b><small>France · 10</small></button>
-      <button type="button" data-hero="yamal" style="--c:#d8262e"><img src="heroes/yamal.webp" alt=""><b>YAMAL</b><small>Spain · 19</small></button>
-      <button type="button" data-hero="kane" style="--c:#e8e8ee"><img src="heroes/kane.webp" alt=""><b>KANE</b><small>England · 9</small></button>
+      <button type="button" data-hero="mbappe" style="--c:#f2f2f2"><img src="heroes/mbappe.webp?v=2" alt=""><b>MBAPPÉ</b><small>Real Madrid · 10</small></button>
+      <button type="button" data-hero="yamal" style="--c:#a50044"><img src="heroes/yamal.webp?v=2" alt=""><b>YAMAL</b><small>Barcelona · 10</small></button>
+      <button type="button" data-hero="kane" style="--c:#dc052d"><img src="heroes/kane.webp?v=2" alt=""><b>KANE</b><small>Bayern · 9</small></button>
     </div>
     <div class="menu">
       <button class="primary" id="playBtn">▶ PLAY</button>
@@ -252,7 +252,7 @@
   <div class="ld-box">
     <div class="ld-kick">GOUAL ART PRESENTS</div>
     <div class="logo ld-logo">STREET FOOT<span>The Ballon d'Or</span></div>
-    <div class="ld-heroes"><img src="heroes/mbappe.webp" alt=""><img src="heroes/yamal.webp" alt=""><img src="heroes/kane.webp" alt=""></div>
+    <div class="ld-heroes"><img src="heroes/mbappe-face.webp" alt=""><img src="heroes/yamal-face.webp" alt=""><img src="heroes/kane-face.webp" alt=""></div>
     <div class="ld-bar"><div class="bar"><i></i></div><span class="ld-ball">⚽</span><b id="loadPct">0%</b></div>
     <div id="loadTxt">Warming up on Morro da Goual…</div>
     <div class="ld-tip"><b>TIP</b> <span id="loadTip">Face a ledge and press Space to climb onto the roofs.</span></div>
@@ -268,6 +268,6 @@
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=16"></script>
+<script type="module" src="game.js?v=17"></script>
 </body>
 </html>

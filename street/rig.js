@@ -102,7 +102,7 @@ export class Character {
     if (w < 0.01) { if (this._runOn) { for (const e of this.allBones) if (!e.mapped) e.b.quaternion.copy(e.rest); this._runOn = false; } return; }
     this._runOn = true;
     for (const e of this.allBones) this._pq.set(e.b, (this._pq.get(e.b) || new THREE.Quaternion()).copy(e.mapped ? e.b.quaternion : e.rest));
-    this.mixer.update(dt * THREE.MathUtils.clamp(sp / 6, 0.6, 1.4));
+    this.mixer.update(dt * THREE.MathUtils.clamp(sp / 5.5, 0.6, 1.35));
     for (const e of this.allBones) { const q = this._pq.get(e.b); e.b.quaternion.copy(q.slerp(e.b.quaternion, w)); }
   }
   reset() { for (const k in this.bones) this.bones[k].quaternion.copy(this.rest[k]); }
@@ -144,7 +144,7 @@ export class Character {
     if (o.action) this.overlay(o.action, o.actionT || 0, o);
     if (o.look) { this.rot('neck', Y, o.look * 0.5); this.rot('head', Y, o.look * 0.5); }
     if (o.lookUp) this.rot('head', X, -o.lookUp);
-    if (this.mixer) this.blendRun(B.run * W * (o.action ? 0 : 1), sp, dt);
+    if (this.mixer) this.blendRun(W * THREE.MathUtils.clamp((sp - 1.5) / 1.5, 0, 1) * (o.action ? 0 : 1), sp, dt);   // the real run as soon as you jog
     // Body bob (applied by caller on the root's child).
     this.model.position.y = this.baseY ??= this.model.position.y;
     this.model.position.y = this.baseY + (Math.abs(Math.sin(p)) * 0.06 * W - 0.03 * W) * (1 + B.run);
