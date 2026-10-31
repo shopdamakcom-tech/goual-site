@@ -162,7 +162,14 @@ const clouds = makeClouds(art.T, art.meta, 18); clouds.scale.setScalar(1.6); sce
   const K = kitMaterials(), b = new Builder(), RR = (() => { let x = 11; return () => ((x = (x * 16807) % 2147483647) / 2147483647); })();
   const at = (x, z, yMax = 30) => new V3(x, groundAt(x, z, yMax), z);
   const put = (p, rot, fn) => { b.push(p, rot); fn(); b.pop(); };
-  for (const [x, z, y, r, pose] of [[-12.6, 21, 0.6, 0.8, 'lie'], [-16.5, 30.5, 0.6, 2.4, 'stand'], [14.5, 30, 0.6, -1.2, 'lie'], [-3.5, -8.2, 3.6, 1.4, 'stand'], [9, -23.6, 6.6, -2, 'lie'], [-20, -9, 3.6, 0.3, 'lie']]) put(at(x, z, y), r, () => dog(b, K, RR, pose));
+  // Street dogs: "dog" by neighbor (Sketchfab, CC BY 4.0), in the caramel coat of the vira-lata caramelo.
+  load('models/dog.glb').then(src => {
+    const coats = ['#c98a4b', '#b5743a', '#d9a066'].map(c => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }));
+    [[-12.6, 21, 0.6, 0.8], [-16.5, 30.5, 0.6, 2.4], [14.5, 30, 0.6, -1.2], [-3.5, -8.2, 3.6, 1.4], [9, -23.6, 6.6, -2], [-20, -9, 3.6, 0.3]].forEach(([x, z, y, r], i) => {
+      const d = src.clone(); d.traverse(o => { if (o.isMesh) { o.material = coats[i % 3]; o.castShadow = true; } });
+      const g = new THREE.Group(); g.add(d); d.position.y = 0.256; g.position.copy(at(x, z, y)); g.rotation.y = r; scene.add(g);
+    });
+  }).catch(() => {});
   for (const [x, z, y, r] of [[-8, -12.6, 3.6, 2.1]]) put(at(x, z, y), r, () => clutter(b, K, RR, 'chairs'));
   for (const [x, z, y, k] of [[-21, 31, 0.6, 'gas'], [22.5, 25, 0.6, 'crates'], [18, -12.2, 3.6, 'bags'], [-14, -24, 6.6, 'crates'], [3, -27.4, 6.6, 'gas']]) put(at(x, z, y), RR() * 6, () => clutter(b, K, RR, k));
   laundry(b, K, RR, new V3(-6, 5.2, 27.6), new V3(6, 5.4, 27.6));
@@ -659,13 +666,13 @@ async function rideAway() {
   // Off he goes; the red Ferrari takes its place in the same shot, stops, the other two talk, and it races off.
   audio.engine?.(4);
   shot(new V3(-8.5, 1.7, CAR_Z + 5.6), new V3(-12, 0.9, CAR_Z), { cut: true });
-  await tween(3.2, (k, raw) => { car.position.x = CAR_STOP - 95 * raw * raw; });
   const fer = await ferrariP;
+  if (fer) { fer.visible = true; fer.rotation.y = Math.PI; fer.position.set(34, 0, CAR_Z); }
+  await tween(1.8, (k, raw) => { car.position.x = CAR_STOP - 95 * raw * raw; });
   if (fer) {
-    fer.visible = true; fer.rotation.y = Math.PI; fer.position.set(46, 0, CAR_Z);
     rivals().forEach((r, i) => { const ch = r.ch; fer.add(ch.root); ch.root.visible = true; ch.root.position.set(-0.3, -0.82, i ? 0.27 : -0.27); ch.root.rotation.set(0, Math.PI / 2, 0); });
     rivalState.on = true; rivalState.mode = 'seated'; audio.engine?.(3);
-    await tween(2.6, k => { fer.position.x = lerp(46, -12, 1 - (1 - k) * (1 - k)); });
+    await tween(1.7, k => { fer.position.x = lerp(34, -12, 1 - (1 - k) * (1 - k)); });
     fer.updateMatrixWorld(true);
     const fFront = fer.localToWorld(new V3(1.0, 0, 0)).sub(fer.position).setY(0).normalize();   // the Ferrari's nose direction
     const fc = fer.position.clone().add(new V3(0, 0.75, 0));
@@ -729,7 +736,7 @@ async function enterAirport() {
   // The runway model sits on a 1 m slab: lower it so it is flush with the apron (planes and players stood under it).
   { const rw = src.getObjectByName('LandingTrack1Straight'); if (rw) { src.updateMatrixWorld(true); const top = new THREE.Box3().setFromObject(rw).max.y; const wp = rw.getWorldPosition(new V3()); wp.y -= top - 0.02; rw.position.copy(rw.parent.worldToLocal(wp)); } }
   // The jet, the cabin and Rio from the sky load only when Messi gets away (keeps memory low on iPads).
-  AP.loadFlight = () => { AP.jetP ??= load('models/jet.glb').catch(() => null); AP.cabinP ??= load('models/cabin.glb').catch(() => null); AP.rioP ??= load('models/rio.glb').catch(() => null); };
+  AP.loadFlight = () => { AP.jetP ??= load('models/jet.glb').catch(() => null); AP.cabinP ??= load('models/cabin.glb').catch(() => null); };
   sky.material.uniforms.single.value = 1;   // only one Corcovado in the sky over the airport
   carve(src, AP.DOORS);
   src.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -849,6 +856,10 @@ async function arriveAirport() {
     fer.visible = true; fer.rotation.y = Math.PI / 2; fer.position.set(AP.CAR_STOP.x, 0, AP.CAR_Z0);
     shot(new V3(AP.CAR_STOP.x - 4.5, 1.9, AP.CAR_STOP.z + 2), new V3(AP.CAR_STOP.x, 0.9, stopZ), { cut: true }); audio.engine?.(3.5);
     await tween(3.2, k => { fer.position.z = lerp(AP.CAR_Z0, stopZ, 1 - (1 - k) * (1 - k)); });
+    // Cut on the hero: he turns to the red car — who's that?
+    { const f = fer.position.clone().sub(P.pos).setY(0).normalize(); P.yaw = Math.atan2(f.x, f.z); P.vel.set(0, 0, 0);
+      shot(P.pos.clone().addScaledVector(f, 2.3).add(new V3(f.z * 0.6, 1.65, -f.x * 0.6)), P.pos.clone().add(new V3(0, 1.5, 0)), { cut: true });
+      await say([['HERO', 'Wait… who is that?']]); }
     audio.kick(0.3);
     rivals().forEach((r, i) => { scene.attach(r.ch.root); r.ch.root.rotation.set(0, -Math.PI / 2, 0); r.ch.root.position.set(AP.CAR_STOP.x - 2.3, 0.14, stopZ + (i ? 0.8 : -0.8)); r.ch.root.scale.setScalar(1); });
     rivalState.mode = 'stand';
@@ -981,9 +992,9 @@ async function escaped() {
     audio.engine?.(8);
     // Cut: already lined up on the runway — full throttle, rotate and climb away towards the sea.
     const turn = Math.atan2(turnTo.x, turnTo.z) - Math.atan2(head.x, head.z);
-    const c1 = new V3(runway.x, c0.y, c0.z - 10); setCentre(c1, turn, 0);
-    shot(new V3(-100, 4, -10), new V3(runway.x, 6, -60), { cut: true, follow: 0.6 });
-    await tween(5.5, (k, raw) => { const d = 260 * raw * raw, c = c1.clone().addScaledVector(turnTo, d); const lift = Math.max(0, raw - 0.45); c.y += 140 * lift * lift; setCentre(c, turn, Math.min(0.28, lift * 0.9)); });
+    const c1 = new V3(runway.x, c0.y, 18); setCentre(c1, turn, 0);
+    shot(new V3(-100, 4, -10), new V3(runway.x, 4, 0), { cut: true, follow: 0.6 });
+    await tween(4.2, (k, raw) => { const d = 260 * raw * raw, c = c1.clone().addScaledVector(turnTo, d); const lift = Math.max(0, raw - 0.45); c.y += 140 * lift * lift; setCentre(c, turn, Math.min(0.28, lift * 0.9)); });
     plane.visible = false;                       // gone for good
   }
   toast('HE GOT AWAY…', '#ff2d55');
@@ -1029,21 +1040,6 @@ async function chaseFlight() {
   const camT = new V3(RUN_X - 28, 3.5, RUN_Z - 95);   // a camera beside the runway that pans as the jet roars past
   await tween(5, (k, raw) => { const d = 230 * raw * raw, lift = Math.max(0, raw - 0.5); jet.position.set(RUN_X, RY + 120 * lift * lift, RUN_Z - d); jet.rotation.x = Math.min(0.22, lift * 0.8);
     const look = jet.position.clone().add(new V3(0, 1.5, 0)); cam.override = { pos: camT, look, follow: 50 }; cam.ovPos = camT.clone(); cam.ovLook = look; cam.blend = 1; });
-  // Over Rio: the real city from the sky ("Rio de Janeiro - Brazil" by Nate Loper, Sketchfab, CC BY 4.0) — from
-  // the airport's island across Guanabara Bay, out past the Sugarloaf to the open sea.
-  for (const o of scene.children) if (o !== jet && o !== sky && o !== clouds && !o.isLight && o !== sun.target) o.visible = false;
-  const rio = await AP.rioP;
-  if (rio) { rio.scale.set(1, 0.55, 1); rio.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = false; } }); scene.add(rio); }
-  else { const sea = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshStandardMaterial({ color: 0x1f5f8f, roughness: 0.3 })); sea.rotation.x = -Math.PI / 2; scene.add(sea); }
-  camera.far = 120000; camera.updateProjectionMatrix(); scene.fog.near = 3000; scene.fog.far = 60000;
-  const A = new V3(-6200, 900, -11500), B = new V3(1800, 650, 7800), C = new V3(4200, 600, 17500);
-  const path = new THREE.CatmullRomCurve3([A, A.clone().lerp(B, 0.5).add(new V3(-1200, 0, 0)), B, C]);
-  await tween(4.5, (k, raw) => {
-    const p = path.getPoint(raw), q = path.getPoint(Math.min(1, raw + 0.01)), dir = q.clone().sub(p).normalize();
-    jet.position.copy(p); jet.rotation.set(0, Math.atan2(dir.z, -dir.x), Math.sin(raw * 6) * 0.12);
-    const cp = p.clone().addScaledVector(dir, -48).add(new V3(dir.z * 18, 13, -dir.x * 18));
-    cam.override = { pos: cp, look: p.clone().addScaledVector(dir, 25), follow: 50 }; cam.ovPos = cp.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
-  });
   // Rio → Dubai on the world map; the plane stops half way (Dubai is the next episode).
   $('#fade').classList.add('on', 'world'); worldMap();
   await sleep(6.2);
