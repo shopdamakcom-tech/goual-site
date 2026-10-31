@@ -132,6 +132,12 @@
   #fade .gps .hud span { background: rgba(6,13,40,.82); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: 6px 10px; font-size: 11px; letter-spacing: .12em; }
   #fade .gps .hud em { font-style: normal; color: #ffd400; }
   #fade .dots::after { content: ''; animation: tripDots 1.2s steps(4) infinite; }
+  #fade .world { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(ellipse at 50% 45%, #15296b 0%, #0b1740 60%, #060d28 100%); color: #fff; font: 800 13px/1.2 Inter, Arial, sans-serif; letter-spacing: .18em; text-align: center; padding: 0 16px; }
+  #fade.world .world { display: flex; } #fade.world .trip { display: none; }
+  #fade .world b { color: #ffd400; font: 400 30px/1 'Bebas Neue', Impact, sans-serif; letter-spacing: .08em; }
+  #fade .world .map { width: min(720px, 94vw); border-radius: 18px; overflow: hidden; border: 2px solid rgba(255,255,255,.14); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+  #fade .world svg { display: block; width: 100%; height: auto; }
+  #fade .world .tbc { color: #2ee6ff; opacity: 0; transition: opacity .6s; } #fade .world .tbc.on { opacity: 1; }
   @keyframes gpsDraw { to { stroke-dashoffset: 0; } }
   @keyframes gpsPing { 0% { transform: scale(.6); opacity: .9; } 100% { transform: scale(2.4); opacity: 0; } }
   #letterbox::before, #letterbox::after { content: ''; position: fixed; left: 0; right: 0; height: 0; background: #000; transition: height .5s; z-index: 1; }
@@ -294,7 +300,43 @@
     </svg>
     <div class="hud"><span>ETA <em id="gpsEta">12</em> MIN</span><span>BUGATTI · <em>CR7</em></span></div>
   </div>
-  <span class="dots">ON THE WAY TO THE AIRPORT</span></div></div><span class="dots">ON THE WAY TO THE AIRPORT</span></div></div>
+  <span class="dots">ON THE WAY TO THE AIRPORT</span></div>
+  <div class="world"><b>RIO DE JANEIRO → DUBAI</b>
+    <div class="map"><svg viewBox="0 0 720 380" aria-hidden="true">
+      <rect width="720" height="380" fill="#0d2260"/>
+      <g fill="#24408f" stroke="#3b5bb0" stroke-width="1.5">
+        <path d="M150 150 C170 140 200 150 215 170 C232 192 236 220 226 248 C214 284 196 318 178 346 C170 358 160 352 160 338 C158 300 146 270 132 244 C120 222 118 196 126 176 C132 162 140 154 150 150 Z"/>
+        <path d="M60 40 C110 24 190 30 230 50 C250 62 240 84 220 96 C200 110 186 128 170 136 C150 140 120 120 100 100 C80 82 54 66 60 40 Z"/>
+        <path d="M340 120 C370 108 410 110 434 126 C452 140 454 168 446 194 C438 224 426 258 408 288 C396 308 380 314 370 300 C356 280 352 250 346 222 C340 196 322 178 318 156 C316 138 326 126 340 120 Z"/>
+        <path d="M330 40 C370 26 430 28 470 36 C520 30 590 34 640 52 C670 64 664 90 640 100 C610 112 576 110 548 120 C524 128 510 146 494 150 C478 150 470 136 456 128 C430 116 404 108 380 104 C356 100 334 88 326 70 C322 56 324 46 330 40 Z"/>
+        <path d="M470 140 C486 132 504 136 512 150 C520 164 512 182 496 186 C482 188 470 176 466 162 C464 152 466 144 470 140 Z"/>
+        <path d="M560 250 C590 240 630 246 650 264 C664 280 652 300 628 304 C600 308 572 300 560 284 C552 272 552 258 560 250 Z"/>
+      </g>
+      <path id="wRoute" d="M178 272 C260 210 380 150 488 156" fill="none" stroke="rgba(255,212,0,.25)" stroke-width="3" stroke-dasharray="7 8"/>
+      <path id="wDone" d="M178 272 C260 210 380 150 488 156" fill="none" stroke="#ffd400" stroke-width="4" stroke-linecap="round" stroke-dasharray="1000" stroke-dashoffset="1000"/>
+      <circle cx="178" cy="272" r="6" fill="#ff3b8d"/><text x="178" y="298" fill="#fff" font-size="13" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">RIO</text>
+      <circle cx="488" cy="156" r="6" fill="#2ee6ff"/><text x="488" y="140" fill="#fff" font-size="13" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">DUBAI</text>
+      <g id="wPlane" transform="translate(178 272)"><path d="M-12 0 L10 -2 L14 0 L10 2 Z M-2 -1 L-6 -10 L-1 -10 L5 -1 Z M-2 1 L-6 10 L-1 10 L5 1 Z M-12 -1 L-15 -6 L-11 -6 L-9 -1 Z M-12 1 L-15 6 L-11 6 L-9 1 Z" fill="#ffd400"/></g>
+    </svg></div>
+    <span class="tbc">TO BE CONTINUED…</span></div></div><span class="dots">ON THE WAY TO THE AIRPORT</span></div>
+  <div class="world"><b>RIO DE JANEIRO → DUBAI</b>
+    <div class="map"><svg viewBox="0 0 720 380" aria-hidden="true">
+      <rect width="720" height="380" fill="#0d2260"/>
+      <g fill="#24408f" stroke="#3b5bb0" stroke-width="1.5">
+        <path d="M150 150 C170 140 200 150 215 170 C232 192 236 220 226 248 C214 284 196 318 178 346 C170 358 160 352 160 338 C158 300 146 270 132 244 C120 222 118 196 126 176 C132 162 140 154 150 150 Z"/>
+        <path d="M60 40 C110 24 190 30 230 50 C250 62 240 84 220 96 C200 110 186 128 170 136 C150 140 120 120 100 100 C80 82 54 66 60 40 Z"/>
+        <path d="M340 120 C370 108 410 110 434 126 C452 140 454 168 446 194 C438 224 426 258 408 288 C396 308 380 314 370 300 C356 280 352 250 346 222 C340 196 322 178 318 156 C316 138 326 126 340 120 Z"/>
+        <path d="M330 40 C370 26 430 28 470 36 C520 30 590 34 640 52 C670 64 664 90 640 100 C610 112 576 110 548 120 C524 128 510 146 494 150 C478 150 470 136 456 128 C430 116 404 108 380 104 C356 100 334 88 326 70 C322 56 324 46 330 40 Z"/>
+        <path d="M470 140 C486 132 504 136 512 150 C520 164 512 182 496 186 C482 188 470 176 466 162 C464 152 466 144 470 140 Z"/>
+        <path d="M560 250 C590 240 630 246 650 264 C664 280 652 300 628 304 C600 308 572 300 560 284 C552 272 552 258 560 250 Z"/>
+      </g>
+      <path id="wRoute" d="M178 272 C260 210 380 150 488 156" fill="none" stroke="rgba(255,212,0,.25)" stroke-width="3" stroke-dasharray="7 8"/>
+      <path id="wDone" d="M178 272 C260 210 380 150 488 156" fill="none" stroke="#ffd400" stroke-width="4" stroke-linecap="round" stroke-dasharray="1000" stroke-dashoffset="1000"/>
+      <circle cx="178" cy="272" r="6" fill="#ff3b8d"/><text x="178" y="298" fill="#fff" font-size="13" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">RIO</text>
+      <circle cx="488" cy="156" r="6" fill="#2ee6ff"/><text x="488" y="140" fill="#fff" font-size="13" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">DUBAI</text>
+      <g id="wPlane" transform="translate(178 272)"><path d="M-12 0 L10 -2 L14 0 L10 2 Z M-2 -1 L-6 -10 L-1 -10 L5 -1 Z M-2 1 L-6 10 L-1 10 L5 1 Z M-12 -1 L-15 -6 L-11 -6 L-9 -1 Z M-12 1 L-15 6 L-11 6 L-9 1 Z" fill="#ffd400"/></g>
+    </svg></div>
+    <span class="tbc">TO BE CONTINUED…</span></div></div>
 <div id="loading">
   <div class="ld-art"></div>
   <div class="ld-box">
@@ -316,7 +358,7 @@
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=29"></script>
+<script type="module" src="game.js?v=30"></script>
 <script>
   // GPS trip card: restart the car along the route and count the minutes down each time it shows.
   (() => { const f = document.getElementById('fade'); let t = 0;

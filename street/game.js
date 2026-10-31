@@ -10,7 +10,7 @@ import { buildWorld, buildBackdrop } from './world.js?v=4';
 import { Character, dress } from './rig.js?v=7';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=4';
-import { Builder, kitMaterials, dog, clutter, laundry } from './favela-kit.js';
+import { Builder, kitMaterials, dog, clutter, laundry, house } from './favela-kit.js';
 import { audio } from './audio.js?v=4';
 
 const $ = s => document.querySelector(s);
@@ -131,6 +131,20 @@ function makeCar(m = carSrc, len = 4.54) {
   g.add(m); return g;
 }
 const car = makeCar(); car.visible = false; scene.add(car);
+// Through the Bugatti's glass you see who is at the wheel; the shell is two-sided (the doors are cut out).
+car.traverse(o => { if (o.isMesh) { const mt = o.material; if (/window|glass_front/i.test(mt.name)) { mt.transparent = true; mt.opacity = 0.28; mt.depthWrite = false; } else mt.side = THREE.DoubleSide; } });
+// The door on the side you come from opens (front hinge); the hero takes the seat behind it.
+function carDoorFor(from) {
+  car.updateMatrixWorld(true);
+  const cc = new THREE.Box3().setFromObject(car).getCenter(new V3());
+  let best = null, bd = 1e9;
+  for (const n of ['door_L', 'door_R']) { const d = car.getObjectByName(n); if (!d) continue; const dd = new THREE.Box3().setFromObject(d).getCenter(new V3()).distanceTo(from); if (dd < bd) { bd = dd; best = d; } }
+  if (!best) return null;
+  const mid = () => new THREE.Box3().setFromObject(best).getCenter(new V3()).sub(cc).setY(0).length();
+  best.rotation.y = 0.5; const a = mid(); best.rotation.y = -0.5; const b = mid(); best.rotation.y = 0;
+  const dm = new THREE.Box3().setFromObject(best).getCenter(new V3());
+  return { node: best, sign: a > b ? 1 : -1, mid: dm, centre: cc };
+}
 // The rivals' car: a Ferrari LaFerrari ("Ferrari Laferrari" by vecarz, Sketchfab), loaded in the background.
 const ferrariP = load('models/ferrari.glb').then(m => {
   m.traverse(o => { if (o.isMesh) { const mt = o.material; if (mt.color && mt.color.r > 0.55 && mt.color.g < 0.5 && mt.color.b < 0.5) { mt.color.setRGB(0.32, 0.0, 0.004); if (mt.map) mt.map = null; mt.metalness = 0.3; mt.roughness = 0.28; mt.envMap = ENV; mt.envMapIntensity = 0.55; mt.needsUpdate = true; } } });
@@ -153,6 +167,13 @@ const clouds = makeClouds(art.T, art.meta, 18); clouds.scale.setScalar(1.6); sce
   laundry(b, K, RR, new V3(-6, 5.2, 27.6), new V3(6, 5.4, 27.6));
   laundry(b, K, RR, new V3(-12, 8.4, -11.3), new V3(-2, 8.6, -11.3));
   const g = new THREE.Group(); b.build(g); scene.add(g);
+  // The hill behind the favela and both sides: real favela houses (walls, windows, slabs) in terraces,
+  // instead of plain coloured boxes.
+  const hb = new Builder(), HR = (() => { let x = 7; return () => ((x = (x * 16807) % 2147483647) / 2147483647); })();
+  const terrace = (x, y, z, rot) => { hb.push(new V3(x, y, z), rot); hb.add(new THREE.BoxGeometry(8, 12, 7), K.concrete, 0, -6, -3.5); house(hb, K, HR, { floors: 1 + Math.floor(HR() * 3) }); hb.pop(); };
+  for (let r = 0; r < 8; r++) { const z = -70 - r * 17, y = 9 + (-66 - z) * 0.32 - 1.5; for (let x = -118 + HR() * 6; x < 118; x += 7.5 + HR() * 3) terrace(x, y + HR() * 0.8, z, (HR() - 0.5) * 0.12); }
+  for (const side of [-1, 1]) for (let r = 0; r < 4; r++) { const px = side * (60 + r * 16); for (let z = -58; z < 48; z += 7.5 + HR() * 3) terrace(px, -6 + r * 3 + HR() * 0.8, z, side > 0 ? -Math.PI / 2 : Math.PI / 2); }
+  const hg = new THREE.Group(); hb.build(hg, { shadow: false }); scene.add(hg);
 }
 const ze = new Character(zeSrc, { kind: 'cc', height: 1.8 });
 ze.root.position.set(-21.3, 0, 23); ze.root.rotation.y = Math.PI / 2; scene.add(ze.root);
@@ -469,7 +490,7 @@ async function intro() {
     ['HERO', 'I am on my way.'],
   ]);
   act(null, 0); P.action = null;
-  $('#letterbox').classList.remove('on'); release(); popMode(); pushMode('free'); P.mode = 'free';
+  $('#letterbox').classList.remove('on'); release(); popMode(); pushMode('free'); P.mode = 'free'; behindCam();
   if (TOUCH) $('#touch').classList.remove('hidden');
   audio.base = 0; audio.carnival = 0;
   state.t0 = performance.now();
@@ -583,8 +604,11 @@ async function meetRonaldo() {
 async function afterGoal() {
   pushMode('dialog'); cr7.keeper = false; gloves.set(false); $('#letterbox').classList.add('on');
   ronaldo.root.position.copy(keeperBase(0)).addScaledVector(GOAL.n, 2.2);
-  P.pos.copy(ronaldo.root.position).addScaledVector(GOAL.n, 2.2);
-  faceEachOther(ronaldo); frameTalk(P.pos, ronaldo.root.position);
+  P.pos.copy(ronaldo.root.position).addScaledVector(GOAL.n, 1.5);
+  faceEachOther(ronaldo);
+  // Face to face, close, over the hero's shoulder (works upright on a phone too).
+  { const r = ronaldo.root.position, d = r.clone().sub(P.pos).setY(0).normalize(), side = new V3(d.z, 0, -d.x);
+    shot(P.pos.clone().addScaledVector(d, -1.9).addScaledVector(side, 0.55).add(new V3(0, 1.75, 0)), r.clone().add(new V3(0, 1.5, 0)), { cut: true }); }
   await say([
     [DUEL === 'goal' ? ['CR7', '…Okay. Nice goal. Very good.'] : ['CR7', '…Okay. Good penalty. Very good.']][0],
     ['HERO', 'A deal is a deal. The clue.'],
@@ -601,6 +625,7 @@ async function afterGoal() {
   await say([['DRIVER', 'Senhor {HERO}? Mister Ronaldo sent me. Please, get in.']]);
   ronaldo.root.position.set(4.5, 0, 12); cr7.juggle = true; cr7Ball.mesh.visible = true;
   $('#letterbox').classList.remove('on'); release(); popMode();
+  P.yaw = Math.atan2(CAR_STOP - P.pos.x, CAR_Z - P.pos.z); behindCam();
   state.stage = STAGES.CAR;
   setObjective('CHAPTER 1 · THE CAGE', 'Get in Cristiano\'s car, on the road', car.position.clone().add(new V3(0, 0, -1.3)));
 }
@@ -610,30 +635,40 @@ async function rideAway() {
   state.stage = STAGES.RIDE; pushMode('cut'); prompt(null); $('#letterbox').classList.add('on'); if (document.pointerLockElement) document.exitPointerLock();
   $('#touch').classList.add('hidden');
   colliders.splice(colliders.indexOf(carBox), 1); indexColliders();
-  shot(new V3(CAR_STOP + 1, 1.8, CAR_Z - 5.5), car.position.clone().add(new V3(0, 1, 0)), { cut: true });
-  // Walk to the driver-side door, turn, step in.
-  const door = new V3(CAR_STOP - 0.3, 0, CAR_Z - 1.25), from = P.pos.clone();
-  P.yaw = Math.atan2(door.x - from.x, door.z - from.z);
-  await tween(Math.max(0.35, from.distanceTo(door) / 2.4), k => { P.pos.lerpVectors(from, door, k); P.vel.set(Math.sin(P.yaw) * 2.4, 0, Math.cos(P.yaw) * 2.4); });
-  P.vel.set(0, 0, 0); P.yaw = 0; audio.kick(0.15);
-  await tween(0.45, k => { P.pos.z = door.z + 0.7 * k; P.vel.set(0, 0, 1); });
-  P.vel.set(0, 0, 0);
-  me.root.visible = false; ball.mesh.visible = false; audio.kick(0.35); cam.shake = 0.12;
-  await sleep(0.7);
+  ball.mesh.visible = false;
+  // The door is already open: the hero walks up to it...
+  const D = carDoorFor(P.pos), nose = new V3(-1, 0, 0);
+  let seat = car.position.clone();
+  if (D) {
+    D.node.rotation.y = D.sign * 1.05;
+    const out = D.mid.clone().sub(D.centre).setY(0).normalize(), stand = D.mid.clone().addScaledVector(out, 1.0); stand.y = 0;
+    seat = D.centre.clone().addScaledVector(out, 0.36).add(new V3(D.mid.x - D.centre.x, 0, 0).multiplyScalar(0.9)); seat.y = 0;
+    shot(stand.clone().addScaledVector(out, 3.2).add(new V3(2.2, 1.7, 0)), D.mid.clone().add(new V3(0, 0.4, 0)), { cut: true });
+    const from = P.pos.clone(); P.yaw = Math.atan2(stand.x - from.x, stand.z - from.z);
+    await tween(Math.max(0.4, from.distanceTo(stand) / 2.4), k => { P.pos.lerpVectors(from, stand, k); P.vel.set(Math.sin(P.yaw) * 2.4, 0, Math.cos(P.yaw) * 2.4); });
+    P.vel.set(0, 0, 0); P.yaw = Math.atan2(-out.x, -out.z);
+    await sleep(0.35);
+  }
+  // ...cut: he is at the wheel, seen through the windscreen. The door shuts.
+  car.attach(me.root); P.seated = true; act('sit', 999);
+  me.root.position.copy(car.worldToLocal(seat.clone().setY(car.position.y + 0.42 - 0.5 * me.height))); me.root.rotation.set(0, Math.atan2(nose.x, nose.z) - car.rotation.y, 0);
+  if (D) D.node.rotation.y = 0;
+  audio.kick(0.35);
+  shot(car.position.clone().addScaledVector(nose, 4.2).add(new V3(0, 1.35, 0)), seat.clone().add(new V3(0, 0.75, 0)), { cut: true });
+  await sleep(1.6);
+  // Off he goes; the red Ferrari takes its place in the same shot, stops, the other two talk, and it races off.
   audio.engine?.(4);
-  shot(new V3(-22, 3.2, CAR_Z - 9), new V3(-12, 0.8, CAR_Z), { follow: 0.8 });
-  // ...and right behind it, in the same shot, a red Ferrari: the two other stars are on its tail.
+  shot(new V3(-8.5, 1.7, CAR_Z + 5.6), new V3(-12, 0.9, CAR_Z), { cut: true });
+  await tween(3.2, (k, raw) => { car.position.x = CAR_STOP - 95 * raw * raw; });
   const fer = await ferrariP;
   if (fer) {
-    fer.visible = true; fer.rotation.y = Math.PI; fer.position.set(70, 0, CAR_Z);
+    fer.visible = true; fer.rotation.y = Math.PI; fer.position.set(46, 0, CAR_Z);
     rivals().forEach((r, i) => { const ch = r.ch; fer.add(ch.root); ch.root.visible = true; ch.root.position.set(-0.3, -1.0, i ? 0.27 : -0.27); ch.root.rotation.set(0, Math.PI / 2, 0); });
-    rivalState.on = true; rivalState.mode = 'seated';
-  }
-  await tween(5.2, (k, raw) => { car.position.x = CAR_STOP - 95 * raw * raw; if (fer) fer.position.x = 70 - Math.min(1, raw * 1.08) * 160; });
-  if (fer) {
-    fer.position.set(-12, 0, CAR_Z); fer.updateMatrixWorld(true);
-    shot(fer.localToWorld(new V3(1.55, 1.05, 0.05)), fer.localToWorld(new V3(-0.35, 0.72, 0)), { cut: true });
+    rivalState.on = true; rivalState.mode = 'seated'; audio.engine?.(3);
+    await tween(2.6, k => { fer.position.x = lerp(46, -12, 1 - (1 - k) * (1 - k)); });
     await say([['RIVAL1', '{HERO} is in that Bugatti… Follow him!'], ['RIVAL2', 'That Ballon d\'Or is ours. Floor it!']]);
+    audio.engine?.(3);
+    await tween(2.4, (k, raw) => { fer.position.x = -12 - 100 * raw * raw; });
     fer.visible = false; rivalState.mode = 'away';
   }
   $('#fade').classList.add('on', 'trip');
@@ -681,6 +716,8 @@ async function enterAirport() {
   for (const o of scene.children) if (!keep.has(o) && !o.isLight) o.visible = false;
   for (const c of cards) c.got = true;
   AP.root = src;
+  // The runway model sits on a 1 m slab: lower it so it is flush with the apron (planes and players stood under it).
+  { const rw = src.getObjectByName('LandingTrack1Straight'); if (rw) { src.updateMatrixWorld(true); const top = new THREE.Box3().setFromObject(rw).max.y; const wp = rw.getWorldPosition(new V3()); wp.y -= top - 0.02; rw.position.copy(rw.parent.worldToLocal(wp)); } }
   AP.jetP = load('models/jet.glb').catch(() => null);   // our own jet, for the chase to Dubai (loads in the background)
   AP.cabinP = load('models/cabin.glb').catch(() => null); // a plane's cabin (Antonov An-26 interior) for the shots on board
   AP.rioP = load('models/rio.glb').catch(() => null);     // Rio from the sky, for the flight out
@@ -762,12 +799,23 @@ function exitGuide() {
   };
   sign('GATES  ➜', 0, 3.6, -3, Math.PI); sign('➜  TARMAC', -12, 3.6, 30.8, Math.PI / 2); sign('EXIT  ➜', -18.5, 3.6, 30.8, Math.PI / 2);
 }
+// The world map card: the jet flies the route from Rio and stops half way.
+function worldMap() {
+  const route = $('#wRoute'), done = $('#wDone'), plane = $('#wPlane'), L = route.getTotalLength(), t0 = performance.now(), tbc = $('#fade .world .tbc');
+  tbc.classList.remove('on'); done.style.strokeDasharray = L; done.style.strokeDashoffset = L;
+  const step = now => { const k = Math.min(1, (now - t0) / 4200), e = 0.5 * (1 - Math.pow(1 - k, 2.4)), q = route.getPointAtLength(e * L), q2 = route.getPointAtLength(Math.min(L, e * L + 2));
+    plane.setAttribute('transform', `translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${(Math.atan2(q2.y - q.y, q2.x - q.x) * 180 / Math.PI).toFixed(1)})`); done.style.strokeDashoffset = (L * (1 - e)).toFixed(1);
+    if (k < 1) requestAnimationFrame(step); else tbc.classList.add('on'); };
+  requestAnimationFrame(step);
+}
+// Start a free-play moment with the camera right behind the hero, GTA style.
+function behindCam() { cam.yaw = P.yaw; cam.pitch = 0.24; cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.override = null; cam.blend = 0; cam.ovPos = cam.ovLook = null; }
 // A big location title, like a film caption.
 function place(small, big) { const el = $('#place'); el.querySelector('small').textContent = small; el.querySelector('b').textContent = big; el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); }
 async function arriveAirport() {
   state.stage = STAGES.AIRPORT;
   car.visible = true; car.position.set(AP.CAR_STOP.x, 0, AP.CAR_Z0); car.rotation.y = Math.PI / 2;
-  me.root.visible = false;
+  scene.attach(me.root); P.seated = false; act(null, 0); me.root.visible = false;
   shot(new V3(40, 3.2, -62), new V3(30, 1.2, -32), { cut: true });
   $('#fade').classList.remove('on', 'trip');
   setObjective('CHAPTER 2 · THE AIRPORT', 'Rio International Airport', null);
@@ -800,7 +848,7 @@ async function arriveAirport() {
     await say([['RIVAL1', 'Not so fast, {HERO}! We want that Ballon d\'Or too.'], ['HERO', 'Then try to keep up.']]);
   }
   cam.yaw = -Math.PI / 2;
-  $('#letterbox').classList.remove('on'); release(); state.modeStack = ['free']; P.mode = 'free';
+  $('#letterbox').classList.remove('on'); release(); state.modeStack = ['free']; P.mode = 'free'; behindCam();
   if (TOUCH) $('#touch').classList.remove('hidden');
   state.stage = STAGES.TERMINAL;
   setObjective('CHAPTER 2 · THE AIRPORT', 'Find the Ballon d\'Or inside the terminal', new V3(12, 0, -39));
@@ -817,9 +865,9 @@ async function spotThief() {
   rivalsBehind();
   // Messi dashes across the hall, the Ballon d'Or under his arm...
   const m0 = new V3(10, 0, -31), m1 = AP.THIEF_START.clone(); m0.y = Math.max(0, groundAt(m0.x, m0.z, 1)); m1.y = Math.max(0, groundAt(m1.x, m1.z, 1));
-  thief.root.position.copy(m0); thief.root.rotation.set(0, Math.atan2(m1.x - m0.x, m1.z - m0.z), 0); theft.cut = 5.5;
+  thief.root.position.copy(m0); thief.root.rotation.set(0, Math.atan2(m1.x - m0.x, m1.z - m0.z), 0); theft.cut = 3.2;
   shot(new V3(8.5, 1.9, -24), new V3(6, 1.2, -28), { cut: true });
-  await tween(1.6, k => { thief.root.position.lerpVectors(m0, m1, k); cam.override.look = thief.root.position.clone().add(new V3(0, 1.1, 0)); });
+  await tween(m0.distanceTo(m1) / 3.2, k => { thief.root.position.lerpVectors(m0, m1, k); cam.override.look = thief.root.position.clone().add(new V3(0, 1.1, 0)); });
   theft.cut = 0;
   // ...stops, turns and taunts you.
   faceEachOther(thief);
@@ -831,6 +879,7 @@ async function spotThief() {
     ['MESSI', 'Catch me if you can!'],
   ]);
   $('#letterbox').classList.remove('on'); release(); popMode();
+  { const t = thief.root.position; P.yaw = Math.atan2(t.x - P.pos.x, t.z - P.pos.z); behindCam(); }
   startChase();
 }
 function rivalsBehind() {
@@ -918,29 +967,24 @@ async function escaped() {
       if (pitch) plane.quaternion.premultiply(new THREE.Quaternion().setFromAxisAngle(new V3(-turnTo.z, 0, turnTo.x).normalize(), pitch));
       plane.position.copy(c).add(off.clone().applyQuaternion(q));
     };
-    audio.engine?.(10);
-    // Taxi out to the runway...
-    const c1 = new V3(runway.x, c0.y, c0.z - 10);
-    shot(new V3(-40, 10, 40), c0.clone(), { follow: 0.8 });
-    await tween(3.2, k => { const c = c0.clone().lerp(c1, k); setCentre(c, 0, 0); });
-    // ...turn onto it...
+    audio.engine?.(8);
+    // Cut: already lined up on the runway — full throttle, rotate and climb away towards the sea.
     const turn = Math.atan2(turnTo.x, turnTo.z) - Math.atan2(head.x, head.z);
-    await tween(1.2, k => setCentre(c1, turn * k, 0));
-    // ...full throttle, rotate and climb away towards the sea.
-    shot(new V3(-100, 4, -10), new V3(runway.x, 6, -60), { follow: 0.6 });
+    const c1 = new V3(runway.x, c0.y, c0.z - 10); setCentre(c1, turn, 0);
+    shot(new V3(-100, 4, -10), new V3(runway.x, 6, -60), { cut: true, follow: 0.6 });
     await tween(5.5, (k, raw) => { const d = 260 * raw * raw, c = c1.clone().addScaledVector(turnTo, d); const lift = Math.max(0, raw - 0.45); c.y += 140 * lift * lift; setCentre(c, turn, Math.min(0.28, lift * 0.9)); });
+    plane.visible = false;                       // gone for good
   }
   toast('HE GOT AWAY…', '#ff2d55');
   await sleep(1.0);
   // On board: Messi, sitting on the bench next to the Ballon d'Or.
   if (await cabinSet()) {
-    thief.root.visible = true; thief.root.rotation.set(0, Math.PI / 2, 0); thief.root.position.copy(onBench(thief, -221, 40)); theft.seated = true;
+    thief.root.visible = true; thief.root.rotation.set(0, Math.PI / 2, 0); thief.root.position.copy(onBench(thief, -215, 40)); theft.seated = true;
     trophy.visible = true; trophy.position.copy(cab(-219, 84, 64)); trophy.rotation.set(0, Math.PI / 2, 0);
     shot(cab(-145, 124, 100), cab(-212, 92, 50), { cut: true });
     await say([['MESSI', 'Dubai, here we come. This one is mine now.']]);
     thief.root.visible = false; trophy.visible = false;
   }
-  await conversation(null, [['HERO', 'Dubai… I need a plane. Now.']], { keep: true });
   await chaseFlight();
   endScreen('dubai');
 }
@@ -957,23 +1001,19 @@ async function chaseFlight() {
   me.root.visible = true; P.pos.set(RUN_X + 6, AY, RUN_Z + 6); P.yaw = Math.atan2(-6, -6); P.vel.set(0, 0, 0);
   if (rivalState.on) rivals().forEach((r, i) => { r.ch.root.visible = true; r.ch.root.position.set(RUN_X + 9 + i * 1.2, AY, RUN_Z + 9 - i); r.ch.root.rotation.set(0, Math.atan2(-1, -1), 0); });
   rivalState.mode = 'stand';
-  shot(new V3(RUN_X + 14, 3, RUN_Z + 12), new V3(RUN_X + 2, 1.5, RUN_Z), { cut: true });
+  shot(new V3(RUN_X + 14, 3, RUN_Z + 12), new V3(RUN_X + 2, 1.5, RUN_Z), { cut: true }); cam.blend = 1;
   await say(rivalState.on ? [
+    ['HERO', 'Dubai… I need a plane. Now.'],
     ['RIVAL1', 'Wait! We are coming with you!'],
     ['HERO', 'Then get in. I am flying.'],
     ['RIVAL2', 'Since when can you fly a plane?!'],
     ['HERO', 'Since today. Next stop: Dubai.'],
-  ] : [['HERO', 'Since today. Next stop: Dubai.']]);
-  // On board: everyone takes a seat on the benches.
-  audio.engine?.(14);
-  if (await cabinSet()) {
-    const seat = (ch, x, z, left) => { ch.root.visible = true; ch.root.position.copy(onBench(ch, x + (left ? -2 : 2), z)); ch.root.rotation.set(0, left ? Math.PI / 2 : -Math.PI / 2, 0); };
-    seat(me, -218, -110, true); P.seated = true; act('sit', 999); P.vel.set(0, 0, 0);
-    if (rivalState.on) rivals().forEach((r, i) => seat(r.ch, i ? -218 : -132, i ? -40 : -75, !!i));
-    rivalState.mode = 'seated';
-    shot(cab(-175, 120, 140), cab(-175, 96, -160), { cut: true });
-    await say([['HERO', 'Seat belts on, everybody. We are taking off!']]);
-  }
+  ] : [['HERO', 'Dubai… I need a plane. Now.'], ['HERO', 'Since today. Next stop: Dubai.']]);
+  // They climb aboard (the jet's own cabin will come later).
+  audio.engine?.(10);
+  me.root.visible = false; P.seated = true; P.vel.set(0, 0, 0);
+  if (rivalState.on) rivals().forEach(r => { r.ch.root.visible = false; });
+  rivalState.mode = 'away';
   // Take-off: full throttle down the runway, rotate, climb.
   const camT = new V3(RUN_X - 28, 3.5, RUN_Z - 95);   // a camera beside the runway that pans as the jet roars past
   await tween(5, (k, raw) => { const d = 230 * raw * raw, lift = Math.max(0, raw - 0.5); jet.position.set(RUN_X, RY + 120 * lift * lift, RUN_Z - d); jet.rotation.x = Math.min(0.22, lift * 0.8);
@@ -987,13 +1027,16 @@ async function chaseFlight() {
   camera.far = 120000; camera.updateProjectionMatrix(); scene.fog.near = 3000; scene.fog.far = 60000;
   const A = new V3(-6200, 900, -11500), B = new V3(1800, 650, 7800), C = new V3(4200, 600, 17500);
   const path = new THREE.CatmullRomCurve3([A, A.clone().lerp(B, 0.5).add(new V3(-1200, 0, 0)), B, C]);
-  await tween(11, (k, raw) => {
+  await tween(4.5, (k, raw) => {
     const p = path.getPoint(raw), q = path.getPoint(Math.min(1, raw + 0.01)), dir = q.clone().sub(p).normalize();
     jet.position.copy(p); jet.rotation.set(0, Math.atan2(dir.z, -dir.x), Math.sin(raw * 6) * 0.12);
     const cp = p.clone().addScaledVector(dir, -48).add(new V3(dir.z * 18, 13, -dir.x * 18));
     cam.override = { pos: cp, look: p.clone().addScaledVector(dir, 25), follow: 50 }; cam.ovPos = cp.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
   });
-  $('#fade').classList.add('on'); await sleep(0.8);
+  // Rio → Dubai on the world map; the plane stops half way (Dubai is the next episode).
+  $('#fade').classList.add('on', 'world'); worldMap();
+  await sleep(6.2);
+  $('#fade').classList.remove('world');
 }
 async function caught() {
   state.stage = STAGES.WIN; pushMode('cut'); $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0);
@@ -1364,6 +1407,7 @@ function update(dt) {
 
 // Phones: ask to turn sideways; on Android, go full screen and lock landscape.
 if (TOUCH) document.body.classList.add('touch');
+document.body.classList.add('portrait-ok');   // phones play upright too: no 'turn your phone' screen
 const canLock = !!(document.documentElement.requestFullscreen && screen.orientation && screen.orientation.lock);
 function goLandscape() {
   if (!TOUCH || !canLock || document.fullscreenElement) return;
@@ -1408,7 +1452,7 @@ document.querySelectorAll('#heroPick button').forEach(b => b.addEventListener('c
 }));
 document.querySelector(`#heroPick button[data-hero="${hero.id}"]`)?.classList.add('on');
 $('#playBtn').onclick = async () => {
-  audio.init(); goLandscape(); $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden');
+  audio.init(); $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden');
   state.started = true; state.t0 = performance.now();
   await intro();
 };
