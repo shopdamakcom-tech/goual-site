@@ -646,8 +646,8 @@ function endScreen(how) {
   const t = Math.round(state.playTime); $('#eTime').textContent = `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
   $('#eCards').textContent = `${state.cards}/${cards.length}`; $('#eStyle').textContent = state.style.toLocaleString('en');
   const flew = how === 'dubai';
-  $('#end .kicker').textContent = flew ? 'EPISODE 2 COMPLETE · NEXT: DUBAI' : 'EPISODE 2 COMPLETE · TO BE CONTINUED'; $('#end h2').firstChild.textContent = flew ? 'THE JET TOOK OFF' : 'BALLON D\'OR RECOVERED';
-  $('#eWho').textContent = flew ? `Next stop: Dubai, ${hero.name}` : `Well played, ${hero.name}`;
+  $('#end .kicker').textContent = flew ? 'EPISODE 2 COMPLETE · TO BE CONTINUED' : 'EPISODE 2 COMPLETE · TO BE CONTINUED'; $('#end h2').firstChild.textContent = flew ? 'NEXT STOP: DUBAI' : 'BALLON D\'OR RECOVERED';
+  $('#eWho').textContent = flew ? `Fly safe, captain ${hero.name}` : `Well played, ${hero.name}`;
   $('#letterbox').classList.remove('on'); $('#fade').classList.remove('on'); $('#end').classList.remove('hidden'); $('#hud').classList.add('hidden'); $('#touch').classList.add('hidden');
   if (document.pointerLockElement) document.exitPointerLock();
   post('complete', { time: t, cards: state.cards, style: state.style, hero: hero.id });
@@ -681,6 +681,7 @@ async function enterAirport() {
   for (const o of scene.children) if (!keep.has(o) && !o.isLight) o.visible = false;
   for (const c of cards) c.got = true;
   AP.root = src;
+  AP.jetP = load('models/jet.glb').catch(() => null);   // our own jet, for the chase to Dubai (loads in the background)
   sky.material.uniforms.single.value = 1;   // only one Corcovado in the sky over the airport
   carve(src, AP.DOORS);
   src.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
@@ -902,7 +903,53 @@ async function escaped() {
   toast('HE GOT AWAY…', '#ff2d55');
   await sleep(1.2);
   await conversation(null, [['HERO', 'Dubai… I need a plane. Now.']], { keep: true });
+  await chaseFlight();
   endScreen('dubai');
+}
+// Our jet ("Bombardier windjet 365" by dannzjs, Sketchfab, CC BY 4.0): you take the controls, the other two
+// stars sit behind, take off from the same runway and fly out over the sea, Rio on the horizon.
+async function chaseFlight() {
+  const src = await AP.jetP; if (!src) return;
+  const jet = AP.jet = new THREE.Group(); jet.add(src); scene.add(jet);
+  src.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  const RUN_X = -128, RUN_Z = 70;
+  jet.rotation.set(0, -Math.PI / 2, 0); jet.position.set(RUN_X, 0, RUN_Z); jet.updateMatrixWorld(true);
+  // On the apron: the other two catch up with you.
+  me.root.visible = true; P.pos.set(RUN_X + 6, 0, RUN_Z + 6); P.yaw = Math.atan2(-6, -6); P.vel.set(0, 0, 0);
+  if (rivalState.on) rivals().forEach((r, i) => { r.ch.root.visible = true; r.ch.root.position.set(RUN_X + 9 + i * 1.2, 0, RUN_Z + 9 - i); r.ch.root.rotation.set(0, Math.atan2(-1, -1), 0); });
+  rivalState.mode = 'stand';
+  shot(new V3(RUN_X + 14, 3, RUN_Z + 12), new V3(RUN_X + 2, 1.5, RUN_Z), { cut: true });
+  await say(rivalState.on ? [
+    ['RIVAL1', 'Wait! We are coming with you!'],
+    ['HERO', 'Then get in. I am flying.'],
+    ['RIVAL2', 'Since when can you fly a plane?!'],
+    ['HERO', 'Since today. Next stop: Dubai.'],
+  ] : [['HERO', 'Since today. Next stop: Dubai.']]);
+  // In the cabin: you at the controls, the others in the leather seats behind.
+  const seat = (ch, x, z) => { jet.add(ch.root); ch.root.visible = true; ch.root.position.set(x, 0.18, z); ch.root.rotation.set(0, -Math.PI / 2, 0); };
+  seat(me, -10.15, -0.36); P.seated = true; act('sit', 999); P.vel.set(0, 0, 0);
+  if (rivalState.on) rivals().forEach((r, i) => seat(r.ch, -7.7, i ? 0.42 : -0.42));
+  rivalState.mode = 'seated';
+  shot(jet.localToWorld(new V3(-4.4, 1.35, 0.05)), jet.localToWorld(new V3(-12, 1.0, 0)), { cut: true });
+  audio.engine?.(12);
+  await sleep(2.6);
+  // Take-off: full throttle down the runway, rotate, climb.
+  const camT = new V3(RUN_X - 28, 3.5, RUN_Z - 95);   // a camera beside the runway that pans as the jet roars past
+  await tween(5, (k, raw) => { const d = 230 * raw * raw, lift = Math.max(0, raw - 0.5); jet.position.set(RUN_X, 120 * lift * lift, RUN_Z - d); jet.rotation.x = Math.min(0.22, lift * 0.8);
+    const look = jet.position.clone().add(new V3(0, 1.5, 0)); cam.override = { pos: camT, look, follow: 50 }; cam.ovPos = camT.clone(); cam.ovLook = look; cam.blend = 1; });
+  // Out over the sea: the airport disappears below, the ocean takes over, Rio stays on the horizon.
+  for (const o of scene.children) if (o !== jet && o !== sky && o !== clouds && !o.isLight && o !== sun.target) o.visible = false;
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(40000, 40000), new THREE.MeshStandardMaterial({ color: 0x1f5f8f, roughness: 0.22, metalness: 0.1, envMap: ENV, envMapIntensity: 0.6 }));
+  sea.rotation.x = -Math.PI / 2; scene.add(sea);
+  clouds.visible = true;
+  let z0 = jet.position.z; const y0 = jet.position.y;
+  await tween(7, (k, raw) => {
+    const z = z0 - 520 * raw, y = y0 + 220 * Math.min(1, raw * 1.4);
+    jet.position.set(RUN_X + Math.sin(raw * 2.2) * 40, y, z); jet.rotation.set(0.05, -Math.PI / 2, Math.sin(raw * 2.2) * 0.18 * -1);
+    const cp = jet.position.clone().add(new V3(26 - 10 * raw, 8 + 4 * raw, 34 - 20 * raw));
+    cam.override = { pos: cp, look: jet.position.clone(), follow: 50 }; cam.ovPos = cp.clone(); cam.ovLook = jet.position.clone(); cam.blend = 1;
+  });
+  $('#fade').classList.add('on'); await sleep(0.8);
 }
 async function caught() {
   state.stage = STAGES.WIN; pushMode('cut'); $('#letterbox').classList.add('on'); P.vel.set(0, 0, 0);
@@ -1213,7 +1260,7 @@ function updatePlayer(dt) {
   // Footsteps.
   if (P.grounded && P.speed > 0.8 && P.mode !== 'climb') { const ph = Math.floor(me.phase / Math.PI); if (ph !== P.stepPhase) { P.stepPhase = ph; audio.step(); } }
   // Character pose.
-  me.root.position.copy(P.pos); me.root.rotation.y = P.yaw + P.spin;
+  if (!P.seated) { me.root.position.copy(P.pos); me.root.rotation.y = P.yaw + P.spin; }
   const actName = P.action;
   me.animate({ dt, speed: P.mode === 'climb' ? 0 : P.speed, grounded: P.grounded || P.mode === 'climb', action: talking === me && !actName ? 'talk' : actName, actionT: P.action === 'climb' ? P.actT / P.actLen : P.actT, tapLen: 0.32, lean: 0 });
   if (trophyHeld) carryTrophy(me, true);
@@ -1333,4 +1380,4 @@ me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
 frame();
 post('ready');
 // Test hooks.
-window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
+window.__street = { camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, chaseFlight, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
