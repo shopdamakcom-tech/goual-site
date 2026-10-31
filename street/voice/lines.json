@@ -63,17 +63,22 @@
 "YAMAL|Stop! That trophy belongs to football!": "yamal-7cd58c9b.mp3",
 "KANE|Stop! That trophy belongs to football!": "kane-38109e58.mp3",
 "THIEF|Catch me if you can!": "thief-0f2f9467.mp3",
-"THIEF|Bye bye, Mbappé!": "thief-cfcd6cfa.mp3",
-"THIEF|Bye bye, Yamal!": "thief-898d1565.mp3",
-"THIEF|Bye bye, Kane!": "thief-d0fa16ac.mp3",
-"MBAPPE|Again. This time he is mine.": "mbappe-0dfe9be8.mp3",
-"YAMAL|Again. This time he is mine.": "yamal-b92cfcbe.mp3",
-"KANE|Again. This time he is mine.": "kane-762fc6d6.mp3",
+"THIEF|Bye bye, Mbappé! See you in Dubai!": "thief-e5e72a3d.mp3",
+"THIEF|Bye bye, Yamal! See you in Dubai!": "thief-529654a7.mp3",
+"THIEF|Bye bye, Kane! See you in Dubai!": "thief-434d2588.mp3",
+"MBAPPE|Dubai… I need a plane. Now.": "mbappe-cf239760.mp3",
+"YAMAL|Dubai… I need a plane. Now.": "yamal-58cb5aef.mp3",
+"KANE|Dubai… I need a plane. Now.": "kane-a8e97135.mp3",
 "THIEF|No! My jet! My Ballon d'Or!": "thief-c0486329.mp3",
 "MBAPPE|It was never yours. The Ballon d'Or belongs to football.": "mbappe-613c1a43.mp3",
 "YAMAL|It was never yours. The Ballon d'Or belongs to football.": "yamal-25070585.mp3",
 "KANE|It was never yours. The Ballon d'Or belongs to football.": "kane-185fe7b6.mp3",
 "SIU": "siu-cr7.mp3",
+"PA": [
+"pa1.mp3",
+"pa2.mp3",
+"pa3.mp3"
+],
 "SHOUTS": [
 "shout-00-0.mp3",
 "shout-00-2.mp3",
@@ -107,10 +112,5 @@
 "shout-14-0.mp3",
 "shout-15-3.mp3",
 "shout-15-1.mp3"
-],
-"PA": [
-"pa1.mp3",
-"pa2.mp3",
-"pa3.mp3"
 ]
 }
