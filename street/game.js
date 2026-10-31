@@ -11,7 +11,7 @@ import { Character, dress } from './rig.js?v=7';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=3';
 import { Builder, kitMaterials, dog, clutter, laundry } from './favela-kit.js';
-import { audio } from './audio.js?v=3';
+import { audio } from './audio.js?v=4';
 
 const $ = s => document.querySelector(s);
 const V3 = THREE.Vector3;
@@ -604,7 +604,7 @@ function endScreen() {
 // The car drops you at the terminal. The Ballon d'Or is inside... in the arms of a thief who runs for a
 // private jet. Catch him before he reaches the stairs (as many tries as it takes).
 const AP = {
-  DOORS: [{ x0: 14, x1: 24, z0: -43, z1: -35, y1: 30 }, { x0: -4, x1: 4, z0: -6, z1: 1, y1: 30 }, { x0: -21, x1: -8, z0: 30, z1: 36, y1: 30 }],
+  DOORS: [{ x0: 14, x1: 24, z0: -43, z1: -35, y1: 30 }, { x0: -7, x1: 7, z0: -6, z1: 1, y1: 30 }, { x0: -21, x1: -8, z0: 26, z1: 40, y1: 30 }],
   CAR_Z0: 120, CAR_STOP: new V3(30, 0, -42),
   THIEF_START: new V3(2, 0, -11),
   PATH: [new V3(0, 0, -7), new V3(0, 0, 3), new V3(0, 0, 30.8), new V3(-22, 0, 30.8), new V3(-21, 0, 60), new V3(-23, 0, 84)],
@@ -615,7 +615,7 @@ let thief = null;
 const trophy = makeBallonDor(ENV); trophy.visible = false; scene.add(trophy);
 const theft = { i: 0, run: false, fallen: false };
 async function enterAirport() {
-  const [{ wallColliders, carve }, src, ...blds] = await Promise.all([import('./airport.js?v=2'), load('models/airport.glb'), ...['Large_2', 'Medium_2_001', 'Small_1'].map(n => load(`models/bld-${n}.glb`))]);
+  const [{ wallColliders, carve, floorColliders }, src, ...blds] = await Promise.all([import('./airport.js?v=3'), load('models/airport.glb'), ...['Large_2', 'Medium_2_001', 'Small_1'].map(n => load(`models/bld-${n}.glb`))]);
   // Leave the favela: hide it all (lights, sky, car and the stars stay), swap the colliders.
   const keep = new Set([sun, sun.target, sky, clouds, car, ball.mesh, trophy, ...Object.values(HEROES).map(h => h.ch.root)]);
   for (const o of scene.children) if (!keep.has(o) && !o.isLight) o.visible = false;
@@ -624,7 +624,10 @@ async function enterAirport() {
   src.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(src);
   const W2 = wallColliders(src, { open: AP.DOORS, skip: o => /LandingTrack/.test(o.name + (o.parent ? o.parent.name : '')) });
-  colliders.length = 0; colliders.push({ x0: -600, x1: 600, z0: -600, z1: 600, y0: -2, y1: 0 }, ...W2.boxes); indexColliders();
+  // Floors: the terminal's floor sits a little above 0, so we read it from the model (feet no longer sink in).
+  const F2 = floorColliders(src, { skip: o => /LandingTrack/.test(o.name + (o.parent ? o.parent.name : '')) });
+  colliders.length = 0; colliders.push({ x0: -600, x1: 600, z0: -600, z1: 600, y0: -2, y1: 0 }, ...W2.boxes, ...F2); indexColliders();
+  exitGuide();
   // Ground: concrete apron, and the road on the city side where the car arrives.
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), new THREE.MeshStandardMaterial({ color: 0x9a9d96, roughness: 0.95 }));
   ground.rotation.x = -Math.PI / 2; ground.position.y = -0.03; ground.receiveShadow = true; scene.add(ground);
@@ -633,7 +636,7 @@ async function enterAirport() {
   buildCity(blds);
   // The thief: black suit, cap, the golden ball under his arm.
   thief = new Character(kidSrc, { kind: 'mixamo', height: 1.82 }); dress(thief, { top: '#151515', bottom: '#151515', shoes: '#0b0b0b', skin: '#c79c78' });
-  thief.root.position.copy(AP.THIEF_START); thief.root.rotation.y = Math.PI / 2; scene.add(thief.root);
+  thief.root.position.copy(AP.THIEF_START); thief.root.position.y = Math.max(0, groundAt(AP.THIEF_START.x, AP.THIEF_START.z, 1)); thief.root.rotation.y = Math.PI / 2; scene.add(thief.root);
   trophy.visible = true;
   for (let i = 1; i < AP.PATH.length; i++) for (let k = 0; k <= 1; k += 0.02) { const p = AP.PATH[i - 1].clone().lerp(AP.PATH[i], k); if (W2.has(p.x, p.z)) { console.warn('thief path blocked at', p.x.toFixed(1), p.z.toFixed(1)); break; } }
   return W2;
@@ -643,7 +646,7 @@ async function enterAirport() {
 const walkers = [];
 function buildCity(blds) {
   const side = new THREE.MeshStandardMaterial({ color: 0xb9b6ae, roughness: 0.9 }), white = new THREE.MeshBasicMaterial({ color: 0xf2f2f2 });
-  for (const [x, w] of [[39.5, 5], [23, 4]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.16, 600), side); m.position.set(x, 0.06, 0); m.receiveShadow = true; scene.add(m); }
+  for (const [x, w] of [[39.5, 5], [23, 4]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.16, 600), side); m.position.set(x, 0.06, 0); m.receiveShadow = true; scene.add(m); colliders.push({ x0: x - w / 2, x1: x + w / 2, z0: -300, z1: 300, y0: -1, y1: 0.14 }); }
   const dash = new THREE.InstancedMesh(new THREE.PlaneGeometry(0.15, 3), white, 100); const M4 = new THREE.Matrix4();
   for (let i = 0; i < 100; i++) { M4.makeRotationX(-Math.PI / 2).setPosition(31, 0.01, -300 + i * 6); dash.setMatrixAt(i, M4); } scene.add(dash);
   colliders.push({ x0: 41.5, x1: 44, z0: -300, z1: 300, y0: 0, y1: 3 }); indexColliders();
@@ -672,6 +675,26 @@ function updateWalkers(dt) {
     w.ch.animate({ dt, speed: w.speed, grounded: true });
   }
 }
+// The way out to the tarmac: glowing yellow arrows on the floor and big green signs over the openings.
+function exitGuide() {
+  const way = [new V3(14, 0, -39), new V3(4, 0, -26), new V3(0, 0, -8), new V3(0, 0, 3), new V3(0, 0, 30.8), new V3(-24, 0, 30.8), new V3(-22, 0, 52)];
+  const sh = new THREE.Shape(); sh.moveTo(-0.55, -0.35); sh.lineTo(0, 0.25); sh.lineTo(0.55, -0.35); sh.lineTo(0.55, -0.05); sh.lineTo(0, 0.55); sh.lineTo(-0.55, -0.05); sh.closePath();
+  const geo = new THREE.ShapeGeometry(sh); geo.rotateX(-Math.PI / 2);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffd400, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -2 });
+  const pts = [];
+  for (let i = 1; i < way.length; i++) { const a = way[i - 1], b = way[i], L = a.distanceTo(b); for (let d = 1.5; d < L; d += 3) pts.push([a.clone().lerp(b, d / L), Math.atan2(b.x - a.x, b.z - a.z)]); }
+  const im = new THREE.InstancedMesh(geo, mat, pts.length), M = new THREE.Matrix4(), Q = new THREE.Quaternion();
+  pts.forEach(([p, yaw], i) => { p.y = Math.max(0, groundAt(p.x, p.z, 1)) + 0.03; Q.setFromAxisAngle(new V3(0, 1, 0), yaw + Math.PI); M.compose(p, Q, new V3(1, 1, 1)); im.setMatrixAt(i, M); });
+  scene.add(im); AP.arrows = im;
+  const sign = (text, x, y, z, ry) => {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 128; const g = c.getContext('2d');
+    g.fillStyle = '#0a8a3a'; g.fillRect(0, 0, 512, 128); g.strokeStyle = '#fff'; g.lineWidth = 6; g.strokeRect(6, 6, 500, 116);
+    g.fillStyle = '#fff'; g.font = '900 56px Arial'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 256, 68);
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(4, 1), new THREE.MeshBasicMaterial({ map: t, side: THREE.DoubleSide })); m.position.set(x, y, z); m.rotation.y = ry; scene.add(m);
+  };
+  sign('GATES  ➜', 0, 3.6, -3, Math.PI); sign('➜  TARMAC', -12, 3.6, 30.8, Math.PI / 2); sign('EXIT  ➜', -18.5, 3.6, 30.8, Math.PI / 2);
+}
 async function arriveAirport() {
   state.stage = STAGES.AIRPORT;
   car.visible = true; car.position.set(AP.CAR_STOP.x, 0, AP.CAR_Z0); car.rotation.y = Math.PI / 2;
@@ -679,6 +702,7 @@ async function arriveAirport() {
   shot(new V3(40, 3.2, -62), new V3(30, 1.2, -32), { cut: true });
   $('#fade').classList.remove('on', 'trip');
   setObjective('CHAPTER 2 · THE AIRPORT', 'Rio International Airport', null);
+  audio.airport?.();
   audio.engine?.(4.5);
   await tween(4.6, k => { car.position.z = lerp(AP.CAR_Z0, AP.CAR_STOP.z, 1 - (1 - k) * (1 - k)); });
   await sleep(0.4);
@@ -731,7 +755,7 @@ function updateThief(dt) {
     if (d < 0.4) { theft.i++; if (theft.i >= AP.PATH.length) { theft.run = false; escaped(); } }
     else {
       const yaw = Math.atan2(tgt.x - p.x, tgt.z - p.z); thief.root.rotation.y += angDiff(thief.root.rotation.y, yaw) * (1 - Math.exp(-dt * 10));
-      const step = Math.min(d, AP.THIEF_SPEED * dt); p.x += (tgt.x - p.x) / d * step; p.z += (tgt.z - p.z) / d * step; speed = AP.THIEF_SPEED;
+      const step = Math.min(d, AP.THIEF_SPEED * dt); p.x += (tgt.x - p.x) / d * step; p.z += (tgt.z - p.z) / d * step; p.y = Math.max(0, groundAt(p.x, p.z, p.y + 0.5)); speed = AP.THIEF_SPEED;
     }
     if (Math.hypot(P.pos.x - p.x, P.pos.z - p.z) < 1.5) { theft.run = false; caught(); }
   }
@@ -758,10 +782,10 @@ async function caught() {
   // He trips and goes down; the trophy rolls out of his hands.
   theft.fallen = true;
   const tp = thief.root.position.clone(), fwdT = new V3(Math.sin(thief.root.rotation.y), 0, Math.cos(thief.root.rotation.y));
-  const drop = tp.clone().addScaledVector(fwdT, 1.6).setY(0.02);
+  const drop = tp.clone().addScaledVector(fwdT, 1.6); drop.y = Math.max(0, groundAt(drop.x, drop.z, tp.y + 0.6)) + 0.02;
   const t0 = trophy.position.clone();
   shot(tp.clone().add(new V3(3.2, 2.2, 3.2)), tp.clone().add(new V3(0, 0.6, 0)), { cut: true });
-  await tween(0.6, k => { thief.root.rotation.x = 1.45 * k; thief.root.position.y = 0.25 * Math.sin(Math.PI * k); trophy.position.lerpVectors(t0, drop, k); trophy.position.y += Math.sin(Math.PI * k) * 0.6; });
+  await tween(0.6, k => { thief.root.rotation.x = 1.45 * k; thief.root.position.y = tp.y + 0.25 * Math.sin(Math.PI * k); trophy.position.lerpVectors(t0, drop, k); trophy.position.y += Math.sin(Math.PI * k) * 0.6; });
   await sleep(0.4);
   P.pos.copy(drop).addScaledVector(fwdT, 0.6); P.yaw = Math.atan2(-fwdT.x, -fwdT.z);
   faceEachOther(thief); thief.root.rotation.x = 1.45;

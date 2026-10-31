@@ -123,6 +123,19 @@ export const audio = {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.4); g.gain.setValueAtTime(0.16, t + sec - 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + sec);
     o.connect(f).connect(g).connect(this.sfx); o.start(t); o.stop(t + sec + 0.05);
   },
+  // Airport ambience: hall murmur, air-conditioning hum, and now and then the PA chime and an announcement.
+  airport() {
+    if (!this.ctx || this._ap) return; this._ap = true;
+    const g = this.ctx.createGain(); g.gain.value = 0; g.connect(this.master); g.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
+    this.bed('bandpass', 420, 0.05, g); this.bed('lowpass', 110, 0.07, g); this.bed('bandpass', 1800, 0.012, g);
+    let i = 0;
+    const announce = () => {
+      if (!this.on) return;
+      const t = this.ctx.currentTime; [659, 523, 392].forEach((f, k) => this.tone(this.sfx, t + k * 0.45, { f, type: 'sine', level: 0.09, a: 0.01, d: 0.9 }));
+      const list = this.manifest?.PA; if (list) setTimeout(() => this.play(list[i++ % list.length], { out: this.sfx, level: 0.75 }), 1500);
+    };
+    setTimeout(announce, 2500); this._apT = setInterval(announce, 24000);
+  },
   blip(f = 660) { if (!this.ctx) return; this.tone(this.sfx, this.ctx.currentTime, { f, type: 'triangle', level: 0.06, d: 0.08 }); },
   whistle() { if (!this.ctx) return; const t = this.ctx.currentTime; const o = this.ctx.createOscillator(), g = this.ctx.createGain(), v = this.ctx.createOscillator(), vg = this.ctx.createGain(); o.frequency.value = 2900; v.frequency.value = 30; vg.gain.value = 150; v.connect(vg).connect(o.frequency); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); o.connect(g).connect(this.sfx); o.start(t); v.start(t); o.stop(t + 0.55); v.stop(t + 0.55); },
 

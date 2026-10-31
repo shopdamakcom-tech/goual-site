@@ -67,3 +67,39 @@ export function carve(root, boxes) {
   });
   return n;
 }
+
+// Walkable floors from the model: every flat, upward-facing triangle below maxY sets the floor height of
+// the cells it covers (highest wins). Returns boxes from y = -1 up to that height.
+export function floorColliders(root, { skip = () => false, cell = 1, maxY = 0.6 } = {}) {
+  const H = new Map(), key = (i, j) => i * 100000 + j;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3(), p = new THREE.Vector3(), e1 = new THREE.Vector3(), e2 = new THREE.Vector3();
+  root.updateMatrixWorld(true);
+  root.traverse(o => {
+    if (!o.isMesh || skip(o)) return;
+    const pos = o.geometry.attributes.position, idx = o.geometry.index, m = o.matrixWorld, cnt = idx ? idx.count : pos.count;
+    for (let t = 0; t < cnt; t += 3) {
+      a.fromBufferAttribute(pos, idx ? idx.getX(t) : t).applyMatrix4(m); b.fromBufferAttribute(pos, idx ? idx.getX(t + 1) : t + 1).applyMatrix4(m); c.fromBufferAttribute(pos, idx ? idx.getX(t + 2) : t + 2).applyMatrix4(m);
+      if (Math.max(a.y, b.y, c.y) > maxY || Math.min(a.y, b.y, c.y) < -0.5) continue;
+      e1.subVectors(b, a); e2.subVectors(c, a); n.crossVectors(e1, e2); const ar = n.length(); if (ar < 1e-6 || Math.abs(n.y / ar) < 0.9) continue;
+      const steps = Math.min(200, Math.max(1, Math.ceil(Math.max(e1.length(), e2.length()) / (cell * 0.7))));
+      for (let u = 0; u <= steps; u++) for (let v = 0; v <= steps - u; v++) {
+        p.copy(a).addScaledVector(e1, u / steps).addScaledVector(e2, v / steps);
+        const k = key(Math.floor(p.x / cell), Math.floor(p.z / cell)); if (!(H.get(k) >= p.y)) H.set(k, p.y);
+      }
+    }
+  });
+  // Merge runs along x with the same (rounded) height.
+  const rows = new Map();
+  for (const [k, h] of H) { const i = Math.round(k / 100000), j = k - i * 100000; if (h < 0.02) continue; if (!rows.has(j)) rows.set(j, []); rows.get(j).push([i, Math.round(h / 0.02) * 0.02]); }
+  const out = [];
+  for (const [j, list] of rows) {
+    list.sort((x, y) => x[0] - y[0]);
+    let s = null;
+    for (let q = 0; q <= list.length; q++) {
+      const cur = list[q];
+      if (s && (!cur || cur[0] !== s.end + 1 || cur[1] !== s.h)) { out.push({ x0: s.i0 * cell, x1: (s.end + 1) * cell, z0: j * cell, z1: (j + 1) * cell, y0: -1, y1: s.h }); s = null; }
+      if (cur && !s) s = { i0: cur[0], end: cur[0], h: cur[1] }; else if (cur) s.end = cur[0];
+    }
+  }
+  return out;
+}
