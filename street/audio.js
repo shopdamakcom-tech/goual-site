@@ -124,18 +124,45 @@ export const audio = {
     o.connect(f).connect(g).connect(this.sfx); o.start(t); o.stop(t + sec + 0.05);
   },
   // Airport ambience: hall murmur, air-conditioning hum, and now and then the PA chime and an announcement.
-  airport() {
+  airport(key = 'PA') {
+    this._apKey = key;
     if (!this.ctx || this._ap) return; this._ap = true;
-    const g = this.ctx.createGain(); g.gain.value = 0; g.connect(this.master); g.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
+    const g = this._apG = this.ctx.createGain(); g.gain.value = 0; g.connect(this.master); g.gain.setTargetAtTime(1, this.ctx.currentTime, 1.5);
     this.bed('bandpass', 420, 0.05, g); this.bed('lowpass', 110, 0.07, g); this.bed('bandpass', 1800, 0.012, g);
     let i = 0;
     const announce = () => {
       if (!this.on) return;
       const t = this.ctx.currentTime; [659, 523, 392].forEach((f, k) => this.tone(this.sfx, t + k * 0.45, { f, type: 'sine', level: 0.09, a: 0.01, d: 0.9 }));
-      const list = this.manifest?.PA; if (list) setTimeout(() => this.play(list[i++ % list.length], { out: this.sfx, level: 0.75 }), 1500);
+      if (this._apOff) return;
+      const list = this.manifest?.[this._apKey || 'PA']; if (list) setTimeout(() => this.play(list[i++ % list.length], { out: this.sfx, level: 0.75 }), 1500);
     };
     setTimeout(announce, 2500); this._apT = setInterval(announce, 24000);
   },
+  airportOff() { this._apOff = true; if (this._apG) this._apG.gain.setTargetAtTime(0, this.ctx.currentTime, 0.6); clearInterval(this._apT); },
+  // Driving: a sawtooth engine whose pitch follows the speed.
+  drive(on) {
+    if (!this.ctx) return;
+    if (on && !this._drv) {
+      const c = this.ctx, o = c.createOscillator(), o2 = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
+      o.type = 'sawtooth'; o2.type = 'square'; f.type = 'lowpass'; f.frequency.value = 500; g.gain.value = 0;
+      o.connect(f); o2.connect(f); f.connect(g).connect(this.sfx); o.start(); o2.start(); this._drv = { o, o2, f, g };
+    } else if (!on && this._drv) { const d = this._drv; this._drv = null; d.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.25); setTimeout(() => { d.o.stop(); d.o2.stop(); }, 1500); }
+  },
+  driveSpeed(v, thr) {
+    const d = this._drv; if (!d) return; const t = this.ctx.currentTime, gear = (v % 14) / 14, f0 = 42 + v * 1.6 + gear * 38;
+    d.o.frequency.setTargetAtTime(f0, t, 0.08); d.o2.frequency.setTargetAtTime(f0 * 0.5, t, 0.08);
+    d.f.frequency.setTargetAtTime(260 + v * 18 + thr * 500, t, 0.1); d.g.gain.setTargetAtTime(this.on ? 0.035 + thr * 0.035 : 0, t, 0.1);
+  },
+  // Police siren (wail), its level set by how far the police car is.
+  siren(on) {
+    if (!this.ctx) return;
+    if (on && !this._sir) {
+      const c = this.ctx, o = c.createOscillator(), lfo = c.createOscillator(), lg = c.createGain(), g = c.createGain();
+      o.type = 'triangle'; o.frequency.value = 950; lfo.frequency.value = 0.55; lg.gain.value = 330; lfo.connect(lg).connect(o.frequency);
+      g.gain.value = 0; g.gain.setTargetAtTime(0.03, c.currentTime, 0.3); o.connect(g).connect(this.sfx); o.start(); lfo.start(); this._sir = { o, lfo, g };
+    } else if (!on && this._sir) { const d = this._sir; this._sir = null; d.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.4); setTimeout(() => { d.o.stop(); d.lfo.stop(); }, 2000); }
+  },
+  sirenLevel(k) { if (this._sir) this._sir.g.gain.setTargetAtTime(this.on ? 0.035 * k : 0, this.ctx.currentTime, 0.2); },
   blip(f = 660) { if (!this.ctx) return; this.tone(this.sfx, this.ctx.currentTime, { f, type: 'triangle', level: 0.06, d: 0.08 }); },
   whistle() { if (!this.ctx) return; const t = this.ctx.currentTime; const o = this.ctx.createOscillator(), g = this.ctx.createGain(), v = this.ctx.createOscillator(), vg = this.ctx.createGain(); o.frequency.value = 2900; v.frequency.value = 30; vg.gain.value = 150; v.connect(vg).connect(o.frequency); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5); o.connect(g).connect(this.sfx); o.start(t); v.start(t); o.stop(t + 0.55); v.stop(t + 0.55); },
 
