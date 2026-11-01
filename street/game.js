@@ -1395,7 +1395,7 @@ function cityPeople(R) {
   let i = 0;
   for (let s0 = 35; s0 < R.cityEnd - 30 && PEDS.length < (TOUCH ? 10 : 16); s0 += 48) for (const side of [-1, 1]) {
     const ch = new Character(kidSrc, { kind: 'mixamo', height: 1.62 + (i % 4) * 0.07 }); dress(ch, { ...LOOKS[i % LOOKS.length], shoes: '#222' });
-    PEDS.push({ ch, s: s0 + (i % 5) * 6, off: side * (R.hw(s0) + 3.3 + (i % 3) * 0.7), dir: i % 2 ? 1 : -1, v: 1.1 + (i % 3) * 0.25 });
+    PEDS.push({ ch, s: s0 + (i % 5) * 6, home: s0, off: side * (R.hw(s0) + 3.3 + (i % 3) * 0.7), dir: i % 2 ? 1 : -1, v: 1.1 + (i % 3) * 0.25 });
     scene.add(ch.root); i++;
   }
   pedsStep(0);
@@ -1404,6 +1404,8 @@ function pedsStep(dt) {
   const R = DRV.R, me = DRV.me;
   for (const p of PEDS) {
     p.s += p.dir * p.v * dt;
+    // Each one walks up and down his own stretch of pavement (they used to wander out into the desert road).
+    if (p.s > Math.min(p.home + 25, R.cityEnd - 40)) p.dir = -1; else if (p.s < p.home - 25) p.dir = 1;
     const q = R.at(p.s).addScaledVector(R.right(p.s), p.off), f = R.fwd(p.s);
     p.ch.root.position.set(q.x, R.y(p.s) + 0.15, q.z); p.ch.root.rotation.y = Math.atan2(f.x, f.z) + (p.dir < 0 ? Math.PI : 0);
     if (!me || Math.abs(p.s - me.s) < 160) p.ch.animate({ dt, speed: p.v, grounded: true });
