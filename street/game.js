@@ -979,6 +979,7 @@ function updateRivals(dt) {
       const sp = gap < 2.8 + st.lag ? 0 : AP.THIEF_SPEED * (theft.slipped ? st.k + 0.08 : st.k);
       if (d > 0.05 && sp > 0) { const yaw = Math.atan2(tgt.x - p.x, tgt.z - p.z); ch.root.rotation.y += angDiff(ch.root.rotation.y, yaw) * (1 - Math.exp(-dt * 10)); const step = Math.min(d, sp * dt); p.x += (tgt.x - p.x) / d * step; p.z += (tgt.z - p.z) / d * step; p.y = Math.max(0, groundAt(p.x, p.z, p.y + 0.5)); speed = sp; }
     }
+    if (rivalState.mode === 'away' && DRV.on && ch.root.parent !== scene) ch.animate({ dt, speed: 0, grounded: true, action: 'sit', actionT: 0 });
     if (rivalState.mode !== 'away') ch.animate({ dt, speed, grounded: true, action: talking === ch ? 'talk' : action, actionT: performance.now() / 1000, look: rivalState.mode === 'stand' ? lookAtPlayer(ch) : 0 });
   });
 }
@@ -1102,9 +1103,9 @@ async function chaseFlight() {
 // Messi lands first and grabs the Dubai Police Bugatti; each of the three stars picks a car and the chase goes
 // through Dubai Marina, out into the desert, to a tunnel where he slips into a hidden house.
 const CARS = [
-  { id: 'lambo', name: 'LAMBORGHINI', sub: 'Countach LPI 800-4', file: 'car-lambo.glb', len: 4.87, yaw: Math.PI / 2 },
-  { id: 'mercedes', name: 'MERCEDES SS', sub: 'Roadster', file: 'car-mercedes.glb', len: 4.9, yaw: Math.PI / 2 },
-  { id: 'rover', name: 'RANGE ROVER', sub: 'Supercharged', file: 'car-rover.glb', len: 4.97, yaw: Math.PI / 2 },
+  { id: 'lambo', name: 'LAMBORGHINI', sub: 'Countach LPI 800-4', file: 'car-lambo.glb', len: 4.87, yaw: -Math.PI / 2 },
+  { id: 'ferrari', name: 'FERRARI', sub: 'LaFerrari', file: 'ferrari.glb', len: 4.7, yaw: Math.PI / 2 },
+  { id: 'chiron', name: 'BUGATTI', sub: 'Chiron', file: 'car.glb', len: 4.54, yaw: Math.PI / 2 },
   { id: 'cyber', name: 'CYBERTRUCK', sub: 'Tesla', file: 'car-cyber.glb', len: 5.68, yaw: 0 },
 ];
 const DXB = { RW: { z: 410, y: 0 }, APRON: { z: 198 }, cars: {} };   // runway along x; apron in front of the terminal's south pier
@@ -1116,9 +1117,21 @@ function setFov(f) { camera.fov = f; camera.updateProjectionMatrix(); }
 function prepCar(m) {
   m.traverse(o => { if (!o.isMesh) return; for (const mt of [].concat(o.material)) {
     if (mt.transmission > 0) { mt.transmission = 0; if (/glass|window|wind|screen|lens/i.test(mt.name)) { mt.transparent = true; mt.opacity = 0.32; mt.depthWrite = false; } else { mt.transparent = false; mt.opacity = 1; } mt.needsUpdate = true; }
+    else if (mt.transparent && mt.opacity < 0.6) { mt.opacity = Math.min(mt.opacity, 0.15); mt.depthWrite = false; mt.needsUpdate = true; }   // tinted glass: clear enough to see who drives
+    else if (/glass|window|windshield|glasses|vitre/i.test(mt.name)) { mt.transparent = true; mt.opacity = 0.16; mt.depthWrite = false; mt.needsUpdate = true; }   // see the drivers
     if (mt.metalness > 0.3) { mt.envMap = ENV; mt.envMapIntensity = 0.8; }
+    if (mt.color && mt.color.r > 0.55 && mt.color.g < 0.5 && mt.color.b < 0.5 && mt.name !== 'Glasses' && m.userData.ferrari) { mt.color.setRGB(0.32, 0, 0.004); mt.map = null; mt.metalness = 0.3; mt.roughness = 0.28; mt.envMap = ENV; mt.envMapIntensity = 0.55; mt.needsUpdate = true; }
+    if (/window|glass_front/i.test(mt.name)) { mt.transparent = true; mt.opacity = 0.16; mt.depthWrite = false; }
   } });
   return m;
+}
+// A star at the wheel: seated on the driver's side (left), low enough for the roof, seen through the glass.
+function seatDriver(ch, car) {
+  const b = new THREE.Box3().setFromObject(car), H = b.max.y - b.min.y, L = b.max.x - b.min.x;
+  const k = 0.9; ch.root.scale.setScalar(k);
+  car.attach ? null : null; car.add(ch.root);
+  ch.root.position.set(-L * 0.06, Math.max(0.28, H - 0.92) - 0.5 * ch.height * k, -0.36);
+  ch.root.rotation.set(0, Math.PI / 2, 0); ch.root.visible = true;
 }
 function rayY(root, x, z, top = 60, below = 6) {
   const rc = new THREE.Raycaster(new V3(x, top, z), new V3(0, -1, 0), 0, top + 80);
@@ -1182,7 +1195,7 @@ async function enterDubai() {
   }
   // The cars waiting on the apron: the police Bugatti first, then the four we can take.
   const pc = DXB.police = makeCar(prepCar(police), 4.46); policeLights(pc); scene.add(pc);
-  CARS.forEach((c, i) => { const g = makeCar(prepCar(cs[i]), c.len, c.yaw); g.userData.car = c; scene.add(g); DXB.cars[c.id] = g; });
+  CARS.forEach((c, i) => { cs[i].userData.ferrari = c.id === 'ferrari'; const g = makeCar(prepCar(cs[i]), c.len, c.yaw); g.userData.car = c; scene.add(g); DXB.cars[c.id] = g; });
   const row = DXB.APRON.z + 34;
   const park = (g, x) => { g.position.set(x, (rayY(air, x, row) ?? RW.y) + 0.12, row); g.rotation.set(0, 0, 0); };
   park(pc, -14); CARS.forEach((c, i) => { park(DXB.cars[c.id], -34 - i * 9); DXB.cars[c.id].userData.x0 = -34 - i * 9; });
@@ -1252,18 +1265,19 @@ async function dubai() {
   // Siren on, and off he goes.
   audio.siren?.(true); audio.engine?.(4);
   const px0 = pc.position.x;
-  await tween(3.2, (k, raw) => { pc.position.x = px0 + 170 * raw * raw; pc.userData.flash(1 / 60); cam.override.look = pc.position.clone().add(new V3(0, 1, 0)); });
+  const pz0 = pc.position.z;   // a short run, then a turn south to the open runway (away from the jets at the gates)
+  await tween(3.2, (k, raw) => { const a = Math.min(1, raw * 1.6); pc.position.x = px0 + 18 * a; pc.position.z = pz0 + 150 * Math.max(0, raw - 0.25) ** 2; pc.rotation.y = -Math.PI / 2 * Math.min(1, Math.max(0, raw - 0.15) * 2.2); pc.userData.flash(1 / 60); cam.override.look = pc.position.clone().add(new V3(0, 1, 0)); });
   // On the apron: the three of us by the jet.
   const st = new V3(-64, DXB.mp.position.y, DXB.APRON.z + 14), toCars = new V3(1, 0, 1.2).normalize();
   const yaw = Math.atan2(toCars.x, toCars.z);
   const gy = (x, z) => (rayY(DXB.air, x, z) ?? RW.y) + 0.13;   // the painted apron sits 0.12 above the photo ground
-  st.y = gy(st.x, st.z);
+  st.y = gy(st.x, st.z); colliders[0].y1 = st.y; indexColliders();   // stand on the painted apron (the physics snapped feet to the photo ground)
   P.seated = false; P.pos.copy(st); P.yaw = Math.atan2(1, 0.3); P.vel.set(0, 0, 0); me.root.visible = true; me.root.position.copy(st); me.root.rotation.set(0, P.yaw, 0);
   if (rivalState.on) rivals().forEach((r, i) => { r.ch.root.visible = true; r.ch.root.scale.setScalar(1); const q = st.clone().add(new V3(-1.6 - i * 1.2, 0, i ? -1.4 : 1.4)); q.y = gy(q.x, q.z); r.ch.root.position.copy(q); r.ch.root.rotation.set(0, P.yaw, 0); });
   rivalState.mode = 'stand';
   shot(st.clone().add(new V3(9, 1.7, 8)), st.clone().add(new V3(-1, 1.4, 0)), { cut: true });
   await say(rivalState.on ? [['HERO', 'He is taking the police car!'], ['RIVAL1', 'There are more cars over there. Everybody grab one!']] : [['HERO', 'He is taking the police car! I need a car… now.']]);
-  shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.mercedes.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
+  shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.ferrari.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
   // Pick a car.
   // The chase scenery loads while you choose (parsing it during the landing made the picture freeze).
   DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-tunnel.glb'), load('models/ferrari.glb'), load('models/car.glb')]);
@@ -1275,7 +1289,8 @@ async function dubai() {
   // Engines: the three cars pull away after the police.
   const going = [myId, ...DRV.ids.r].map(id => DXB.cars[id]);
   audio.engine?.(4); shot(new V3(-20, 2.2, DXB.APRON.z + 58), going[0].position.clone().add(new V3(0, 0.8, 0)), { cut: true });
-  await tween(2.6, (k, raw) => { going.forEach((g, i) => { const r = clamp(raw * 1.25 - i * 0.12, 0, 1); g.position.x = g.userData.x0 + 120 * r * r; }); cam.override.look = going[0].position.clone().add(new V3(0, 0.8, 0)); });
+  const z0s = going.map(g => g.position.z);
+  await tween(2.6, (k, raw) => { going.forEach((g, i) => { const r = clamp(raw * 1.25 - i * 0.12, 0, 1); g.position.x = g.userData.x0 + 10 * Math.min(1, r * 2); g.position.z = z0s[i] + 90 * Math.max(0, r - 0.2) ** 2; g.rotation.y = -Math.PI / 2 * Math.min(1, Math.max(0, r - 0.1) * 2.5); }); cam.override.look = going[0].position.clone().add(new V3(0, 0.8, 0)); });
   $('#fade').classList.add('on');
   await sleep(0.5);
   await startDrive();
@@ -1503,7 +1518,10 @@ async function startDrive() {
   for (const c of DRV.list) { c.g.visible = true; carPose(c); }
   colliders.length = 0; colliders.push({ x0: -3000, x1: 3000, z0: -3000, z1: 3000, y0: -5, y1: 0 }); indexColliders();
   state.stage = STAGES.DRIVE; DRV.on = true;
-  state.modeStack = ['drive']; P.mode = 'drive'; P.seated = true; me.root.visible = false;
+  state.modeStack = ['drive']; P.mode = 'drive'; P.seated = true;
+  seatDriver(me, meCar.g); act('sit', 1e9);
+  DRV.list.filter(c => c.role === 'rival').forEach((c, i) => { const rv = rivals()[i]; if (rv) { seatDriver(rv.ch, c.g); c.ch = rv.ch; } });
+  seatDriver(thief, DXB.police); theft.seated = true; trophy.visible = false;
   const spareId = CARS.map(c => c.id).find(id => id !== DRV.ids.me && !DRV.ids.r.includes(id));
   for (const [id, g] of Object.entries(DXB.cars)) if (id !== DRV.ids.me && !DRV.ids.r.includes(id) && id !== spareId) g.visible = false;
   makeTraffic(R, ferrariT, chironT, spareId);
@@ -1696,6 +1714,7 @@ async function hideoutScene() {
   const pc = DXB.police, r = R.right(ms.s), dp = door.g.position.clone(), out = new V3(-Math.sin(door.g.rotation.y), 0, -Math.cos(door.g.rotation.y));
   const nrm = new V3(Math.sin(door.g.rotation.y), 0, Math.cos(door.g.rotation.y));   // out of the wall, towards the road
   const m0 = pc.position.clone().addScaledVector(r, 1.4), m1 = dp.clone().addScaledVector(nrm, 0.9);
+  scene.add(thief.root); thief.root.scale.setScalar(1); theft.seated = false;   // out of the car
   thief.root.visible = true; trophy.visible = true; thief.root.position.copy(m0); thief.root.rotation.set(0, Math.atan2(m1.x - m0.x, m1.z - m0.z), 0); theft.cut = 3.5;
   // Watch from up the road, the door on one side, his car on the other.
   // Inside the tunnel the only clear view is down the road: from behind, above the cars.
@@ -1713,6 +1732,7 @@ async function hideoutScene() {
   await tween(0.4, k => { door.hinge.rotation.y = -1.6 * (1 - k); }); audio.kick(0.7); cam.shake = 0.2;
   // We get out and look at the door.
   const base = DRV.me.g.position.clone().addScaledVector(R.right(DRV.me.s), DRV.me.d > 0 ? -1.8 : 1.8);
+  for (const ch of [me, ...rivals().map(r => r.ch)]) { scene.add(ch.root); ch.root.scale.setScalar(1); } act(null, 0);
   P.seated = false; P.pos.copy(base); P.yaw = Math.atan2(dp.x - base.x, dp.z - base.z); me.root.visible = true; me.root.position.copy(base); me.root.rotation.set(0, P.yaw, 0);
   if (rivalState.on) rivals().forEach((rv, i) => { const q = base.clone().addScaledVector(R.fwd(DRV.me.s), -1.2 - i * 0.9).addScaledVector(R.right(DRV.me.s), (i ? -1 : 1) * 1.3); rv.ch.root.visible = true; rv.ch.root.position.copy(q); rv.ch.root.rotation.set(0, P.yaw, 0); });
   rivalState.mode = 'stand';
@@ -1724,7 +1744,7 @@ async function hideoutScene() {
 // Test entry: ?ep=3 jumps straight to the Dubai landing.
 async function startEp3(drive) {
   rivalState.on = true;
-  if (drive) { thief = new Character(await load('models/messi.glb'), { kind: 'mixamo', height: 1.70 }); scene.add(thief.root); state.modeStack = ['cut']; await enterDubai(); DRV.ids = { me: 'lambo', r: ['cyber', 'rover'] }; await startDrive(); return; }
+  if (drive) { thief = new Character(await load('models/messi.glb'), { kind: 'mixamo', height: 1.70 }); scene.add(thief.root); state.modeStack = ['cut']; await enterDubai(); DRV.ids = { me: 'lambo', r: ['ferrari', 'chiron'] }; await startDrive(); return; }
   thief = new Character(await load('models/messi.glb'), { kind: 'mixamo', height: 1.70 }); scene.add(thief.root);
   $('#fade').classList.add('on'); state.modeStack = ['cut'];
   await dubai();
