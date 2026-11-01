@@ -1349,17 +1349,25 @@ function airportDressing() {
   const lm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.45, 0.5), new THREE.MeshBasicMaterial({ color: 0xfff3c0 }), lights.length), M = new THREE.Matrix4();
   lights.forEach(([lx, lz], i) => { M.makeTranslation(lx, (rayY(air, lx, lz) ?? RW.y) + 0.22, lz); lm.setMatrixAt(i, M); }); scene.add(lm);
 }
-// Messi's hideout: a modern villa ("Modern Villa 2021") alone in the desert, its paved forecourt where the road
-// ends. Model metres, ground at y = -1, entrance side towards -z (house x -14..15, z -31..-6; plot x -29..26, z -47..8).
-function placeVilla(R, villa) {
-  const f = R.dirE, Y = new V3(0, 1, 0), y0 = R.y(R.N - 1);
-  villa.rotation.y = Math.atan2(f.x, f.z);
+// Messi's hideout: a modern villa ("Modern Villa 2021") alone in the desert. Model metres: lawn at y = -2, house
+// x -14..15 / z -31..-6, pool x -9..12 / z -30..0 in front of it, fenced plot x -29..26 / z -47..8.5.
+// The garden side (+z) faces the road: you see the pool, and a gate is cut in the fence where the road ends.
+async function placeVilla(R, villa) {
+  const f = R.dirE, Y = new V3(0, 1, 0), y0 = R.y(R.N - 1), side = new V3(-f.z, 0, f.x);
+  villa.rotation.y = Math.atan2(-f.x, -f.z);
+  const G = new V3(-18, -2, 8.5), gateW = R.end.clone().addScaledVector(f, 6.5); gateW.y = y0;
+  const g0 = G.clone().applyAxisAngle(Y, villa.rotation.y);
+  villa.position.set(gateW.x - g0.x, y0 + 0.03 - g0.y, gateW.z - g0.z);
+  // No perimeter fence (white boards on a stone base): the garden and its pool open onto the desert.
+  villa.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (/^(White wood|Cobblestone)$/.test(o.material.name)) o.visible = false; } });
+  scene.add(villa); villa.updateMatrixWorld(true);
   const toW = (x, y, z) => new V3(x, y, z).applyAxisAngle(Y, villa.rotation.y).add(villa.position);
-  const anchor = new V3(-1.8, -1.0, -66).applyAxisAngle(Y, villa.rotation.y);
-  villa.position.set(R.end.x + f.x * 2 - anchor.x, y0 - anchor.y + 0.02, R.end.z + f.z * 2 - anchor.z);
-  villa.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  scene.add(villa);
-  DXB.door = { gate: toW(-1.8, -1, -48.5), door: toW(-1.2, -1, -32.6), inside: toW(-1.2, -1, -28), center: toW(-1.8, -1, -19) };
+  R.villaC = toW(-1.8, -2, -19);
+  // The entrance: two lit stone pillars where the road ends.
+  const stone = new THREE.MeshStandardMaterial({ color: 0xcfc3ad, roughness: 0.9 }), lampM = new THREE.MeshBasicMaterial({ color: 0xffe2a0 });
+  for (const sx of [-1, 1]) { const p = gateW.clone().addScaledVector(side, sx * 3.4); const pil = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3, 0.8), stone); pil.position.copy(p).add(new V3(0, 1.5, 0)); pil.castShadow = true; scene.add(pil);
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), lampM); lamp.position.copy(p).add(new V3(0, 3.2, 0)); scene.add(lamp); }
+  DXB.door = { gate: gateW.clone(), path: toW(-18, -2, -2), door: toW(-11.5, -2, -6.8), inside: toW(-11.5, -2, -10.5), center: R.villaC.clone(), pool: toW(1.5, -2, -12) };
 }
 // Overhead signs before the split: the highway on, the private exit to the right.
 function exitSigns(R) {
@@ -1491,7 +1499,7 @@ function buildRoute(marina) {
   // The road runs on a little over the villa's paved forecourt, where Messi stops.
   const end = S[S.length - 1], dirE = end.clone().sub(S[S.length - 4]).setY(0).normalize();
   const samples = S.map((p, i) => ({ p, y: ys[i] }));
-  for (let k = 1; k <= 22; k++) samples.push({ p: end.clone().addScaledVector(dirE, k), y: ys[ys.length - 1] });
+  for (let k = 1; k <= 4; k++) samples.push({ p: end.clone().addScaledVector(dirE, k), y: ys[ys.length - 1] });
   const N = samples.length;
   const at = s => { const i = clamp(Math.floor(s), 0, N - 2), f = clamp(s - i, 0, 1); return samples[i].p.clone().lerp(samples[i + 1].p, f); };
   const fwd = s => { const i = clamp(Math.floor(s), 2, N - 3); return samples[i + 2].p.clone().sub(samples[i - 2].p).setY(0).normalize(); };
@@ -1502,7 +1510,7 @@ function buildRoute(marina) {
   // The villa's plot centre: 48 m past the end of the road (its forecourt starts at the road).
   let splitS = 0, bd = 1e9; samples.forEach((q, i) => { const d = Math.hypot(q.p.x - ROUTE_SPLIT[0], q.p.z - ROUTE_SPLIT[1]); if (d < bd) { bd = d; splitS = i; } });
   const mainP0 = new V3(ROUTE_SPLIT[0], 0, ROUTE_SPLIT[1]), mainL = 900;
-  return { at, fwd, right, y, hw, N, cityEnd, tunS, cliffS: splitS, splitS, mainP0, mainL, L: N - 1, stopS: N - 5, samples, end, dirE, villaC: end.clone().addScaledVector(dirE, 48.7) };
+  return { at, fwd, right, y, hw, N, cityEnd, tunS, cliffS: splitS, splitS, mainP0, mainL, L: N - 1, stopS: N - 3, samples, end, dirE, villaC: end.clone().addScaledVector(dirE, 40) };
 }
 function carPose(c) {
   const R = DRV.R, p = R.at(c.s), r = R.right(c.s), f = R.fwd(c.s);
@@ -1520,7 +1528,7 @@ async function startDrive() {
   // Dubai Marina, the desert, the tunnel.
   marina.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }); scene.add(marina);
   const R = DRV.R = buildRoute(marina);
-  placeVilla(R, villa);
+  await placeVilla(R, villa);
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: 0xdcbf8c, roughness: 1 }));
   sand.rotation.x = -Math.PI / 2; sand.position.y = -2.2; sand.receiveShadow = true; scene.add(sand);
   scene.add(makeRoad(R, 0, R.cityEnd, 12.5), makeRoad(R, R.cityEnd - 2, R.tunS, 10));
@@ -1653,7 +1661,7 @@ function desertDecor(R) {
     const dr = dmin(road, x, z), dv = Math.hypot(x - VC.x, z - VC.z);
     let h = dunes(x, z) * ss(xCity, xCity + 160, x);
     h = lerp(yRoad - 0.35, h, ss(9, 42, dr));                  // the road's valley
-    h = lerp(yRoad - 3, h, ss(60, 100, dv));                 // a flat pad under the villa and its paved forecourt
+    h = lerp(yRoad - 0.08, h, ss(48, 95, dv));                 // a flat pad under the villa and its paved forecourt
     const edge = Math.min(x - (cx - W / 2), (cx + W / 2) - x, z - (cz - D / 2), (cz + D / 2) - z);
     return lerp(-2.2, h, ss(0, 220, edge));
   };
@@ -1720,13 +1728,14 @@ async function hideoutScene() {
   DRV.on = false; audio.drive?.(false); audio.siren?.(false);
   // The other two pull up behind you (off camera while we cut).
   DRV.list.filter(c => c.role === 'rival').forEach((c, k) => { c.s = DRV.me.s - 7 - k * 6; c.d = k ? -2 : 2; c.v = c.vd = 0; carPose(c); });
-  // Messi jumps out and runs through the gate to the front door.
+  // Messi jumps out and runs for the house.
   const pc = DXB.police, r = R.right(ms.s), m0 = pc.position.clone().addScaledVector(r, 1.4);
   scene.add(thief.root); thief.root.scale.setScalar(1); theft.seated = false;
   thief.root.visible = true; trophy.visible = true; thief.root.position.copy(m0); theft.cut = 4.5;
   const f = R.dirE, side = new V3(f.z, 0, -f.x);
-  shot(V.gate.clone().addScaledVector(f, -9).addScaledVector(side, 6).add(new V3(0, 2.4, 0)), m0.clone().add(new V3(0, 1.4, 0)), { cut: true, follow: 5 });
-  for (const [a, b] of [[m0, V.gate], [V.gate, V.door]]) {
+  // Through the gate, past the pool, in by the garden's glass doors.
+  shot(V.gate.clone().addScaledVector(f, -7).addScaledVector(side, 9).add(new V3(0, 4.5, 0)), m0.clone().add(new V3(0, 1.4, 0)), { cut: true, follow: 4 });
+  for (const [a, b] of [[m0, V.gate], [V.gate, V.path], [V.path, V.door]]) {
     thief.root.rotation.set(0, Math.atan2(b.x - a.x, b.z - a.z), 0);
     await tween(a.distanceTo(b) / 4.5, k => { thief.root.position.lerpVectors(a, b, k); cam.override.look = thief.root.position.clone().add(new V3(0, 1.4, 0)); });
   }
