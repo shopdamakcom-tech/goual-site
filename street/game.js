@@ -690,7 +690,7 @@ async function rideAway() {
     const fFront = fer.localToWorld(new V3(1.0, 0, 0)).sub(fer.position).setY(0).normalize();   // the Ferrari's nose direction
     const fc = fer.position.clone().add(new V3(0, 0.75, 0));
     shot(fc.clone().addScaledVector(fFront, 3.4).add(new V3(fFront.z * 0.9, 0.45, -fFront.x * 0.9)), fc.clone().add(new V3(0, 0.15, 0)), { cut: true });
-    await say([['RIVAL1', '{HERO} is in that Bugatti… Follow him!'], ['RIVAL2', 'That Ballon d\'Or is ours. Floor it!']]);
+    await say([['RIVAL1', '{HERO} is in that Mercedes… Follow him!'], ['RIVAL2', 'That Ballon d\'Or is ours. Floor it!']]);
     shot(new V3(-8.5, 1.7, CAR_Z + 5.6), new V3(-12, 0.9, CAR_Z), { cut: true });
     audio.engine?.(3);
     await tween(1.3, (k, raw) => { fer.position.x = -12 - 100 * raw * raw; });
@@ -1293,12 +1293,12 @@ function pickCar() {
   return new Promise(res => {
     if (document.pointerLockElement) document.exitPointerLock();
     if (!$('#cpStyle')) { const st = document.createElement('style'); st.id = 'cpStyle'; st.textContent = `
-      #carPick { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; background: rgba(4,10,30,.55); backdrop-filter: blur(3px); padding: 16px; }
+      #carPick { position: fixed; inset: 0; z-index: 1000; touch-action: manipulation; pointer-events: auto; display: flex; align-items: center; justify-content: center; background: rgba(4,10,30,.55); backdrop-filter: blur(3px); padding: 16px; }
       #carPick .cpb { text-align: center; color: #fff; font: 800 12px/1.2 Inter, Arial, sans-serif; letter-spacing: .18em; max-width: 760px; width: 100%; }
       #carPick b { display: block; font: 400 clamp(30px, 6vw, 46px)/1 'Bebas Neue', Impact, sans-serif; letter-spacing: .06em; color: #ffd400; margin: 6px 0 16px; }
       #carPick .cpr { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
       @media (min-width: 720px) { #carPick .cpr { grid-template-columns: repeat(4, 1fr); } }
-      #carPick button { all: unset; cursor: pointer; background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.18); border-radius: 14px; padding: 8px 8px 10px; display: flex; flex-direction: column; gap: 4px; transition: transform .15s, border-color .15s; }
+      #carPick button { all: unset; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: rgba(255,212,0,.3); background: rgba(255,255,255,.08); border: 2px solid rgba(255,255,255,.18); border-radius: 14px; padding: 8px 8px 10px; display: flex; flex-direction: column; gap: 4px; transition: transform .15s, border-color .15s; }
       #carPick button:hover, #carPick button:focus-visible { transform: translateY(-3px); border-color: #ffd400; }
       #carPick img { width: 100%; aspect-ratio: 16/9; object-fit: cover; border-radius: 9px; background: #bcd7ea; }
       #carPick span { font: 400 22px/1 'Bebas Neue', Impact, sans-serif; letter-spacing: .05em; color: #fff; }
@@ -1306,7 +1306,12 @@ function pickCar() {
     const el = document.createElement('div'); el.id = 'carPick';
     el.innerHTML = `<div class="cpb">CHAPTER 3 · DUBAI<b>CHOOSE YOUR CAR</b><div class="cpr">${CARS.map(c => `<button data-id="${c.id}"><img src="img/car-${c.id}.webp" alt=""><span>${c.name}</span><em>${c.sub}</em></button>`).join('')}</div></div>`;
     document.body.appendChild(el);
-    el.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { audio.blip(880); el.remove(); res(b.dataset.id); }));
+    // Touch screens: answer the finger itself (pointerup / touchend), not only the click the browser may or may
+    // not synthesise afterwards; the game's own touch controls are switched off while the menu is up.
+    $('#touch').classList.add('hidden'); $('#touch').style.pointerEvents = 'none';
+    let done = false;
+    const choose = (b, e) => { if (done) return; done = true; e?.preventDefault?.(); try { audio.blip(880); } catch (_) { } el.remove(); $('#touch').style.pointerEvents = ''; res(b.dataset.id); };
+    el.querySelectorAll('button').forEach(b => { for (const ev of ['pointerup', 'touchend', 'click']) b.addEventListener(ev, e => choose(b, e), { passive: false }); });
   });
 }
 async function dubai() {
