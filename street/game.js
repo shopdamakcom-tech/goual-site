@@ -9,6 +9,7 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { buildWorld, buildBackdrop } from './world.js?v=4';
 import { Character, dress } from './rig.js?v=7';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=4';
 import { Builder, kitMaterials, dog, clutter, laundry, house } from './favela-kit.js';
 import { audio } from './audio.js?v=5';
@@ -83,6 +84,7 @@ manager.onProgress = (u, a, b) => { const k = Math.round(a / b * 100); $('#loadi
 const loader = new GLTFLoader(manager).setMeshoptDecoder(MeshoptDecoder);
 const load = url => new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej));
 // Heroes come with their own running clip (if the file has one).
+const loadAnim = url => new Promise((res, rej) => loader.load(url, g => { g.scene.userData.clips = g.animations; res(g.scene); }, undefined, rej));
 const loadHero = url => new Promise((res, rej) => loader.load(url, g => { g.scene.userData.run = g.animations.find(a => /run/i.test(a.name)) || null; res(g.scene); }, undefined, rej));
 const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc, carSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), loadHero('models/mbappe.glb'), loadHero('models/yamal.glb'), loadHero('models/kane.glb'), load('models/car.glb')]);
 
@@ -1280,7 +1282,7 @@ async function dubai() {
   shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.ferrari.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
   // Pick a car.
   // The chase scenery loads while you choose (parsing it during the landing made the picture freeze).
-  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb')]);
+  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb'), load('models/car-peugeot.glb')]);
   const myId = await pickCar();
   const others = CARS.map(c => c.id).filter(id => id !== myId).sort(() => Math.random() - 0.5);
   DRV.ids = { me: myId, r: rivalState.on ? others.slice(0, 2) : [] };
@@ -1359,6 +1361,34 @@ function placeVilla(R, villa) {
   scene.add(villa);
   DXB.door = { gate: toW(-1.8, -1, -48.5), door: toW(-1.2, -1, -32.6), inside: toW(-1.2, -1, -28), center: toW(-1.8, -1, -19) };
 }
+// Desert life: zebras galloping alongside the road, camels resting by the dunes, lions prowling.
+const ANIMALS = [];
+function desertAnimals(R, [camel, zebra, lion]) {
+  ANIMALS.length = 0;
+  const add = (src, clipRe, scale, yawFix, s, off, speed, timeScale = 1) => {
+    if (!src) return;
+    const g = cloneSkinned(src); g.scale.setScalar(scale); g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; for (const m of [].concat(o.material)) { m.metalness = 0; m.roughness = Math.max(0.75, m.roughness ?? 1); m.needsUpdate = true; } } });   // fur, not metal (it rendered black)
+    const mixer = new THREE.AnimationMixer(g), clips = src.userData.clips || [], clip = clips.find(c => clipRe.test(c.name)) || clips[0];
+    if (clip) { const a = mixer.clipAction(clip); a.timeScale = timeScale; a.time = Math.random() * clip.duration; a.play(); }
+    scene.add(g); ANIMALS.push({ g, mixer, s, off, speed, yawFix, s0: s });
+  };
+  const S0 = R.cityEnd + 80, S1 = R.N - 90;
+  // A herd of zebras racing the cars for a while.
+  for (const [ds, off] of [[0, 22], [4, 26], [-3, 30], [7, 24.5]]) add(zebra, /gallop/i, 0.8, 0, S0 + 120 + ds, off, 9.5, 1.1);
+  // Camels resting on both sides.
+  for (const [s, off] of [[S0 + 40, -28], [S0 + 44, -32], [S0 + 260, 34], [S0 + 263, 38], [S1 - 60, -30]]) add(camel, /idle/i, 1, 0, s, off, 0);
+  // Two lions walking across the sand near the villa road.
+  for (const [s, off] of [[S1 - 140, 26], [S1 - 136, 30]]) add(lion, /./, 2.6 / 75, -Math.PI / 2, s, off, 1.6);
+  for (const a of ANIMALS) poseAnimal(a, 0);
+}
+function poseAnimal(a, dt) {
+  const R = DRV.R; a.s += a.speed * dt;
+  if (a.speed > 5 && a.s > R.N - 60) a.s = a.s0;   // the herd keeps galloping by
+  const p = R.at(a.s).addScaledVector(R.right(a.s), a.off), f = R.fwd(a.s);
+  p.y = DXB.hAt ? DXB.hAt(p.x, p.z) : 0;
+  a.g.position.copy(p); a.g.rotation.y = Math.atan2(f.x, f.z) + a.yawFix;
+}
+function animalsStep(dt) { for (const a of ANIMALS) { a.mixer.update(dt); if (a.speed) poseAnimal(a, dt); } }
 // Traffic: Ferraris in several colours, Bugatti Chirons and the car nobody picked, slower than you, in their lanes.
 const TRAFFIC = [];
 const lanesAt = s => { const R = DRV.R, h = R.hw(s) - 1.1; return s < R.cityEnd ? [-3, 0, 3].filter(d => Math.abs(d) <= h) : [-2.2, 2.2]; };
@@ -1368,9 +1398,9 @@ function makeTraffic(R, ferT, chiT, spareId, more = {}) {
   let paint = null; fer.traverse(o => { if (o.isMesh && o.material.color && o.material.color.r > 0.55 && o.material.color.g < 0.5 && o.material.color.b < 0.5) paint = o.material; });
   const ferrari = hex => { const g = fer.clone(true); if (paint) { const m = paint.clone(); m.color.setHex(hex); m.map = null; m.metalness = 0.35; m.roughness = 0.3; m.envMap = ENV; m.envMapIntensity = 0.6; g.traverse(o => { if (o.isMesh && o.material === paint) o.material = m; }); } return g; };
   const big = (m, len) => { if (!m) return null; const g = makeCar(prepCar(m), len); g.userData.len = len; return g; };
-  const coach = big(more.coach, 12), van = big(more.van, 5.2), skoda = big(more.skoda, 4.7);
+  const coach = big(more.coach, 12), van = big(more.van, 5.2), skoda = big(more.skoda, 4.7), peugeot = big(more.peugeot, 4.45);
   const once = g => { let used = false; return () => { if (!used && g) { used = true; return g; } return g ? g.clone(true) : chi.clone(true); }; };
-  const kinds = [() => ferrari(0x8a0006), once(coach), () => skoda ? skoda.clone(true) : chi.clone(true), once(van), () => chi.clone(true), () => ferrari(0xf0f0f0), () => coach ? coach.clone(true) : ferrari(0x111111), () => van ? van.clone(true) : ferrari(0x16408f), () => ferrari(0x111111), () => skoda ? skoda.clone(true) : ferrari(0x9aa3ab)];
+  const kinds = [() => ferrari(0x8a0006), once(coach), () => skoda ? skoda.clone(true) : chi.clone(true), once(van), () => chi.clone(true), () => ferrari(0xf0f0f0), () => coach ? coach.clone(true) : ferrari(0x111111), () => van ? van.clone(true) : ferrari(0x16408f), () => ferrari(0x111111), () => skoda ? skoda.clone(true) : ferrari(0x9aa3ab), () => peugeot ? peugeot.clone(true) : chi.clone(true), () => peugeot ? peugeot.clone(true) : ferrari(0x8a0006)];
   const spare = DXB.cars[spareId];
   let s = 140, i = 0, seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   while (s < R.cliffS - 150 && TRAFFIC.length < 18) {
@@ -1465,8 +1495,9 @@ function carPose(c) {
   c.g.rotation.set(0, c.yaw, 0);
 }
 async function startDrive() {
-  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb')]);
-  const [marina, villa, ferrariT, chironT, coachT, vanT, skodaT] = await DXB.chaseP;
+  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb'), load('models/car-peugeot.glb')]);
+  const [marina, villa, ferrariT, chironT, coachT, vanT, skodaT, peugeotT] = await DXB.chaseP;
+  DXB.animalsP ??= Promise.all(['camel', 'zebra', 'lion'].map(n => loadAnim(`models/an-${n}.glb`).catch(() => null)));
   // Leave the airport; keep only the cars that race.
   const racing = [DXB.police, ...Object.values(DXB.cars)];   // the car nobody took joins the traffic
   leaveScene([trophy, thief?.root, ...racing, ...Object.values(HEROES).map(h => h.ch.root), ...scene.children.filter(o => o.material?.type === 'ShaderMaterial')]);
@@ -1493,7 +1524,8 @@ async function startDrive() {
   seatDriver(thief, DXB.police); theft.seated = true; trophy.visible = false;
   const spareId = CARS.map(c => c.id).find(id => id !== DRV.ids.me && !DRV.ids.r.includes(id));
   for (const [id, g] of Object.entries(DXB.cars)) if (id !== DRV.ids.me && !DRV.ids.r.includes(id) && id !== spareId) g.visible = false;
-  makeTraffic(R, ferrariT, chironT, spareId, { coach: coachT, van: vanT, skoda: skodaT });
+  makeTraffic(R, ferrariT, chironT, spareId, { coach: coachT, van: vanT, skoda: skodaT, peugeot: peugeotT });
+  desertAnimals(R, await DXB.animalsP);
   updateDrive(0); cam.ovPos = cam.override.pos.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
   warmUp();
   speedo(true);
@@ -1534,7 +1566,7 @@ function updateDrive(dt) {
     c.v = damp(c.v, clamp(me.v + (tgt - c.s) * 0.9, 0, 50), 2, dt);
     const lane = (k ? -1 : 1) * 2.8 * (Math.abs(c.s - me.s) < 6 && Math.abs(c.d - me.d) < 2.6 ? 1.3 : 1);
     c.vd = damp(c.vd, clamp((freeLane(c, lane) - c.d) * 1.4, -7, 7), 3.5, dt); });
-  trafficStep(dt);
+  trafficStep(dt); animalsStep(dt);
   for (const c of DRV.list) { c.s += c.v * dt; c.d += c.vd * dt; const h = R.hw(c.s) - 1.1; if (Math.abs(c.d) > h) { c.d = Math.sign(c.d) * h; c.vd = 0; } }
   for (const c of DRV.list) trafficHits(c);
   ms.s = Math.min(ms.s, R.stopS);
@@ -1586,6 +1618,7 @@ function desertDecor(R) {
     const edge = Math.min(x - (cx - W / 2), (cx + W / 2) - x, z - (cz - D / 2), (cz + D / 2) - z);
     return lerp(-2.2, h, ss(0, 220, edge));
   };
+  DXB.hAt = hAt;
   const NX = TOUCH ? 200 : 280, NZ = Math.round(NX * D / W);
   const g = new THREE.PlaneGeometry(W, D, NX, NZ); g.rotateX(-Math.PI / 2); g.translate(cx, 0, cz);
   const pa = g.attributes.position, col = new Float32Array(pa.count * 3), sand = new THREE.Color(0.93, 0.78, 0.55), crest = new THREE.Color(0.98, 0.87, 0.66), rock = new THREE.Color(0.66, 0.5, 0.36);
@@ -2112,4 +2145,4 @@ me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
 frame();
 post('ready');
 // Test hooks.
-window.__street = { DRV, DXB, dubai, startDrive, updateDrive, camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, chaseFlight, cabinSet, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
+window.__street = { DRV, DXB, ANIMALS, dubai, startDrive, updateDrive, camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, chaseFlight, cabinSet, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
