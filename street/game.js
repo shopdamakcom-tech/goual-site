@@ -1060,7 +1060,7 @@ async function escaped() {
     thief.root.visible = false; trophy.visible = false;
   }
   await chaseFlight();
-  await dubai();
+  if (EP3) await dubai(); else endScreen('dubai');
 }
 // Our jet ("Bombardier windjet 365" by dannzjs, Sketchfab, CC BY 4.0): you take the controls, the other two
 // stars sit behind, take off from the same runway and fly out over the sea, Rio on the horizon.
@@ -1093,9 +1093,10 @@ async function chaseFlight() {
   const camT = new V3(RUN_X - 28, 3.5, RUN_Z - 95);   // a camera beside the runway that pans as the jet roars past
   await tween(5, (k, raw) => { const d = 230 * raw * raw, lift = Math.max(0, raw - 0.5); jet.position.set(RUN_X, RY + 120 * lift * lift, RUN_Z - d); jet.rotation.x = Math.min(0.22, lift * 0.8);
     const look = jet.position.clone().add(new V3(0, 1.5, 0)); cam.override = { pos: camT, look, follow: 50 }; cam.ovPos = camT.clone(); cam.ovLook = look; cam.blend = 1; });
-  // Rio → Dubai on the world map, all the way this time.
-  $('#fade').classList.add('on', 'world'); worldMap(true);
-  await sleep(5.6);
+  // Rio → Dubai on the world map. Episode 3 is still hidden (direct link only): the public game stops half way.
+  $('#fade').classList.add('on', 'world'); worldMap(EP3);
+  await sleep(EP3 ? 5.6 : 6.2);
+  if (!EP3) $('#fade').classList.remove('world');
 }
 // ================= episode 3: Dubai =================
 // Messi lands first and grabs the Dubai Police Bugatti; each of the three stars picks a car and the chase goes
@@ -1107,6 +1108,8 @@ const CARS = [
   { id: 'cyber', name: 'CYBERTRUCK', sub: 'Tesla', file: 'car-cyber.glb', len: 5.68, yaw: 0 },
 ];
 const DXB = { RW: { z: 410, y: 0 }, cars: {} };
+// Episode 3 is not public yet: only ?ep=3 (from the landing), ?ep=3d (the chase) or ?dubai (whole game) reach it.
+const EP3 = ['3', '3d'].includes(params.get('ep')) || params.has('dubai');
 const DRV = { on: false, list: [], t: 0 };
 // Glass that the exporter made "transmissive" renders as a ghost in WebGL: make it plain tinted glass, the rest opaque.
 function prepCar(m) {
