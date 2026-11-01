@@ -189,7 +189,7 @@
   #heroPick button.on { border-color: #ffd400; transform: translateY(-3px); box-shadow: 0 8px 22px rgba(0,0,0,.4), 0 0 0 2px #ffd400 inset; }
 </style>
 </head>
-<body>
+<body class="portrait-ok">
 <canvas id="game"></canvas>
 <div id="rotate" aria-live="polite"><div class="phone"><i></i></div><p><b>Turn your phone sideways</b><br><small>The game is made for 16:9 — it plays much better in landscape.</small></p><button id="rotateFull" type="button">Full screen in landscape</button><button id="rotateSkip" type="button">Play in portrait anyway</button></div>
 
@@ -358,7 +358,7 @@
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=55"></script>
+<script type="module" src="game.js?v=56"></script>
 <script>
   // GPS trip card: restart the car along the route and count the minutes down each time it shows.
   (() => { const f = document.getElementById('fade'); let t = 0;
