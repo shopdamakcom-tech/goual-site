@@ -139,34 +139,45 @@ export const audio = {
     setTimeout(announce, 2500); this._apT = setInterval(announce, 24000);
   },
   airportOff() { this._apOff = true; if (this._apG) this._apG.gain.setTargetAtTime(0, this.ctx.currentTime, 0.6); clearInterval(this._apT); },
-  // Driving: a big V8 — two detuned sawtooths and a sub-octave square, through a soft-clip distortion and a
-  // resonant low-pass, plus exhaust rumble (filtered noise). Pitch and roar follow the speed and the throttle.
+  // Driving: a high-revving race engine (flat-six / F1 style). Three harmonics of the firing frequency through a
+  // hard soft-clip, two resonant "scream" peaks and a bright exhaust hiss; the revs climb through each gear and
+  // drop at every upshift with a crackle from the exhaust.
   drive(on) {
     if (!this.ctx) return;
     if (on && !this._drv) {
-      const c = this.ctx, g = c.createGain(), f = c.createBiquadFilter(), sh = c.createWaveShaper(), pre = c.createGain();
-      const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 3.2); } sh.curve = curve; sh.oversample = '2x';
-      const o = c.createOscillator(), o2 = c.createOscillator(), o3 = c.createOscillator();
-      o.type = 'sawtooth'; o2.type = 'sawtooth'; o2.detune.value = 18; o3.type = 'square';
-      const og3 = c.createGain(); og3.gain.value = 0.6;
-      o.connect(pre); o2.connect(pre); o3.connect(og3).connect(pre); pre.gain.value = 0.5;
-      f.type = 'lowpass'; f.Q.value = 4; f.frequency.value = 600;
-      pre.connect(sh).connect(f).connect(g);
-      // Exhaust rumble.
-      const n = c.createBufferSource(), nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-      n.buffer = nb; n.loop = true; const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 90; nf.Q.value = 1.2; const ng = c.createGain(); ng.gain.value = 0.5;
-      n.connect(nf).connect(ng).connect(g);
-      g.gain.value = 0; g.connect(this.sfx); o.start(); o2.start(); o3.start(); n.start();
-      this._drv = { o, o2, o3, f, g, nf, ng, srcs: [o, o2, o3, n] };
+      const c = this.ctx, g = c.createGain(), pre = c.createGain(), sh = c.createWaveShaper(), lp = c.createBiquadFilter();
+      const curve = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1024 - 1; curve[i] = Math.tanh(x * 5) * 0.9; } sh.curve = curve; sh.oversample = '4x';
+      const mkO = (type, mul, lvl) => { const o = c.createOscillator(), og = c.createGain(); o.type = type; og.gain.value = lvl; o.connect(og).connect(pre); o.start(); return { o, mul }; };
+      const osc = [mkO('sawtooth', 1, 0.7), mkO('square', 2, 0.35), mkO('sawtooth', 3, 0.22), mkO('triangle', 0.5, 0.5)];
+      pre.gain.value = 0.55;
+      const pk1 = c.createBiquadFilter(), pk2 = c.createBiquadFilter(); pk1.type = pk2.type = 'peaking';
+      pk1.frequency.value = 1300; pk1.Q.value = 3; pk1.gain.value = 9; pk2.frequency.value = 2600; pk2.Q.value = 4; pk2.gain.value = 6;
+      lp.type = 'lowpass'; lp.frequency.value = 5000; lp.Q.value = 0.8;
+      pre.connect(sh).connect(pk1).connect(pk2).connect(lp).connect(g);
+      // Exhaust hiss and the crackle bursts at upshifts.
+      const nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      const n = c.createBufferSource(); n.buffer = nb; n.loop = true; const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 900; nf.Q.value = 0.7; const ng = c.createGain(); ng.gain.value = 0.12;
+      n.connect(nf).connect(ng).connect(g); n.start();
+      g.gain.value = 0; g.connect(this.sfx);
+      this._drv = { osc, g, lp, pk1, nf, ng, nb, gear: 0, srcs: [...osc.map(x => x.o), n] };
     } else if (!on && this._drv) { const d = this._drv; this._drv = null; d.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3); setTimeout(() => d.srcs.forEach(x => x.stop()), 1800); }
   },
   driveSpeed(v, thr) {
-    const d = this._drv; if (!d) return; const t = this.ctx.currentTime;
-    const gear = (v % 13) / 13, rpm = 0.25 + gear * 0.75, f0 = 38 + v * 0.9 + rpm * 70;   // revs climb in each gear, then drop
-    d.o.frequency.setTargetAtTime(f0, t, 0.06); d.o2.frequency.setTargetAtTime(f0 * 1.005, t, 0.06); d.o3.frequency.setTargetAtTime(f0 * 0.5, t, 0.06);
-    d.f.frequency.setTargetAtTime(380 + rpm * 900 + thr * 900, t, 0.08);
-    d.nf.frequency.setTargetAtTime(70 + v * 2, t, 0.1); d.ng.gain.setTargetAtTime(0.35 + thr * 0.5, t, 0.1);
-    d.g.gain.setTargetAtTime(this.on ? 0.09 + thr * 0.09 : 0, t, 0.08);
+    const d = this._drv; if (!d) return; const c = this.ctx, t = c.currentTime;
+    const gearLen = 11, gear = Math.floor(v / gearLen), rpm = 0.35 + 0.65 * ((v % gearLen) / gearLen);   // climbs, then drops a gear later
+    const f0 = 70 + rpm * 230 + gear * 12;                                                            // the whine: 100-310 Hz firing
+    for (const { o, mul } of d.osc) o.frequency.setTargetAtTime(f0 * mul, t, 0.035);
+    d.pk1.frequency.setTargetAtTime(900 + rpm * 1400, t, 0.05);
+    d.lp.frequency.setTargetAtTime(2200 + rpm * 3500 + thr * 2000, t, 0.05);
+    d.ng.gain.setTargetAtTime(0.08 + thr * 0.12, t, 0.08);
+    d.g.gain.setTargetAtTime(this.on ? 0.08 + thr * 0.1 + rpm * 0.04 : 0, t, 0.05);
+    if (gear > d.gear && v > 6) {   // upshift: a quick dip and a crackle
+      d.g.gain.setValueAtTime(this.on ? 0.05 : 0, t); d.g.gain.setTargetAtTime(this.on ? 0.12 : 0, t + 0.09, 0.05);
+      const s = c.createBufferSource(); s.buffer = d.nb; const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1500; const cg = c.createGain();
+      cg.gain.setValueAtTime(0.0001, t); for (let k = 0; k < 5; k++) { const tk = t + 0.03 + k * 0.045 + Math.random() * 0.02; cg.gain.setValueAtTime(0.25 * Math.random() + 0.1, tk); cg.gain.setValueAtTime(0.0001, tk + 0.012); }
+      s.connect(f).connect(cg).connect(this.sfx); s.start(t); s.stop(t + 0.35);
+    }
+    d.gear = gear;
   },
   // Police siren (wail), its level set by how far the police car is.
   siren(on) {
