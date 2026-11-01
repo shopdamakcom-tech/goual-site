@@ -1263,7 +1263,7 @@ async function dubai() {
   shot(m1.clone().add(new V3(8, 1.6, 9)), m0.clone().add(new V3(0, 1.2, 0)), { cut: true, follow: 6 });
   await Promise.all([tween(m0.distanceTo(m1) / 5, k => { thief.root.position.lerpVectors(m0, m1, k); cam.override.look = thief.root.position.clone().add(new V3(0, 1.1, 0)); }),
     say([['MESSI', 'Welcome to Dubai, {HERO}! Too slow, as always!']])]);
-  theft.cut = 0; thief.root.visible = false; trophy.visible = false; audio.kick(0.3);
+  theft.cut = 0; seatDriver(thief, pc); theft.seated = true; trophy.visible = false; audio.kick(0.3);   // at the wheel, seen through the glass
   // Siren on, and off he goes.
   audio.siren?.(true); audio.engine?.(4);
   const px0 = pc.position.x;
@@ -1281,21 +1281,14 @@ async function dubai() {
   await say(rivalState.on ? [['HERO', 'He is taking the police car!'], ['RIVAL1', 'There are more cars over there. Everybody grab one!']] : [['HERO', 'He is taking the police car! I need a car… now.']]);
   shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.ferrari.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
   // Pick a car.
-  // The chase scenery loads while you choose (parsing it during the landing made the picture freeze).
-  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb'), load('models/car-peugeot.glb')]);
+  // The whole chase (Dubai Marina, the desert, the villa) is built behind the car menu, so the cut is instant.
+  DXB.prepP ??= prepareDrive();
   const myId = await pickCar();
   const others = CARS.map(c => c.id).filter(id => id !== myId).sort(() => Math.random() - 0.5);
   DRV.ids = { me: myId, r: rivalState.on ? others.slice(0, 2) : [] };
-  await say([['HERO', 'Go, go, go!']]);
   me.root.visible = false; P.seated = true; for (const r of rivals()) r.ch.root.visible = false; rivalState.mode = 'away';
-  // Engines: the three cars pull away after the police.
-  const going = [myId, ...DRV.ids.r].map(id => DXB.cars[id]);
-  audio.engine?.(4); shot(new V3(-20, 2.2, DXB.APRON.z + 58), going[0].position.clone().add(new V3(0, 0.8, 0)), { cut: true });
-  const z0s = going.map(g => g.position.z);
-  await tween(2.6, (k, raw) => { going.forEach((g, i) => { const r = clamp(raw * 1.25 - i * 0.12, 0, 1); g.position.x = g.userData.x0 + 10 * Math.min(1, r * 2); g.position.z = z0s[i] + 90 * Math.max(0, r - 0.2) ** 2; g.rotation.y = -Math.PI / 2 * Math.min(1, Math.max(0, r - 0.1) * 2.5); }); cam.override.look = going[0].position.clone().add(new V3(0, 0.8, 0)); });
-  $('#fade').classList.add('on');
-  await sleep(0.5);
   await startDrive();
+  say([['HERO', 'Go, go, go!']]);
 }
 
 // Compile shaders and upload textures up front, so nothing stalls the first time it comes into view.
@@ -1380,6 +1373,28 @@ function exitSigns(R) {
     txt.forEach((t, i) => { const w = txt.length > 1 ? 5.6 : 6;
       const tex = canvasTex(512, 160, (x, cw, ch) => { x.fillStyle = '#0a6a3a'; x.fillRect(0, 0, cw, ch); x.strokeStyle = '#fff'; x.lineWidth = 6; x.strokeRect(8, 8, cw - 16, ch - 16); x.fillStyle = '#fff'; x.font = '800 58px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, cw / 2, ch / 2 + 3); });
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.75), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })); pl.position.set(txt.length > 1 ? (i ? -3.1 : 3.1) : -3, 5.7, -0.2); pl.rotation.y = Math.PI; g.add(pl); });
+  }
+}
+// People walking on the city pavements.
+const PEDS = [];
+function cityPeople(R) {
+  PEDS.length = 0;
+  const LOOKS = [{ top: '#f2f2f2', bottom: '#f2f2f2', skin: '#b98566' }, { top: '#2b3a55', bottom: '#1c1c1c', skin: '#e0b48f' }, { top: '#c23b3b', bottom: '#2a2a2a', skin: '#8f5f42' }, { top: '#111', bottom: '#111', skin: '#c99a76' }, { top: '#e8b923', bottom: '#3d4f7a', skin: '#6e4630' }, { top: '#3a7d44', bottom: '#d9cbb0', skin: '#e3c09c' }];
+  let i = 0;
+  for (let s0 = 35; s0 < R.cityEnd - 30 && PEDS.length < (TOUCH ? 10 : 16); s0 += 48) for (const side of [-1, 1]) {
+    const ch = new Character(kidSrc, { kind: 'mixamo', height: 1.62 + (i % 4) * 0.07 }); dress(ch, { ...LOOKS[i % LOOKS.length], shoes: '#222' });
+    PEDS.push({ ch, s: s0 + (i % 5) * 6, off: side * (R.hw(s0) + 3.3 + (i % 3) * 0.7), dir: i % 2 ? 1 : -1, v: 1.1 + (i % 3) * 0.25 });
+    scene.add(ch.root); i++;
+  }
+  pedsStep(0);
+}
+function pedsStep(dt) {
+  const R = DRV.R, me = DRV.me;
+  for (const p of PEDS) {
+    p.s += p.dir * p.v * dt;
+    const q = R.at(p.s).addScaledVector(R.right(p.s), p.off), f = R.fwd(p.s);
+    p.ch.root.position.set(q.x, R.y(p.s) + 0.15, q.z); p.ch.root.rotation.y = Math.atan2(f.x, f.z) + (p.dir < 0 ? Math.PI : 0);
+    if (!me || Math.abs(p.s - me.s) < 160) p.ch.animate({ dt, speed: p.v, grounded: true });
   }
 }
 // Desert life: zebras galloping alongside the road, camels resting by the dunes, lions prowling.
@@ -1518,14 +1533,13 @@ function carPose(c) {
   const dir = f.multiplyScalar(Math.max(c.v, 4)).addScaledVector(r, c.vd); c.yaw = Math.atan2(-dir.z, dir.x);
   c.g.rotation.set(0, c.yaw, 0);
 }
-async function startDrive() {
+const CHASE = { group: null };
+// Build the chase world into one hidden group (it overlaps the airport's ground, so it stays hidden until the cut).
+async function prepareDrive() {
   DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb'), load('models/car-peugeot.glb')]);
   const [marina, villa, ferrariT, chironT, coachT, vanT, skodaT, peugeotT] = await DXB.chaseP;
   DXB.animalsP ??= Promise.all(['camel', 'zebra', 'lion'].map(n => loadAnim(`models/an-${n}.glb`).catch(() => null)));
-  // Leave the airport; keep only the cars that race.
-  const racing = [DXB.police, ...Object.values(DXB.cars)];   // the car nobody took joins the traffic
-  leaveScene([trophy, thief?.root, ...racing, ...Object.values(HEROES).map(h => h.ch.root), ...scene.children.filter(o => o.material?.type === 'ShaderMaterial')]);
-  // Dubai Marina, the desert, the tunnel.
+  const before = new Set(scene.children);
   marina.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }); scene.add(marina);
   const R = DRV.R = buildRoute(marina);
   await placeVilla(R, villa);
@@ -1535,7 +1549,21 @@ async function startDrive() {
   // The highway carries straight on into the desert; Messi takes the exit.
   { const rgt = new V3(-MAIN_DIR.z, 0, MAIN_DIR.x); scene.add(makeRoad({ at: s => R.mainP0.clone().addScaledVector(MAIN_DIR, s), right: () => rgt, y: () => -0.012 }, 0, R.mainL, 10)); }
   exitSigns(R);
-  desertDecor(R); cityTowers(R, marina);
+  desertDecor(R); cityTowers(R, marina); cityPeople(R);
+  desertAnimals(R, await DXB.animalsP);
+  const group = CHASE.group = new THREE.Group(); group.visible = false;
+  for (const o of [...scene.children]) if (!before.has(o)) group.add(o);
+  scene.add(group);
+  warmUp();   // shaders and textures uploaded now, while the menu is up
+  return { ferrariT, chironT, coachT, vanT, skodaT, peugeotT };
+}
+async function startDrive() {
+  const T = await (DXB.prepP ??= prepareDrive());
+  const R = DRV.R;
+  // Leave the airport; keep the chase world and the cars that race.
+  const racing = [DXB.police, ...Object.values(DXB.cars)];   // the car nobody took joins the traffic
+  leaveScene([CHASE.group, trophy, thief?.root, ...racing, ...Object.values(HEROES).map(h => h.ch.root), ...scene.children.filter(o => o.material?.type === 'ShaderMaterial')]);
+  CHASE.group.visible = true;
   setFov(TOUCH ? 68 : 62);
   // The racers: Messi ahead, you, the other two just behind.
   const mk = (g, role, s, d) => ({ g, role, s, d, v: 26, vd: 0, yaw: 0 });
@@ -1551,8 +1579,7 @@ async function startDrive() {
   seatDriver(thief, DXB.police); theft.seated = true; trophy.visible = false;
   const spareId = CARS.map(c => c.id).find(id => id !== DRV.ids.me && !DRV.ids.r.includes(id));
   for (const [id, g] of Object.entries(DXB.cars)) if (id !== DRV.ids.me && !DRV.ids.r.includes(id) && id !== spareId) g.visible = false;
-  makeTraffic(R, ferrariT, chironT, spareId, { coach: coachT, van: vanT, skoda: skodaT, peugeot: peugeotT });
-  desertAnimals(R, await DXB.animalsP);
+  makeTraffic(R, T.ferrariT, T.chironT, spareId, { coach: T.coachT, van: T.vanT, skoda: T.skodaT, peugeot: T.peugeotT });
   updateDrive(0); cam.ovPos = cam.override.pos.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
   warmUp();
   speedo(true); pedals(true);
@@ -1611,7 +1638,7 @@ function updateDrive(dt) {
     c.v = damp(c.v, clamp(me.v + (tgt - c.s) * 0.9, 0, 50), 2, dt);
     const lane = (k ? -1 : 1) * 2.8 * (Math.abs(c.s - me.s) < 6 && Math.abs(c.d - me.d) < 2.6 ? 1.3 : 1);
     c.vd = damp(c.vd, clamp((freeLane(c, lane) - c.d) * 1.4, -7, 7), 3.5, dt); });
-  trafficStep(dt); animalsStep(dt);
+  trafficStep(dt); animalsStep(dt); pedsStep(dt);
   for (const c of DRV.list) { c.s += c.v * dt; c.d += c.vd * dt; const h = R.hw(c.s) - 1.1; if (Math.abs(c.d) > h) { c.d = Math.sign(c.d) * h; c.vd = 0; } }
   for (const c of DRV.list) trafficHits(c);
   ms.s = Math.min(ms.s, R.stopS);
@@ -1755,7 +1782,7 @@ async function hideoutScene() {
 // Test entry: ?ep=3 jumps straight to the Dubai landing.
 async function startEp3(drive) {
   rivalState.on = true;
-  if (drive) { thief = new Character(await load('models/messi.glb'), { kind: 'mixamo', height: 1.70 }); scene.add(thief.root); state.modeStack = ['cut']; await enterDubai(); DRV.ids = { me: 'lambo', r: ['ferrari', 'chiron'] }; await startDrive(); return; }
+  if (drive) { thief = new Character(await load('models/messi.glb'), { kind: 'mixamo', height: 1.70 }); scene.add(thief.root); state.modeStack = ['cut']; await enterDubai(); DRV.ids = { me: 'lambo', r: ['ferrari', 'chiron'] }; DXB.prepP = prepareDrive(); await startDrive(); return; }
   thief = new Character(await load('models/messi.glb'), { kind: 'mixamo', height: 1.70 }); scene.add(thief.root);
   $('#fade').classList.add('on'); state.modeStack = ['cut'];
   await dubai();
