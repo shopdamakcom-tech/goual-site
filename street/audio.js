@@ -139,19 +139,34 @@ export const audio = {
     setTimeout(announce, 2500); this._apT = setInterval(announce, 24000);
   },
   airportOff() { this._apOff = true; if (this._apG) this._apG.gain.setTargetAtTime(0, this.ctx.currentTime, 0.6); clearInterval(this._apT); },
-  // Driving: a sawtooth engine whose pitch follows the speed.
+  // Driving: a big V8 — two detuned sawtooths and a sub-octave square, through a soft-clip distortion and a
+  // resonant low-pass, plus exhaust rumble (filtered noise). Pitch and roar follow the speed and the throttle.
   drive(on) {
     if (!this.ctx) return;
     if (on && !this._drv) {
-      const c = this.ctx, o = c.createOscillator(), o2 = c.createOscillator(), f = c.createBiquadFilter(), g = c.createGain();
-      o.type = 'sawtooth'; o2.type = 'square'; f.type = 'lowpass'; f.frequency.value = 500; g.gain.value = 0;
-      o.connect(f); o2.connect(f); f.connect(g).connect(this.sfx); o.start(); o2.start(); this._drv = { o, o2, f, g };
-    } else if (!on && this._drv) { const d = this._drv; this._drv = null; d.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.25); setTimeout(() => { d.o.stop(); d.o2.stop(); }, 1500); }
+      const c = this.ctx, g = c.createGain(), f = c.createBiquadFilter(), sh = c.createWaveShaper(), pre = c.createGain();
+      const curve = new Float32Array(1024); for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(x * 3.2); } sh.curve = curve; sh.oversample = '2x';
+      const o = c.createOscillator(), o2 = c.createOscillator(), o3 = c.createOscillator();
+      o.type = 'sawtooth'; o2.type = 'sawtooth'; o2.detune.value = 18; o3.type = 'square';
+      const og3 = c.createGain(); og3.gain.value = 0.6;
+      o.connect(pre); o2.connect(pre); o3.connect(og3).connect(pre); pre.gain.value = 0.5;
+      f.type = 'lowpass'; f.Q.value = 4; f.frequency.value = 600;
+      pre.connect(sh).connect(f).connect(g);
+      // Exhaust rumble.
+      const n = c.createBufferSource(), nb = c.createBuffer(1, c.sampleRate * 2, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      n.buffer = nb; n.loop = true; const nf = c.createBiquadFilter(); nf.type = 'bandpass'; nf.frequency.value = 90; nf.Q.value = 1.2; const ng = c.createGain(); ng.gain.value = 0.5;
+      n.connect(nf).connect(ng).connect(g);
+      g.gain.value = 0; g.connect(this.sfx); o.start(); o2.start(); o3.start(); n.start();
+      this._drv = { o, o2, o3, f, g, nf, ng, srcs: [o, o2, o3, n] };
+    } else if (!on && this._drv) { const d = this._drv; this._drv = null; d.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3); setTimeout(() => d.srcs.forEach(x => x.stop()), 1800); }
   },
   driveSpeed(v, thr) {
-    const d = this._drv; if (!d) return; const t = this.ctx.currentTime, gear = (v % 14) / 14, f0 = 42 + v * 1.6 + gear * 38;
-    d.o.frequency.setTargetAtTime(f0, t, 0.08); d.o2.frequency.setTargetAtTime(f0 * 0.5, t, 0.08);
-    d.f.frequency.setTargetAtTime(260 + v * 18 + thr * 500, t, 0.1); d.g.gain.setTargetAtTime(this.on ? 0.035 + thr * 0.035 : 0, t, 0.1);
+    const d = this._drv; if (!d) return; const t = this.ctx.currentTime;
+    const gear = (v % 13) / 13, rpm = 0.25 + gear * 0.75, f0 = 38 + v * 0.9 + rpm * 70;   // revs climb in each gear, then drop
+    d.o.frequency.setTargetAtTime(f0, t, 0.06); d.o2.frequency.setTargetAtTime(f0 * 1.005, t, 0.06); d.o3.frequency.setTargetAtTime(f0 * 0.5, t, 0.06);
+    d.f.frequency.setTargetAtTime(380 + rpm * 900 + thr * 900, t, 0.08);
+    d.nf.frequency.setTargetAtTime(70 + v * 2, t, 0.1); d.ng.gain.setTargetAtTime(0.35 + thr * 0.5, t, 0.1);
+    d.g.gain.setTargetAtTime(this.on ? 0.09 + thr * 0.09 : 0, t, 0.08);
   },
   // Police siren (wail), its level set by how far the police car is.
   siren(on) {
