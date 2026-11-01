@@ -35,7 +35,7 @@ const camera = new THREE.PerspectiveCamera(TOUCH ? 66 : 58, innerWidth / innerHe
 addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
 
 const sunDir = new V3(-0.55, 0.42, 0.72).normalize();
-scene.add(new THREE.HemisphereLight(0xbdd5f2, 0x8a6a4a, 1.15));
+const hemi = new THREE.HemisphereLight(0xbdd5f2, 0x8a6a4a, 1.15); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffd6a6, 3.1);
 sun.castShadow = true; sun.shadow.mapSize.set(TOUCH ? 1024 : 2048, TOUCH ? 1024 : 2048);
 Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 220 });
@@ -722,7 +722,7 @@ load('../models/ballon-dor.glb').then(m => {
 }).catch(() => {});
 const theft = { i: 0, run: false, fallen: false, slipped: false, boost: 0 };
 async function enterAirport() {
-  const [{ wallColliders, carve, floorColliders }, src, ...blds] = await Promise.all([import('./airport.js?v=3'), load('models/airport.glb'), ...['Large_2', 'Medium_2_001', 'Small_1'].map(n => load(`models/bld-${n}.glb`))]);
+  const [{ wallColliders, carve, floorColliders, splitGlass }, src, ...blds] = await Promise.all([import('./airport.js?v=6'), load('models/airport.glb'), ...['Large_2', 'Medium_2_001', 'Small_1'].map(n => load(`models/bld-${n}.glb`))]);
   // Leave the favela: hide it all (lights, sky, car and the stars stay), swap the colliders.
   const keep = new Set([sun, sun.target, sky, clouds, car, ball.mesh, trophy, await ferrariP, ...Object.values(HEROES).map(h => h.ch.root)]);
   // The favela is not coming back: free its GPU memory (geometries and textures are re-uploaded if ever reused).
@@ -733,13 +733,19 @@ async function enterAirport() {
   for (const c of cards) c.got = true;
   renderer.renderLists.dispose();
   AP.root = src;
+  splitGlass(src);   // the glass panels are see-through again (they hid the check-in desks and security)
   // The runway model sits on a 1 m slab: lower it so it is flush with the apron (planes and players stood under it).
   { const rw = src.getObjectByName('LandingTrack1Straight'); if (rw) { src.updateMatrixWorld(true); const top = new THREE.Box3().setFromObject(rw).max.y; const wp = rw.getWorldPosition(new V3()); wp.y -= top - 0.02; rw.position.copy(rw.parent.worldToLocal(wp)); } }
   // The jet, the cabin and Rio from the sky load only when Messi gets away (keeps memory low on iPads).
   AP.loadFlight = () => { AP.jetP ??= load('models/jet.glb').catch(() => null); AP.cabinP ??= load('models/cabin.glb').catch(() => null); };
   sky.material.uniforms.single.value = 1;   // only one Corcovado in the sky over the airport
   carve(src, AP.DOORS);
-  src.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  // Bright terminal, like the model's own preview: only the low props cast shadows (the roof and the big
+  // halls no longer throw the whole terminal into shade), plus a soft light that fills the inside.
+  src.traverse(o => { if (o.isMesh) { const bb = new THREE.Box3().setFromObject(o); o.castShadow = !o.userData.glass && bb.max.y < 4.5 && bb.max.y - bb.min.y < 4; o.receiveShadow = !o.userData.glass; } });
+  hemi.intensity = 1.9; hemi.color.set(0xe8f0ff); hemi.groundColor.set(0xb8a890);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+  for (const [x, z] of [[2, -50], [-8, -55], [2, -25], [-8, -15], [0, 15], [-8, 45]]) { const l = new THREE.PointLight(0xfff4e0, 18, 26, 1.6); l.position.set(x, 5.5, z); scene.add(l); }
   scene.add(src);
   const W2 = wallColliders(src, { open: AP.DOORS, skip: o => /LandingTrack/.test(o.name + (o.parent ? o.parent.name : '')) });
   // Floors: the terminal's floor sits a little above 0, so we read it from the model (feet no longer sink in).

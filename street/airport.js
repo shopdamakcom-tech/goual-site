@@ -103,3 +103,35 @@ export function floorColliders(root, { skip = () => false, cell = 1, maxY = 0.6 
   }
   return out;
 }
+
+// The airport model uses one texture atlas whose glass areas are semi-transparent. Split every mesh into an
+// opaque part and a glass part (by the atlas alpha under each triangle), so the glass is see-through again
+// without depth-sorting troubles on the solid parts.
+export function splitGlass(root) {
+  let atlas = null, W = 0, H = 0, px = null;
+  root.traverse(o => { if (!atlas && o.isMesh && o.material.map) atlas = o.material.map; });
+  if (!atlas || !atlas.image) return 0;
+  const img = atlas.image; W = img.width; H = img.height;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.drawImage(img, 0, 0); px = g.getImageData(0, 0, W, H).data;
+  const alphaAt = (u, v) => { u -= Math.floor(u); v -= Math.floor(v); const x = Math.min(W - 1, Math.floor(u * W)), y = Math.min(H - 1, Math.floor(v * H)); return px[(y * W + x) * 4 + 3]; };
+  const solidMat = (m) => { const s = m.clone(); s.transparent = false; s.depthWrite = true; s.alphaTest = 0.5; s.side = THREE.DoubleSide; return s; };
+  const glassMat = (m) => { const s = m.clone(); s.transparent = true; s.depthWrite = false; s.side = THREE.DoubleSide; s.alphaTest = 0; s.opacity = 1; return s; };
+  let nGlass = 0;
+  const meshes = []; root.traverse(o => { if (o.isMesh && o.geometry.index && o.geometry.attributes.uv) meshes.push(o); });
+  for (const o of meshes) {
+    const geo = o.geometry, idx = geo.index, uv = geo.attributes.uv, solid = [], glass = [];
+    for (let t = 0; t < idx.count; t += 3) {
+      const a = idx.getX(t), b = idx.getX(t + 1), c = idx.getX(t + 2);
+      const u = (uv.getX(a) + uv.getX(b) + uv.getX(c)) / 3, v = (uv.getY(a) + uv.getY(b) + uv.getY(c)) / 3;
+      (alphaAt(u, v) < 200 ? glass : solid).push(a, b, c);
+    }
+    if (!glass.length) { o.material = solidMat(o.material); continue; }
+    nGlass += glass.length / 3;
+    const gg = geo.clone(); gg.setIndex(glass);
+    geo.setIndex(solid);
+    const gm = new THREE.Mesh(gg, glassMat(o.material)); gm.name = o.name + '_glass'; gm.renderOrder = 1; gm.userData.glass = true;
+    o.material = solidMat(o.material);
+    o.add(gm);
+  }
+  return nGlass;
+}
