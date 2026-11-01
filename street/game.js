@@ -1270,6 +1270,7 @@ async function enterDubai() {
   const park = (g, x) => { g.position.set(x, (rayY(air, x, row) ?? RW.y) + 0.12, row); g.rotation.set(0, 0, 0); };
   park(pc, -14); CARS.forEach((c, i) => { park(DXB.cars[c.id], -34 - i * 9); DXB.cars[c.id].userData.x0 = -34 - i * 9; });
   airportDressing();
+  { const bj = await burjModel(); if (bj) { bj.position.set(-260, -2, -1700); scene.add(bj); } }   // the Burj on the horizon behind the terminal
   warmUp();
   thief.root.visible = false; trophy.visible = false; theft.seated = false; theft.fallen = false; theft.cut = 0;
   for (const h of Object.values(HEROES)) h.ch.root.visible = false;
@@ -1473,6 +1474,44 @@ function pedsStep(dt) {
     if (!me || Math.abs(p.s - me.s) < 160) p.ch.animate({ dt, speed: p.v, grounded: true });
   }
 }
+// Landmarks: a mosque beside the desert road, its courtyard facing the road, and the Burj Khalifa far away, on the
+// horizon from the avenue and from the desert.
+const burjModel = () => (DXB.burjP ??= load('models/dxb-burj.glb').catch(() => null)).then(m => {
+  if (!m) return null; const g = m.clone(true); g.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; for (const mt of [].concat(o.material)) { mt.envMap = ENV; mt.envMapIntensity = 1.2; mt.metalness = Math.max(0.5, mt.metalness ?? 0); mt.roughness = Math.min(0.35, mt.roughness ?? 1); } } });
+  g.scale.setScalar(828 / 104); return g; });   // the real height, 828 m
+async function placeLandmarks(R) {
+  const [mq, burj, hs] = await Promise.all([load('models/dxb-mosque.glb').catch(() => null), burjModel(), load('models/dxb-house.glb').catch(() => null)]);
+  if (mq) { const c = R.mosqueC, f = R.fwd(R.mosqueS); mq.scale.setScalar(0.8); mq.rotation.y = Math.atan2(f.x, f.z) + Math.PI / 2; mq.position.set(c.x, (DXB.hAt ? DXB.hAt(c.x, c.z) : 0) - 0.05, c.z);
+    mq.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); scene.add(mq); }
+  if (burj) { burj.position.set(1350, -2, -650); scene.add(burj); }
+  // Old Emirati house by the roadside: its long side runs along the road (model is ~60 m long, origin off-centre).
+  if (hs && R.houseC) { const c = R.houseC, f = R.fwd(R.houseS), w = new THREE.Group(); hs.position.set(10, 0, 6); w.add(hs);
+    w.rotation.y = Math.atan2(f.x, f.z) - Math.PI / 2; w.position.set(c.x, (DXB.hAt ? DXB.hAt(c.x, c.z) : 0) - 0.05, c.z);
+    hs.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); scene.add(w); }
+}
+// Palm groves ("Realistic Palm Tree", a grove of ~25 palms): instanced, so dozens of groves cost little. Along the
+// desert road on both sides and around the villa, each one sitting on the dunes.
+function palmGroves(R, src) {
+  if (!src) return;
+  src.updateMatrixWorld(true);
+  // The file's positions are quantized (normalized integers): copy every attribute to plain floats before baking
+  // the transform, or the baked values get clamped to -1..1.
+  const plain = geo => { const g = new THREE.BufferGeometry(); if (geo.index) g.setIndex(Array.from(geo.index.array));
+    for (const [n, at] of Object.entries(geo.attributes)) { const arr = new Float32Array(at.count * at.itemSize); for (let i = 0; i < at.count; i++) for (let c = 0; c < at.itemSize; c++) arr[i * at.itemSize + c] = at[['getX', 'getY', 'getZ', 'getW'][c]](i); g.setAttribute(n, new THREE.BufferAttribute(arr, at.itemSize)); }
+    return g; };
+  const parts = []; src.traverse(o => { if (o.isMesh) { const g = plain(o.geometry); g.applyMatrix4(o.matrixWorld); g.computeBoundingSphere(); const m = o.material; if (m.alphaTest || m.transparent) { m.side = THREE.DoubleSide; m.alphaTest = Math.max(m.alphaTest || 0, 0.5); m.transparent = false; } parts.push({ g, m }); } });
+  const box = new THREE.Box3().setFromObject(src), k = 0.34, lift = -box.min.y * k;   // ~10 m palms, a grove ~30 m across
+  const spots = []; let seed = 21; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const n = TOUCH ? 16 : 40, s0 = R.cityEnd + 40, s1 = R.N - 30;
+  for (let i = 0; i < n; i++) { const s = lerp(s0, s1, (i + rnd() * 0.8) / n), p = R.at(s), r = R.right(s), off = (i % 2 ? 1 : -1) * (R.hw(s) + 22 + rnd() * 40); if (Math.abs(s - R.splitS) < 60) continue; if (R.houseC && Math.hypot(p.x + r.x * off - R.houseC.x, p.z + r.z * off - R.houseC.z) < 55) continue; spots.push([p.x + r.x * off, p.z + r.z * off]); }
+  if (R.villaC) for (const [dx, dz] of [[-45, -30], [45, -25], [-40, 40], [42, 38]]) spots.push([R.villaC.x + dx, R.villaC.z + dz]);
+  const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), Y = new V3(0, 1, 0);
+  for (const { g, m } of parts) {
+    const im = new THREE.InstancedMesh(g, m, spots.length); im.castShadow = true; im.receiveShadow = false; im.frustumCulled = false;
+    spots.forEach(([x, z], i) => { const sc = k * (0.85 + ((i * 37) % 10) / 30), y = (DXB.hAt ? DXB.hAt(x, z) : 0) + lift * sc / k - 0.3; Q.setFromAxisAngle(Y, (i * 2.399) % 6.283); M.compose(new V3(x, y, z), Q, new V3(sc, sc, sc)); im.setMatrixAt(i, M); });
+    scene.add(im);
+  }
+}
 // Desert life: zebras galloping alongside the road, camels resting by the dunes, lions prowling.
 const ANIMALS = [];
 function desertAnimals(R, [camel, zebra, lion]) {
@@ -1631,7 +1670,7 @@ async function prepareDrive() {
   // The highway carries straight on into the desert; Messi takes the exit.
   { const rgt = new V3(-MAIN_DIR.z, 0, MAIN_DIR.x); scene.add(makeRoad({ at: s => R.mainP0.clone().addScaledVector(MAIN_DIR, s), right: () => rgt, y: () => -0.012 }, 0, R.mainL, 10)); }
   exitSigns(R);
-  desertDecor(R); cityTowers(R, marina);   // (no pedestrians: the only model looked like Messi and seemed to follow the chase)
+  desertDecor(R); cityTowers(R, marina); palmGroves(R, await load('models/dxb-palms.glb').catch(() => null)); await placeLandmarks(R);   // (no pedestrians: the only model looked like Messi and seemed to follow the chase)
   desertAnimals(R, await DXB.animalsP);
   const group = CHASE.group = new THREE.Group(); group.visible = false;
   for (const o of [...scene.children]) if (!before.has(o)) group.add(o);
@@ -1764,6 +1803,8 @@ function updateDrive(dt) {
 }
 // The desert: one big height field of dunes, a valley for the road and a rocky mountain that buries the tunnel.
 function desertDecor(R) {
+  { const sM = R.cityEnd + 230, off = -(R.hw(sM) + 62); R.mosqueC = R.at(sM).addScaledVector(R.right(sM), off); R.mosqueS = sM; }
+  { const sH = lerp(R.cityEnd + 300, R.splitS - 120, 0.55), off = R.hw(sH) + 34; R.houseC = R.at(sH).addScaledVector(R.right(sH), off); R.houseS = sH; }
   const road = [];
   for (let s = R.cityEnd - 40; s < R.N; s += 5) road.push(R.at(s));
   for (let k = 0; k <= R.mainL; k += 6) road.push(R.mainP0.clone().addScaledVector(MAIN_DIR, k));
@@ -1780,6 +1821,8 @@ function desertDecor(R) {
     const dr = dmin(road, x, z), dv = Math.hypot(x - VC.x, z - VC.z);
     let h = dunes(x, z) * ss(xCity, xCity + 160, x);
     h = lerp(yRoad - 0.35, h, ss(9, 42, dr));                  // the road's valley
+    if (R.mosqueC) h = lerp(yRoad - 0.3, h, ss(52, 85, Math.hypot(x - R.mosqueC.x, z - R.mosqueC.z)));   // flat ground for the mosque
+    if (R.houseC) h = lerp(yRoad - 0.3, h, ss(38, 60, Math.hypot(x - R.houseC.x, z - R.houseC.z)));   // and for the old house
     h = lerp(yRoad - 0.08, h, ss(48, 95, dv));                 // a flat pad under the villa and its paved forecourt
     const edge = Math.min(x - (cx - W / 2), (cx + W / 2) - x, z - (cz - D / 2), (cz + D / 2) - z);
     return lerp(-2.2, h, ss(0, 220, edge));
@@ -1833,11 +1876,6 @@ function cityTowers(R, marina) {
     if (rnd() < 0.3) { const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.8, h * 0.18, 6), mats[2]); sp.position.set(p.x, h * 1.09 + (hy ?? 0), p.z); scene.add(sp); }
     placed.push(p);
   }
-  // The Burj Khalifa, far to the north of the avenue.
-  const burj = new THREE.Group(), bm = new THREE.MeshStandardMaterial({ color: 0xb8c6d4, roughness: 0.2, metalness: 0.75, envMap: ENV, envMapIntensity: 1.1 });
-  let y = 0; for (const [r, h] of [[34, 120], [28, 110], [23, 100], [18, 90], [14, 80], [10.5, 70], [7.5, 60], [5, 50]]) { const seg = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.82, r, h, 6), bm); seg.position.y = y + h / 2; burj.add(seg); y += h; }
-  const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 3.5, 160, 8), bm); spire.position.y = y + 80; burj.add(spire);
-  burj.position.set(420, 0, -820); scene.add(burj);
 }
 async function hideoutScene() {
   if (DXB.villaP) await DXB.villaP;
