@@ -1160,7 +1160,6 @@ async function loadJet() {
 async function enterDubai() {
   const jet = await loadJet();
   const [air, liner, police, ...cs] = await Promise.all([load('models/dxb-airport.glb'), load('models/dxb-airliner.glb'), load('models/car-police.glb'), ...CARS.map(c => load('models/' + c.file))]);
-  DXB.chaseP = Promise.all([load('models/dxb-marina.glb'), load('models/dxb-tunnel.glb')]);   // for the chase, in the background
   leaveScene([trophy, jet, thief?.root, ...Object.values(HEROES).map(h => h.ch.root)]);
   scene.add(desertSky());
   scene.fog.color.set(0xe6d6bb); scene.fog.near = 260; scene.fog.far = 3400;
@@ -1186,6 +1185,8 @@ async function enterDubai() {
   const row = DXB.APRON.z + 34;
   const park = (g, x) => { g.position.set(x, rayY(air, x, row) ?? RW.y, row); g.rotation.set(0, 0, 0); };
   park(pc, -14); CARS.forEach((c, i) => { park(DXB.cars[c.id], -34 - i * 9); DXB.cars[c.id].userData.x0 = -34 - i * 9; });
+  airportDressing();
+  warmUp();
   thief.root.visible = false; trophy.visible = false; theft.seated = false; theft.fallen = false; theft.cut = 0;
   for (const h of Object.values(HEROES)) h.ch.root.visible = false;
   P.seated = true; rivalState.mode = 'away';
@@ -1261,6 +1262,8 @@ async function dubai() {
   await say(rivalState.on ? [['HERO', 'He is taking the police car!'], ['RIVAL1', 'There are more cars over there. Everybody grab one!']] : [['HERO', 'He is taking the police car! I need a car… now.']]);
   shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.mercedes.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
   // Pick a car.
+  // The chase scenery loads while you choose (parsing it during the landing made the picture freeze).
+  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-tunnel.glb'), load('models/ferrari.glb'), load('models/car.glb')]);
   const myId = await pickCar();
   const others = CARS.map(c => c.id).filter(id => id !== myId).sort(() => Math.random() - 0.5);
   DRV.ids = { me: myId, r: rivalState.on ? others.slice(0, 2) : [] };
@@ -1273,6 +1276,122 @@ async function dubai() {
   $('#fade').classList.add('on');
   await sleep(0.5);
   await startDrive();
+}
+
+// Compile shaders and upload textures up front, so nothing stalls the first time it comes into view.
+function warmUp() {
+  const hidden = []; scene.traverse(o => { if (!o.visible) { hidden.push(o); o.visible = true; } });
+  try { renderer.compile(scene, camera); } catch (e) { }
+  scene.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) if (m[k] && !m[k].userData.warm) { m[k].userData.warm = 1; try { renderer.initTexture(m[k]); } catch (e) { } } });
+  hidden.forEach(o => { o.visible = false; });
+}
+function canvasTex(w, h, draw, rx = 1, ry = 1) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); draw(x, w, h);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rx, ry); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+}
+const grain = (x, w, h, a) => { for (let i = 0; i < w * h / 24; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '255,255,255' : '0,0,0'},${a})`; x.fillRect(Math.random() * w, Math.random() * h, 2, 2); } };
+// The airport's ground is a blurry photo: paint a proper runway, grass strips, a taxiway and the apron on top.
+function airportDressing() {
+  const RW = DXB.RW, air = DXB.air;
+  const flat = (lx, lz, tex, cx, cz, off = 2) => { const yy = (rayY(air, cx, cz) ?? RW.y) + 0.04 * off;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(lx, lz), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -off, polygonOffsetUnits: -off * 2 }));
+    m.rotation.x = -Math.PI / 2; m.position.set(cx, yy, cz); m.receiveShadow = true; scene.add(m); return m; };
+  const X0 = -1000, X1 = 380, L = X1 - X0, Wd = 60;
+  // Runway: asphalt, edge lines, dashed centre line.
+  flat(L, Wd, canvasTex(512, 128, (x, w, h) => { x.fillStyle = '#3c3d3f'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.07);
+    x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(0, h * 0.35, w, h * 0.3);   // tyre marks down the middle
+    x.fillStyle = '#f2f2f2'; x.fillRect(0, 6, w, 4); x.fillRect(0, h - 10, w, 4); x.fillRect(0, h / 2 - 2, w * 0.55, 4); }, L / 60, 1), (X0 + X1) / 2, RW.z, 2);
+  // Threshold "piano keys", runway numbers, aiming points.
+  const keys = canvasTex(256, 256, (x, w, h) => { x.clearRect(0, 0, w, h); x.fillStyle = '#f4f4f4'; for (let i = 0; i < 12; i++) if (i !== 5 && i !== 6) x.fillRect(4, 10 + i * 20, w - 8, 12); });
+  const num = t => canvasTex(256, 256, (x, w, h) => { x.clearRect(0, 0, w, h); x.fillStyle = '#f4f4f4'; x.font = '900 150px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.translate(w / 2, h / 2); x.rotate(t.r); x.fillText(t.s, 0, 0); });
+  const deco = (tex, lx, lz, cx, cz) => { const m = flat(lx, lz, tex, cx, cz, 4); m.material.transparent = true; return m; };
+  deco(keys, 36, 52, X0 + 30, RW.z); deco(keys, 36, 52, X1 - 30, RW.z);
+  deco(num({ s: '12', r: Math.PI / 2 }), 26, 26, X0 + 70, RW.z); deco(num({ s: '30', r: -Math.PI / 2 }), 26, 26, X1 - 70, RW.z);
+  const aim = canvasTex(64, 64, (x, w, h) => { x.fillStyle = '#f2f2f2'; x.fillRect(0, 0, w, h); });
+  for (const ax of [X0 + 330, X1 - 330]) for (const az of [-12, 12]) flat(48, 9, aim, ax, RW.z + az, 4);
+  // Grass strips both sides of the runway.
+  const grass = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#8c9a52'; x.fillRect(0, 0, w, h); for (let i = 0; i < 9000; i++) { const g = 100 + Math.random() * 70; x.fillStyle = `rgba(${g - 30},${g + 10},${g - 60},0.5)`; x.fillRect(Math.random() * w, Math.random() * h, 2, 3); } }, L / 20, 3);
+  flat(L, 60, grass, (X0 + X1) / 2, RW.z - 62, 1); flat(L, 60, grass, (X0 + X1) / 2, RW.z + 62, 1);
+  // Taxiway from the runway to the apron, and the apron in front of the terminal with its yellow lines.
+  const TX = -40, tz0 = DXB.APRON.z + 40, tz1 = RW.z - 30;
+  flat(24, tz1 - tz0, canvasTex(64, 256, (x, w, h) => { x.fillStyle = '#45464a'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.07); x.fillStyle = '#f2c200'; x.fillRect(w / 2 - 2, 0, 4, h); x.fillRect(2, 0, 2, h); x.fillRect(w - 4, 0, 2, h); }, 1, (tz1 - tz0) / 30), TX, (tz0 + tz1) / 2, 3);
+  flat(230, 110, canvasTex(1024, 512, (x, w, h) => { x.fillStyle = '#6d6c69'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.06);
+    x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 2; for (let i = 0; i < w; i += 64) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); } for (let j = 0; j < h; j += 64) { x.beginPath(); x.moveTo(0, j); x.lineTo(w, j); x.stroke(); }
+    x.strokeStyle = '#f2c200'; x.lineWidth = 6; x.beginPath(); x.moveTo(0, h * 0.82); x.lineTo(w, h * 0.82); x.stroke();
+    for (let k = 0; k < 5; k++) { const sx = 90 + k * 200; x.beginPath(); x.moveTo(sx, h * 0.82); x.quadraticCurveTo(sx, h * 0.45, sx + 40, h * 0.12); x.stroke(); x.fillStyle = '#e53935'; x.fillRect(sx + 20, h * 0.1, 50, 8); x.fillStyle = '#f2f2f2'; x.font = '900 40px Arial'; x.fillText('A' + (k + 1), sx - 60, h * 0.6); }
+  }), -30, DXB.APRON.z + 10, 3);
+  // Edge lights along the runway and the taxiway.
+  const lights = []; for (let x = X0 + 20; x < X1; x += 60) lights.push([x, RW.z - Wd / 2 - 1], [x, RW.z + Wd / 2 + 1]);
+  for (let z = tz0; z < tz1; z += 25) lights.push([TX - 13, z], [TX + 13, z]);
+  const lm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.45, 0.5), new THREE.MeshBasicMaterial({ color: 0xfff3c0 }), lights.length), M = new THREE.Matrix4();
+  lights.forEach(([lx, lz], i) => { M.makeTranslation(lx, (rayY(air, lx, lz) ?? RW.y) + 0.22, lz); lm.setMatrixAt(i, M); }); scene.add(lm);
+}
+// A concrete portal where the road enters the mountain (the cut into the hill ends on a proper tunnel mouth).
+function tunnelPortal(R) {
+  const s = R.cliffS - 1, p = R.at(s), f = R.fwd(s), y0 = R.y(s), ow = 3.4 * R.K + 0.7, oh = 2.7 * R.K + 0.4, H = 30, side = 44;
+  const conc = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#a49c8f'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.08); x.strokeStyle = 'rgba(60,50,40,.35)'; x.lineWidth = 2; for (let j = 0; j < h; j += 64) { x.beginPath(); x.moveTo(0, j); x.lineTo(w, j); x.stroke(); } for (let i = 0; i < w; i += 128) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); } }, 1, 1);
+  const rock = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#b08d64'; x.fillRect(0, 0, w, h); for (let i = 0; i < 400; i++) { x.fillStyle = `rgba(${90 + Math.random() * 60},${70 + Math.random() * 40},${40 + Math.random() * 30},.35)`; x.beginPath(); x.ellipse(Math.random() * w, Math.random() * h, 4 + Math.random() * 16, 3 + Math.random() * 8, Math.random() * 3, 0, 7); x.fill(); } }, 1, 1);
+  const g = new THREE.Group(); g.position.set(p.x, y0, p.z); g.rotation.y = Math.atan2(f.x, f.z); scene.add(g);
+  const box = (w, h, d, x, y, z, tex, rep) => { const t = tex.clone(); t.needsUpdate = true; t.repeat.set(w / rep, h / rep); const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 })); m.position.set(x, y, z); m.receiveShadow = true; g.add(m); return m; };
+  // Rock face around, concrete head wall and lining at the mouth.
+  // A sloped concrete head wall (like a motorway tunnel mouth); the mountain rises behind it.
+  const wallT = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#b9b2a4'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.09); x.fillStyle = 'rgba(80,70,60,.25)'; for (let j = 0; j < h; j += 32) x.fillRect(0, j, w, 2); for (let i = 0; i < w; i += 64) x.fillRect(i, 0, 2, h); x.fillStyle = 'rgba(90,70,40,.12)'; for (let i = 0; i < 30; i++) x.fillRect(Math.random() * w, 0, 3 + Math.random() * 6, h); });
+  const face = [box(side, 16, 2.5, -(ow + side / 2), 6, 1, wallT, 8), box(side, 16, 2.5, ow + side / 2, 6, 1, wallT, 8), box(ow * 2, 16 - oh, 2.5, 0, oh + (16 - oh) / 2, 1, wallT, 8)];
+  for (const m of face) m.rotation.x = -0.12;   // leaning back into the hill
+  box(side * 2 + ow * 2, 14, 10, 0, 21, 8, rock, 14);   // rock above it, under the mountain's skin
+  box(ow * 2 + 3, 1.6, 1.2, 0, oh + 0.8, -0.2, conc, 6); for (const sx of [-1, 1]) box(1.5, oh + 1.6, 1.2, sx * (ow + 0.75), (oh + 1.6) / 2, -0.2, conc, 6);
+  box(0.6, oh, 14, -ow - 0.3, oh / 2, 7, conc, 6); box(0.6, oh, 14, ow + 0.3, oh / 2, 7, conc, 6); box(ow * 2 + 1.2, 0.6, 14, 0, oh + 0.3, 7, conc, 6);
+  // Its name over the mouth.
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.3), new THREE.MeshBasicMaterial({ map: canvasTex(512, 72, (x, w, h) => { x.fillStyle = '#0a6a3a'; x.fillRect(0, 0, w, h); x.fillStyle = '#fff'; x.font = '800 38px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('AL HAJAR TUNNEL', w / 2, h / 2 + 2); }) }));
+  sign.position.set(0, oh + 2.4, -0.85); sign.rotation.y = Math.PI; g.add(sign);
+}
+// Traffic: Ferraris in several colours, Bugatti Chirons and the car nobody picked, slower than you, in their lanes.
+const TRAFFIC = [];
+const lanesAt = s => { const R = DRV.R, h = R.hw(s) - 1.1; return s < R.cityEnd ? [-3, 0, 3].filter(d => Math.abs(d) <= h) : [-2.2, 2.2]; };
+function makeTraffic(R, ferT, chiT, spareId) {
+  TRAFFIC.length = 0;
+  const fer = makeCar(prepCar(ferT), 4.7), chi = makeCar(prepCar(chiT));
+  let paint = null; fer.traverse(o => { if (o.isMesh && o.material.color && o.material.color.r > 0.55 && o.material.color.g < 0.5 && o.material.color.b < 0.5) paint = o.material; });
+  const ferrari = hex => { const g = fer.clone(true); if (paint) { const m = paint.clone(); m.color.setHex(hex); m.map = null; m.metalness = 0.35; m.roughness = 0.3; m.envMap = ENV; m.envMapIntensity = 0.6; g.traverse(o => { if (o.isMesh && o.material === paint) o.material = m; }); } return g; };
+  const kinds = [() => ferrari(0x8a0006), () => chi.clone(true), () => ferrari(0xf0f0f0), () => ferrari(0x111111), () => ferrari(0x16408f), () => chi.clone(true), () => ferrari(0x9aa3ab), () => ferrari(0xd8a400)];
+  const spare = DXB.cars[spareId];
+  let s = 140, i = 0, seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  while (s < R.cliffS - 150 && TRAFFIC.length < 18) {
+    const g = i === 4 && spare ? spare : kinds[i % kinds.length](); i++;
+    g.visible = true; scene.add(g);
+    const ls = lanesAt(s); TRAFFIC.push({ g, s, d: ls[Math.floor(rnd() * ls.length)], v: 13 + rnd() * 8, vd: 0, yaw: 0 });
+    s += 55 + rnd() * 45;
+  }
+  for (const t of TRAFFIC) carPose(t);
+}
+function trafficStep(dt) {
+  const R = DRV.R, me = DRV.me; DRV.hitT = Math.max(0, (DRV.hitT || 0) - dt);
+  let maxS = Math.max(me.s + 150, ...TRAFFIC.map(t => t.s));
+  for (const t of TRAFFIC) {
+    if (t.s < -1e8) continue;
+    t.s += t.v * dt;
+    if (t.s < me.s - 80) { const ns = maxS + 45 + Math.random() * 45; if (ns < R.cliffS - 150) { t.s = ns; maxS = ns; const ls = lanesAt(ns); t.d = ls[Math.floor(Math.random() * ls.length)]; } else t.s = -1e9; }
+    if (t.s > R.cliffS - 90) t.s = -1e9;
+    t.g.visible = t.s > -1e8; if (t.g.visible) carPose(t);
+  }
+}
+// Running into a car: held behind it, or pushed aside if you hit it side-on.
+function trafficHits(c) {
+  for (const t of TRAFFIC) {
+    if (t.s < -1e8) continue;
+    const ds = c.s - t.s, dd = c.d - t.d;
+    if (Math.abs(ds) > 5 || Math.abs(dd) > 2.15) continue;
+    if (Math.abs(ds) < 2.4) { c.d += Math.sign(dd || 1) * (2.15 - Math.abs(dd)); c.vd = 0; }
+    else if (ds < 0) { c.s = t.s - 5; c.v = Math.min(c.v, t.v - 1); }
+    if (c === DRV.me && !DRV.hitT) { DRV.hitT = 0.8; cam.shake = 0.35; audio.kick(0.8); if (!DRV.flags.trafficHint) { DRV.flags.trafficHint = true; hint('Traffic! Steer around the cars.', 3); } }
+  }
+}
+// The lane a driver should aim for: the one he wants, unless a slower car is in it just ahead.
+function freeLane(c, want) {
+  const blocked = d => TRAFFIC.some(t => t.s > -1e8 && t.s - c.s > 0 && t.s - c.s < 42 && Math.abs(t.d - d) < 2.3);
+  if (!blocked(want)) return want;
+  const ls = lanesAt(c.s).filter(d => !blocked(d)).sort((a, b) => Math.abs(a - c.d) - Math.abs(b - c.d));
+  return ls.length ? ls[0] : want;
 }
 
 // ---------- the chase ----------
@@ -1347,15 +1466,17 @@ function carPose(c) {
   c.g.rotation.set(0, c.yaw, 0);
 }
 async function startDrive() {
-  const [marina, tunnel] = await DXB.chaseP;
+  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-tunnel.glb'), load('models/ferrari.glb'), load('models/car.glb')]);
+  const [marina, tunnel, ferrariT, chironT] = await DXB.chaseP;
   // Leave the airport; keep only the cars that race.
-  const racing = [DXB.police, ...[DRV.ids.me, ...DRV.ids.r].map(id => DXB.cars[id])];
+  const racing = [DXB.police, ...Object.values(DXB.cars)];   // the car nobody took joins the traffic
   leaveScene([trophy, thief?.root, ...racing, ...Object.values(HEROES).map(h => h.ch.root), ...scene.children.filter(o => o.material?.type === 'ShaderMaterial')]);
   // Dubai Marina, the desert, the tunnel.
   marina.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }); scene.add(marina);
   // (its flat ground slab goes: our own mountain buries the tunnel instead)
   tunnel.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; for (const mt of [].concat(o.material)) mt.side = THREE.DoubleSide; if (o.material.name === 'Ground') o.visible = false; } }); scene.add(tunnel);
   const R = DRV.R = buildRoute(marina, tunnel);
+  tunnelPortal(R);
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: 0xdcbf8c, roughness: 1 }));
   sand.rotation.x = -Math.PI / 2; sand.position.y = -0.25; sand.receiveShadow = true; scene.add(sand);
   scene.add(makeRoad(R, 0, R.cityEnd, 12.5), makeRoad(R, R.cityEnd - 2, R.tunS, 10));
@@ -1373,7 +1494,11 @@ async function startDrive() {
   colliders.length = 0; colliders.push({ x0: -3000, x1: 3000, z0: -3000, z1: 3000, y0: -5, y1: 0 }); indexColliders();
   state.stage = STAGES.DRIVE; DRV.on = true;
   state.modeStack = ['drive']; P.mode = 'drive'; P.seated = true; me.root.visible = false;
+  const spareId = CARS.map(c => c.id).find(id => id !== DRV.ids.me && !DRV.ids.r.includes(id));
+  for (const [id, g] of Object.entries(DXB.cars)) if (id !== DRV.ids.me && !DRV.ids.r.includes(id) && id !== spareId) g.visible = false;
+  makeTraffic(R, ferrariT, chironT, spareId);
   updateDrive(0); cam.ovPos = cam.override.pos.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
+  warmUp();
   speedo(true);
   $('#fade').classList.remove('on'); $('#letterbox').classList.remove('on');
   audio.airportOff?.(); audio.drive?.(true);
@@ -1399,19 +1524,22 @@ function updateDrive(dt) {
   me.vd = damp(me.vd, mv.x * 10 * clamp(me.v / 14, 0.35, 1), 7, dt);
   // Messi: always a little ahead. Get close and he finds more speed; fall back and he waits for you.
   const gap = ms.s - me.s;
-  let vm = 31; if (gap < 16) vm = Math.max(me.v, 30) + (16 - gap) * 0.9; else if (gap > 45) vm = 24;
+  let vm = 31; if (gap < 16) vm = Math.max(me.v, 30) + (16 - gap) * 0.9; else if (gap > 45) vm = Math.max(6, Math.min(24, me.v - (gap - 45) * 0.3));   // too far ahead: he waits for you
   const toStop = R.stopS - ms.s; if (toStop < 160) vm = Math.min(vm, Math.sqrt(2 * 4.2 * Math.max(0, toStop)) + 0.8);
   ms.v = damp(ms.v, Math.min(vm, 52), 1.8, dt);
   const alongside = gap < 3.2;
-  const dT = toStop < 160 ? -R.hw(ms.s) * 0.4 : alongside ? me.d + (ms.d >= me.d ? 1.9 : -1.9) : gap < 12 ? me.d : 2.4 * Math.sin(DRV.t * 0.45);
+  let dT = toStop < 160 ? -R.hw(ms.s) * 0.4 : alongside ? me.d + (ms.d >= me.d ? 1.9 : -1.9) : gap < 12 ? me.d : 2.4 * Math.sin(DRV.t * 0.45);
+  dT = freeLane(ms, dT);
   ms.vd = damp(ms.vd, clamp((dT - ms.d) * 1.8, -7, 7), 4, dt);
   // The other two: on your bumper, never past Messi.
   DRV.list.forEach((c, i) => { if (c.role !== 'rival') return; const k = i - 2;
     const tgt = ending ? me.s - 7 - k * 6 : me.s + (k ? -2.5 : 5) + 3 * Math.sin(DRV.t * 0.35 + k * 2);
     c.v = damp(c.v, clamp(me.v + (tgt - c.s) * 0.9, 0, 50), 2, dt);
     const lane = (k ? -1 : 1) * 2.8 * (Math.abs(c.s - me.s) < 6 && Math.abs(c.d - me.d) < 2.6 ? 1.3 : 1);
-    c.vd = damp(c.vd, clamp((lane - c.d) * 1.2, -6, 6), 3, dt); });
+    c.vd = damp(c.vd, clamp((freeLane(c, lane) - c.d) * 1.4, -7, 7), 3.5, dt); });
+  trafficStep(dt);
   for (const c of DRV.list) { c.s += c.v * dt; c.d += c.vd * dt; const h = R.hw(c.s) - 1.1; if (Math.abs(c.d) > h) { c.d = Math.sign(c.d) * h; c.vd = 0; } }
+  for (const c of DRV.list) trafficHits(c);
   ms.s = Math.min(ms.s, R.stopS);
   // Nobody gets past Messi: level with him at best.
   for (const c of DRV.list) if (c !== ms && c.s > ms.s - (c === me ? 0.6 : 5)) { c.s = ms.s - (c === me ? 0.6 : 5); c.v = Math.min(c.v, ms.v); }
@@ -1437,7 +1565,7 @@ function updateDrive(dt) {
   if (alongside && !DRV.flags.side) { DRV.flags.side = true; toast('SIDE BY SIDE!'); addStyle(300, 'LEVEL WITH MESSI'); say([['MESSI', 'Nice try, {HERO}! Nobody passes me!']]); }
   if (me.s > R.cityEnd && !DRV.flags.desert) { DRV.flags.desert = true; place('DUBAI', 'DESERT ROAD'); if (rivalState.on) say([['RIVAL1', 'He is heading for the desert!']]); }
   if (ms.s > R.tunS - 60 && !DRV.flags.tunnel) { DRV.flags.tunnel = true; hint('He is slowing down… the tunnel!', 3); }
-  if (!ending && ms.s >= R.stopS - 0.3) { DRV.ending = true; hideoutScene(); }
+  if (!ending && ms.s >= R.stopS - 0.3 && me.s > R.stopS - 35) { DRV.ending = true; hideoutScene(); }
 }
 // The desert: one big height field of dunes, a valley for the road and a rocky mountain that buries the tunnel.
 function desertDecor(R) {
@@ -1473,15 +1601,16 @@ function desertDecor(R) {
   for (let i = 0; i < 26; i++) { x.strokeStyle = `rgba(150,110,60,${0.06 + Math.random() * 0.06})`; x.lineWidth = 1 + Math.random() * 2; x.beginPath(); const y0 = i * 10 + Math.random() * 4; x.moveTo(0, y0); for (let k = 0; k <= 256; k += 16) x.lineTo(k, y0 + Math.sin(k * 0.05 + i) * 3); x.stroke(); }
   for (let i = 0; i < 5000; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '255,250,240' : '120,90,50'},0.12)`; x.fillRect(Math.random() * 256, Math.random() * 256, 1, 1); }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(W / 16, D / 16); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, vertexColors: true, roughness: 1 })); m.receiveShadow = true; scene.add(m);
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, vertexColors: true, roughness: 1, side: THREE.DoubleSide })); m.receiveShadow = true; scene.add(m);   // two-sided: it is the ceiling over the tunnel mouth
   // Dry shrubs and a few rocks along the road.
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const shrub = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x6b6a3a, roughness: 1, flatShading: true }), 160);
   const stone = new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x9c7f5e, roughness: 1, flatShading: true }), 60);
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), Sc = new V3();
-  const scatter = (im, n, size) => { for (let i = 0; i < n; i++) { const s0 = lerp(R.cityEnd + 60, R.cliffS - 10, rnd()), p0 = R.at(s0), r0 = R.right(s0), off = (rnd() < 0.5 ? -1 : 1) * (R.hw(s0) + 5 + rnd() * 70);
+  const scatter = (im, n, size) => { for (let i = 0; i < n; i++) { const s0 = lerp(R.cityEnd + 60, R.cliffS - 40, rnd()), p0 = R.at(s0), r0 = R.right(s0), off = (rnd() < 0.5 ? -1 : 1) * (R.hw(s0) + 4 + rnd() * 22);
     const px = p0.x + r0.x * off, pz = p0.z + r0.z * off; Q.setFromAxisAngle(new V3(0, 1, 0), rnd() * 6); const k = size * (0.5 + rnd()); Sc.set(k, k * (0.45 + rnd() * 0.4), k * (0.7 + rnd() * 0.5));
-    M.compose(new V3(px, hAt(px, pz) + k * 0.15, pz), Q, Sc); im.setMatrixAt(i, M); } scene.add(im); };
+    const hy = hAt(px, pz); if (hy > 2.5) Sc.set(0, 0, 0);   // only on the flat sand by the road (no floating rocks on slopes)
+    M.compose(new V3(px, hy - k * 0.1, pz), Q, Sc); im.setMatrixAt(i, M); } scene.add(im); };
   scatter(shrub, 160, 0.9); scatter(stone, 60, 1.3);
 }
 // Dubai towers along the city part of the route (only where the marina has open ground), and the Burj Khalifa.
