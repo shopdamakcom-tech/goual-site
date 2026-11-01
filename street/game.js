@@ -668,11 +668,13 @@ async function rideAway() {
   shot(new V3(-8.5, 1.7, CAR_Z + 5.6), new V3(-12, 0.9, CAR_Z), { cut: true });
   const fer = await ferrariP;
   if (fer) { fer.visible = true; fer.rotation.y = Math.PI; fer.position.set(34, 0, CAR_Z); }
-  await tween(1.8, (k, raw) => { car.position.x = CAR_STOP - 95 * raw * raw; });
+  // The Bugatti pulls away and the Ferrari is already rolling in (no empty street on narrow phone screens).
+  if (fer) { fer.position.x = 16; }
+  await tween(0.9, (k, raw) => { car.position.x = CAR_STOP - 95 * raw * raw; });
   if (fer) {
     rivals().forEach((r, i) => { const ch = r.ch; fer.add(ch.root); ch.root.visible = true; ch.root.position.set(-0.3, -0.82, i ? 0.27 : -0.27); ch.root.rotation.set(0, Math.PI / 2, 0); });
     rivalState.on = true; rivalState.mode = 'seated'; audio.engine?.(3);
-    await tween(1.7, k => { fer.position.x = lerp(34, -12, 1 - (1 - k) * (1 - k)); });
+    await tween(1.1, k => { fer.position.x = lerp(16, -12, 1 - (1 - k) * (1 - k)); });
     fer.updateMatrixWorld(true);
     const fFront = fer.localToWorld(new V3(1.0, 0, 0)).sub(fer.position).setY(0).normalize();   // the Ferrari's nose direction
     const fc = fer.position.clone().add(new V3(0, 0.75, 0));
@@ -680,7 +682,7 @@ async function rideAway() {
     await say([['RIVAL1', '{HERO} is in that Bugatti… Follow him!'], ['RIVAL2', 'That Ballon d\'Or is ours. Floor it!']]);
     shot(new V3(-8.5, 1.7, CAR_Z + 5.6), new V3(-12, 0.9, CAR_Z), { cut: true });
     audio.engine?.(3);
-    await tween(2.4, (k, raw) => { fer.position.x = -12 - 100 * raw * raw; });
+    await tween(1.3, (k, raw) => { fer.position.x = -12 - 100 * raw * raw; });
     fer.visible = false; rivalState.mode = 'away';
   }
   $('#fade').classList.add('on', 'trip');
@@ -707,7 +709,7 @@ const AP = {
   DOORS: [{ x0: 14, x1: 24, z0: -43, z1: -35, y1: 30 }, { x0: -7, x1: 7, z0: -6, z1: 1, y1: 30 }, { x0: -21, x1: -8, z0: 26, z1: 40, y1: 30 }],
   CAR_Z0: 120, CAR_STOP: new V3(30, 0, -42),
   THIEF_START: new V3(1, 0, -22),
-  PATH: [new V3(1, 0, -8), new V3(0, 0, -7), new V3(0, 0, 3), new V3(0, 0, 30.3), new V3(-22, 0, 30.3), new V3(-21, 0, 60), new V3(-45, 0, 75), new V3(-61, 0, 88)],
+  PATH: [new V3(6, 0, -20), new V3(8.8, 0, -14), new V3(8.8, 0, -7.5), new V3(4, 0, -6.5), new V3(2.5, 0, -3), new V3(1.5, 0, 0), new V3(2, 0, 3), new V3(2, 0, 30.3), new V3(-22, 0, 30.3), new V3(-21, 0, 60), new V3(-45, 0, 75), new V3(-61, 0, 88)],
   CATCH_CHANCE: 0.25,
   THIEF_SPEED: 4.8,
 };
@@ -834,7 +836,7 @@ function updateWalkers(dt) {
 }
 // The way out to the tarmac: glowing yellow arrows on the floor and big green signs over the openings.
 function exitGuide() {
-  const way = [new V3(14, 0, -39), new V3(4, 0, -26), new V3(0, 0, -8), new V3(0, 0, 3), new V3(0, 0, 30.8), new V3(-24, 0, 30.8), new V3(-22, 0, 52)];
+  const way = [new V3(14, 0, -39), new V3(7, 0, -27), new V3(8.8, 0, -14), new V3(8.8, 0, -7.5), new V3(4, 0, -6.5), new V3(2.5, 0, -3), new V3(1.5, 0, 0), new V3(2, 0, 3), new V3(2, 0, 30.8), new V3(-24, 0, 30.8), new V3(-22, 0, 52)];
   const sh = new THREE.Shape(); sh.moveTo(-0.55, -0.35); sh.lineTo(0, 0.25); sh.lineTo(0.55, -0.35); sh.lineTo(0.55, -0.05); sh.lineTo(0, 0.55); sh.lineTo(-0.55, -0.05); sh.closePath();
   const geo = new THREE.ShapeGeometry(sh); geo.rotateX(-Math.PI / 2);
   const mat = new THREE.MeshBasicMaterial({ color: 0xffd400, transparent: true, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -2 });
@@ -891,9 +893,9 @@ async function arriveAirport() {
   const fer = await ferrariP;
   if (fer && rivalState.on) {
     const stopZ = AP.CAR_STOP.z + 6.2;
-    fer.visible = true; fer.rotation.y = Math.PI / 2; fer.position.set(AP.CAR_STOP.x, 0, AP.CAR_Z0);
+    fer.visible = true; fer.rotation.y = Math.PI / 2; fer.position.set(AP.CAR_STOP.x, 0, stopZ + 32);
     shot(new V3(AP.CAR_STOP.x - 4.5, 1.9, AP.CAR_STOP.z + 2), new V3(AP.CAR_STOP.x, 0.9, stopZ), { cut: true }); audio.engine?.(3.5);
-    await tween(3.2, k => { fer.position.z = lerp(AP.CAR_Z0, stopZ, 1 - (1 - k) * (1 - k)); });
+    await tween(1.6, k => { fer.position.z = lerp(stopZ + 32, stopZ, 1 - (1 - k) * (1 - k)); });
     // Cut on the hero: he turns to the red car — who's that?
     { const f = fer.position.clone().sub(P.pos).setY(0).normalize(); P.yaw = Math.atan2(f.x, f.z); P.vel.set(0, 0, 0);
       shot(P.pos.clone().addScaledVector(f, 2.3).add(new V3(f.z * 0.6, 1.65, -f.x * 0.6)), P.pos.clone().add(new V3(0, 1.5, 0)), { cut: true });
@@ -1036,11 +1038,12 @@ async function escaped() {
     const turn = Math.atan2(turnTo.x, turnTo.z) - Math.atan2(head.x, head.z);
     const c1 = new V3(runway.x, c0.y, 18); setCentre(c1, turn, 0);
     shot(new V3(-100, 4, -10), new V3(runway.x, 4, 0), { cut: true, follow: 0.6 });
-    await tween(4.2, (k, raw) => { const d = 260 * raw * raw, c = c1.clone().addScaledVector(turnTo, d); const lift = Math.max(0, raw - 0.45); c.y += 140 * lift * lift; setCentre(c, turn, Math.min(0.28, lift * 0.9)); });
+    await tween(3.2, (k, raw) => { const d = 260 * raw * raw, c = c1.clone().addScaledVector(turnTo, d); const lift = Math.max(0, raw - 0.45); c.y += 140 * lift * lift; setCentre(c, turn, Math.min(0.28, lift * 0.9));
+      cam.override.look = c.clone(); cam.ovLook = c.clone(); });   // keep the plane in frame (narrow phone screens too)
     plane.visible = false;                       // gone for good
   }
   toast('HE GOT AWAY…', '#ff2d55');
-  await sleep(1.0);
+  await sleep(0.3);
   // On board: Messi, sitting on the bench next to the Ballon d'Or.
   if (await cabinSet()) {
     thief.root.visible = true; thief.root.rotation.set(0, Math.PI / 2, 0); thief.root.position.copy(onBench(thief, -215, 40)); theft.seated = true;
@@ -1061,28 +1064,19 @@ async function chaseFlight() {
   const RUN_X = -128, RUN_Z = 70;
   const RY = Math.max(0, groundAt(RUN_X, RUN_Z, 3)), AY = Math.max(0, groundAt(RUN_X + 7, RUN_Z + 7, 3));   // the runway and apron surfaces
   jet.rotation.set(0, -Math.PI / 2, 0); jet.position.set(RUN_X, RY, RUN_Z); jet.updateMatrixWorld(true);
-  // Back on the apron: Messi is gone, but a private jet waits on the runway. Run to it.
-  me.root.visible = true; P.seated = false; P.vel.set(0, 0, 0); P.pos.y = Math.max(0, groundAt(P.pos.x, P.pos.z, P.pos.y + 1));
-  { const j = new V3(RUN_X, 0, RUN_Z).sub(P.pos).setY(0).normalize(); P.yaw = Math.atan2(j.x, j.z);
-    shot(P.pos.clone().addScaledVector(j, 2.6).add(new V3(j.z * 0.8, 1.5, -j.x * 0.8)), P.pos.clone().add(new V3(0, 1.6, 0)), { cut: true }); cam.blend = 1; }
-  await say([['HERO', 'Dubai… I need a plane. Now.']]);
-  $('#letterbox').classList.remove('on'); release(); state.modeStack = ['free']; P.mode = 'free'; behindCam();
-  if (TOUCH) $('#touch').classList.remove('hidden');
-  setObjective('CHAPTER 2 · THE AIRPORT', 'Run to the private jet on the runway!', new V3(RUN_X, RY, RUN_Z));
-  hint(TOUCH ? 'A jet is waiting on the runway — SPRINT!' : 'A jet is waiting on the runway — hold Shift!', 5);
-  while (Math.hypot(P.pos.x - RUN_X, P.pos.z - RUN_Z) > 14) await sleep(0.15);
-  pushMode('cut'); $('#letterbox').classList.add('on'); prompt(null); setObjective('CHAPTER 2 · THE AIRPORT', 'Next stop: Dubai', null);
-  // At the jet: the other two catch up with you.
+  // On the apron, right by the jet: the other two catch up with you.
+  me.root.visible = true; P.seated = false;
   P.pos.set(RUN_X + 6, AY, RUN_Z + 6); P.yaw = Math.atan2(-6, -6); P.vel.set(0, 0, 0);
   if (rivalState.on) rivals().forEach((r, i) => { r.ch.root.visible = true; r.ch.root.position.set(RUN_X + 9 + i * 1.2, AY, RUN_Z + 9 - i); r.ch.root.rotation.set(0, Math.atan2(-1, -1), 0); });
   rivalState.mode = 'stand';
   shot(new V3(RUN_X + 14, 3, RUN_Z + 12), new V3(RUN_X + 2, 1.5, RUN_Z), { cut: true }); cam.blend = 1;
   await say(rivalState.on ? [
+    ['HERO', 'Dubai… I need a plane. Now.'],
     ['RIVAL1', 'Wait! We are coming with you!'],
     ['HERO', 'Then get in. I am flying.'],
     ['RIVAL2', 'Since when can you fly a plane?!'],
     ['HERO', 'Since today. Next stop: Dubai.'],
-  ] : [['HERO', 'Since today. Next stop: Dubai.']]);
+  ] : [['HERO', 'Dubai… I need a plane. Now.'], ['HERO', 'Since today. Next stop: Dubai.']]);
   // They climb aboard (the jet's own cabin will come later).
   audio.engine?.(10);
   me.root.visible = false; P.seated = true; P.vel.set(0, 0, 0);
