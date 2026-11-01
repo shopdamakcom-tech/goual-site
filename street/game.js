@@ -12,7 +12,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=4';
 import { Builder, kitMaterials, dog, clutter, laundry, house } from './favela-kit.js';
-import { audio } from './audio.js?v=6';
+import { audio } from './audio.js?v=7';
 
 const $ = s => document.querySelector(s);
 const V3 = THREE.Vector3;
@@ -1631,7 +1631,7 @@ async function prepareDrive() {
   // The highway carries straight on into the desert; Messi takes the exit.
   { const rgt = new V3(-MAIN_DIR.z, 0, MAIN_DIR.x); scene.add(makeRoad({ at: s => R.mainP0.clone().addScaledVector(MAIN_DIR, s), right: () => rgt, y: () => -0.012 }, 0, R.mainL, 10)); }
   exitSigns(R);
-  desertDecor(R); cityTowers(R, marina); cityPeople(R);
+  desertDecor(R); cityTowers(R, marina);   // (no pedestrians: the only model looked like Messi and seemed to follow the chase)
   desertAnimals(R, await DXB.animalsP);
   const group = CHASE.group = new THREE.Group(); group.visible = false;
   for (const o of [...scene.children]) if (!before.has(o)) group.add(o);
