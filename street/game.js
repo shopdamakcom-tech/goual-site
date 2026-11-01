@@ -1293,7 +1293,7 @@ async function dubai() {
   shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.ferrari.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
   // Pick a car.
   // The whole chase (Dubai Marina, the desert, the villa) is built behind the car menu, so the cut is instant.
-  DXB.prepP ??= prepareDrive();
+  if (!TOUCH) DXB.prepP ??= prepareDrive();   // on phones the airport is freed first (both at once ran out of memory)
   const myId = await pickCar();
   const others = CARS.map(c => c.id).filter(id => id !== myId).sort(() => Math.random() - 0.5);
   DRV.ids = { me: myId, r: rivalState.on ? others.slice(0, 2) : [] };
@@ -1306,6 +1306,7 @@ async function dubai() {
 function warmUp() {
   const hidden = []; scene.traverse(o => { if (!o.visible) { hidden.push(o); o.visible = true; } });
   try { renderer.compile(scene, camera); } catch (e) { }
+  if (TOUCH) { hidden.forEach(o => { o.visible = false; }); return; }
   const culled = []; scene.traverse(o => { if (o.frustumCulled) { culled.push(o); o.frustumCulled = false; } });
   const rt = new THREE.WebGLRenderTarget(16, 16); try { renderer.setRenderTarget(rt); renderer.render(scene, camera); } catch (e) { } renderer.setRenderTarget(null); rt.dispose();
   culled.forEach(o => { o.frustumCulled = true; });
@@ -1571,11 +1572,20 @@ async function prepareDrive() {
   return { ferrariT, chironT, coachT, vanT, skodaT, peugeotT, maybachT, ramT, jeepT, porscheT, gronosT };
 }
 async function startDrive() {
-  const T = await (DXB.prepP ??= prepareDrive());
+  const racing = [DXB.police, ...Object.values(DXB.cars)];   // the car nobody took joins the traffic
+  const keepers = () => [CHASE.group, trophy, thief?.root, ...racing, ...Object.values(HEROES).map(h => h.ch.root), ...scene.children.filter(o => o.material?.type === 'ShaderMaterial')].filter(Boolean);
+  let T;
+  if (!DXB.prepP) {
+    // Phones: black screen, free the airport, then build the chase.
+    $('#fade').classList.add('on'); $('#fade').classList.remove('world', 'trip');
+    leaveScene(keepers());
+    await sleep(0.05);
+    try { T = await (DXB.prepP = prepareDrive()); }
+    catch (e) { console.error(e); hint('Loading failed, please reload', 8); throw e; }
+  } else T = await DXB.prepP;
   const R = DRV.R;
   // Leave the airport; keep the chase world and the cars that race.
-  const racing = [DXB.police, ...Object.values(DXB.cars)];   // the car nobody took joins the traffic
-  leaveScene([CHASE.group, trophy, thief?.root, ...racing, ...Object.values(HEROES).map(h => h.ch.root), ...scene.children.filter(o => o.material?.type === 'ShaderMaterial')]);
+  leaveScene(keepers());
   CHASE.group.visible = true;
   setFov(TOUCH ? 68 : 62);
   // The racers: Messi ahead, you, the other two just behind.
