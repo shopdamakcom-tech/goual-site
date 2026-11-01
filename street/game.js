@@ -875,11 +875,68 @@ function exitGuide() {
 }
 // The world map card: the jet flies the route from Rio and stops half way.
 function worldMap(full) {
-  const route = $('#wRoute'), done = $('#wDone'), plane = $('#wPlane'), L = route.getTotalLength(), t0 = performance.now(), tbc = $('#fade .world .tbc');
-  tbc.classList.remove('on'); tbc.textContent = full ? 'LANDING IN DUBAI…' : 'TO BE CONTINUED…'; done.style.strokeDasharray = L; done.style.strokeDashoffset = L;
-  const step = now => { const k = Math.min(1, (now - t0) / 4200), e = (full ? 1 : 0.5) * (1 - Math.pow(1 - k, 2.4)), q = route.getPointAtLength(e * L), q2 = route.getPointAtLength(Math.min(L, e * L + 2));
-    plane.setAttribute('transform', `translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${(Math.atan2(q2.y - q.y, q2.x - q.x) * 180 / Math.PI).toFixed(1)})`); done.style.strokeDashoffset = (L * (1 - e)).toFixed(1);
-    if (k < 1) requestAnimationFrame(step); else tbc.classList.add('on'); };
+  // Motion design: close on Rio, the jet rolls down the runway and lifts off (its shadow drops away, speed lines),
+  // the camera pulls back as it climbs over the Atlantic with a glowing contrail through the clouds, then it
+  // descends onto Dubai. The camera is the svg viewBox.
+  const route = $('#wRoute'), done = $('#wDone'), plane = $('#wPlane'), svg = route.ownerSVGElement, L = route.getTotalLength(), tbc = $('#fade .world .tbc');
+  const NS = 'http://www.w3.org/2000/svg', mk = (tag, at, parent = svg) => { const e = document.createElementNS(NS, tag); for (const k in at) e.setAttribute(k, at[k]); parent.appendChild(e); return e; };
+  const end = full ? 1 : 0.5, P0 = route.getPointAtLength(0), P1 = route.getPointAtLength(4), dir = { x: (P1.x - P0.x) / 4, y: (P1.y - P0.y) / 4 };
+  const ang0 = Math.atan2(dir.y, dir.x) * 180 / Math.PI;
+  if (!svg.__fx) {
+    const defs = mk('defs', {}); const fl = mk('filter', { id: 'wBlur', x: '-50%', y: '-50%', width: '200%', height: '200%' }, defs); mk('feGaussianBlur', { stdDeviation: '6' }, fl);
+    const gl = mk('filter', { id: 'wGlow' }, defs); mk('feGaussianBlur', { stdDeviation: '2.5' }, gl);
+    // The runway at Rio.
+    const rw = mk('g', { transform: `translate(${P0.x} ${P0.y}) rotate(${ang0})` });
+    mk('rect', { x: -46, y: -4, width: 54, height: 8, rx: 1.5, fill: '#2a2f45' }, rw);
+    for (let x = -42; x < 4; x += 7) mk('rect', { x, y: -0.4, width: 3.5, height: 0.8, fill: '#fff', opacity: .85 }, rw);
+    // Contrail glow under the drawn route.
+    const glow = done.cloneNode(); glow.removeAttribute('id'); glow.setAttribute('stroke', '#ffd400'); glow.setAttribute('stroke-width', '9'); glow.setAttribute('opacity', '.35'); glow.setAttribute('filter', 'url(#wGlow)'); done.parentNode.insertBefore(glow, done);
+    // Clouds drifting over the ocean.
+    const clouds = mk('g', { opacity: '.55', filter: 'url(#wBlur)' });
+    for (const [x, y, rx, ry] of [[250, 250, 46, 14], [300, 196, 60, 16], [380, 170, 52, 13], [210, 300, 40, 12], [430, 130, 44, 12], [340, 230, 34, 10]]) mk('ellipse', { cx: x, cy: y, rx, ry, fill: '#fff' }, clouds);
+    // The plane's shadow, speed lines and Dubai's landing ring.
+    const shadow = plane.cloneNode(true); shadow.removeAttribute('id'); shadow.querySelectorAll('path').forEach(p => p.setAttribute('fill', 'rgba(0,0,0,.45)')); plane.parentNode.insertBefore(shadow, plane);
+    const lines = mk('g', { stroke: '#fff', 'stroke-linecap': 'round', opacity: 0 }); for (const [y, l] of [[-5, 14], [0, 20], [5, 14], [-9, 8], [9, 8]]) mk('line', { x1: -18, y1: y, x2: -18 - l, y2: y, 'stroke-width': 1.2 }, lines);
+    const D = route.getPointAtLength(L), ring = mk('circle', { cx: D.x, cy: D.y, r: 6, fill: 'none', stroke: '#2ee6ff', 'stroke-width': 2, opacity: 0 });
+    svg.appendChild(lines); svg.appendChild(plane);   // plane on top of the clouds
+    svg.__fx = { glow, clouds, shadow, lines, ring };
+  }
+  const { glow, clouds, shadow, lines, ring } = svg.__fx;
+  tbc.classList.remove('on'); tbc.textContent = full ? 'LANDING IN DUBAI…' : 'TO BE CONTINUED…';
+  for (const p of [done, glow]) { p.style.strokeDasharray = L; p.style.strokeDashoffset = L; }
+  const T_ROLL = 1.3, T_FLY = full ? 3.4 : 2.6, T_LAND = 0.7, t0 = performance.now();
+  const cam = { x: P0.x, y: P0.y, w: 150 };
+  const ease = x => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+  const put = (g, x, y, a, sc) => g.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${a.toFixed(1)}) scale(${sc.toFixed(3)})`);
+  const step = now => {
+    const t = (now - t0) / 1000;
+    let x, y, a = ang0, sc = 0.9, lift = 0, e = 0;
+    if (t < T_ROLL) {   // take-off roll: accelerate down the runway, rotate, lift
+      const u = t / T_ROLL, d = -40 + 40 * u * u; x = P0.x + dir.x * d; y = P0.y + dir.y * d;
+      lift = Math.max(0, (u - 0.62) / 0.38); sc = 0.9 + 0.35 * lift; a = ang0 - 8 * lift;
+      lines.setAttribute('opacity', (Math.min(1, u * 1.6) * 0.8).toFixed(2));
+    } else {
+      const u = Math.min(1, (t - T_ROLL) / T_FLY); e = end * ease(u);
+      const q = route.getPointAtLength(e * L), q2 = route.getPointAtLength(Math.min(L, e * L + 2)); x = q.x; y = q.y; a = Math.atan2(q2.y - q.y, q2.x - q.x) * 180 / Math.PI;
+      lift = full ? Math.sin(Math.PI * Math.min(1, u * 0.96)) * 0.8 + (u < 0.5 ? 0.2 : 0.2 * (1 - (u - 0.5) * 2)) : 1; sc = 0.9 + 0.55 * lift;
+      lines.setAttribute('opacity', (0.8 * Math.max(0, 1 - u * 4)).toFixed(2));
+      for (const p of [done, glow]) p.style.strokeDashoffset = (L * (1 - e)).toFixed(1);
+    }
+    put(plane, x, y, a, sc); put(lines, x, y, a, sc);
+    put(shadow, x + 2 + 9 * lift, y + 4 + 14 * lift, a, sc * (1 - 0.25 * lift)); shadow.setAttribute('opacity', (0.9 - 0.55 * lift).toFixed(2));
+    clouds.setAttribute('transform', `translate(${(-t * 6).toFixed(1)} 0)`);
+    // Camera: tight on the runway, pulls back to the whole route, settles on the destination.
+    const fly = Math.max(0, Math.min(1, (t - T_ROLL * 0.8) / 1.6)), wz = 150 + (720 - 150) * ease(fly);
+    const tx = fly < 1 ? x : 360 + (x - 360) * 0.25, ty = fly < 1 ? y : 190 + (y - 190) * 0.25;
+    cam.w += (wz - cam.w) * 0.1; cam.x += (tx - cam.x) * 0.1; cam.y += (ty - cam.y) * 0.1;
+    const h = cam.w * 380 / 720, vx = Math.max(0, Math.min(720 - cam.w, cam.x - cam.w / 2)), vy = Math.max(0, Math.min(380 - h, cam.y - h / 2));
+    svg.setAttribute('viewBox', `${vx.toFixed(1)} ${vy.toFixed(1)} ${cam.w.toFixed(1)} ${h.toFixed(1)}`);
+    // Landing: a ring opens on Dubai.
+    const tl = t - T_ROLL - T_FLY;
+    if (full && tl > -0.3) { const r = Math.max(0, tl + 0.3) / (T_LAND + 0.3); ring.setAttribute('r', (6 + 22 * r).toFixed(1)); ring.setAttribute('opacity', (1 - r).toFixed(2)); }
+    if (tl < T_LAND && $('#fade').classList.contains('world')) requestAnimationFrame(step);
+    else { tbc.classList.add('on'); svg.setAttribute('viewBox', '0 0 720 380'); }
+  };
   requestAnimationFrame(step);
 }
 // Start a free-play moment with the camera right behind the hero, GTA style.
@@ -1455,7 +1512,7 @@ function makeTraffic(R, ferT, chiT, spareId, more = {}) {
   let ki = 0; const kinds = [() => pool[ki] ? pool[ki++] : ferrari(extra[(ki++ - pool.length) % extra.length])];
   const spare = DXB.cars[spareId];
   let s = 140, i = 0, seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  while (s < R.cliffS - 150 && TRAFFIC.length < 18) {
+  while (s < R.cliffS - 150 && TRAFFIC.length < (TOUCH ? 10 : 18)) {
     const g = i === 4 && spare ? spare : kinds[0](); i++;
     g.visible = true; scene.add(g);
     const ls = lanesAt(s), len = g.userData.len || 4.7; TRAFFIC.push({ g, s, d: ls[Math.floor(rnd() * ls.length)], v: len > 10 ? 11 + rnd() * 3 : 13 + rnd() * 8, vd: 0, yaw: 0, len });
@@ -1552,13 +1609,17 @@ function carPose(c) {
 const CHASE = { group: null };
 // Build the chase world into one hidden group (it overlaps the airport's ground, so it stays hidden until the cut).
 async function prepareDrive() {
-  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb'), load('models/car-peugeot.glb'), ...['maybach', 'ram', 'jeep', 'porsche', 'gronos'].map(n => load(`models/car-${n}.glb`).catch(() => null))]);
+  // Phones get 256 px textures (the 1024 px marina alone took ~400 MB of video memory), the villa later (when
+  // the desert starts) and a shorter traffic line-up; computers get everything.
+  const M = TOUCH ? '-m' : '', none = Promise.resolve(null), heavy = n => TOUCH ? none : load(`models/${n}.glb`).catch(() => null);
+  DXB.chaseP ??= Promise.all([load(`models/dxb-marina${M}.glb`), TOUCH ? none : load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), heavy('bus-coach'), heavy('bus-van'), load('models/car-skoda.glb'), load('models/car-peugeot.glb'), ...['maybach', 'ram', 'jeep', 'porsche', 'gronos'].map(n => heavy(`car-${n}`))]);
   const [marina, villa, ferrariT, chironT, coachT, vanT, skodaT, peugeotT, maybachT, ramT, jeepT, porscheT, gronosT] = await DXB.chaseP;
   DXB.animalsP ??= Promise.all(['camel', 'zebra', 'lion'].map(n => loadAnim(`models/an-${n}.glb`).catch(() => null)));
   const before = new Set(scene.children);
   marina.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }); scene.add(marina);
   const R = DRV.R = buildRoute(marina);
-  await placeVilla(R, villa);
+  if (villa) await placeVilla(R, villa);
+  else { fetch('models/dxb-villa-m.glb').then(r => r.blob()).catch(() => {}); DXB.villaLater = true; }   // download now, build later
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: 0xdcbf8c, roughness: 1 }));
   sand.rotation.x = -Math.PI / 2; sand.position.y = -2.2; sand.receiveShadow = true; scene.add(sand);
   scene.add(makeRoad(R, 0, R.cityEnd, 12.5), makeRoad(R, R.cityEnd - 2, R.tunS, 10));
@@ -1690,6 +1751,7 @@ function updateDrive(dt) {
   const el = $('#speedo'); if (el) { el.firstChild.textContent = Math.round(me.v * 3.6); el.lastChild.textContent = `MESSI ${Math.max(0, Math.round(gap))} M`; }
   audio.driveSpeed?.(me.v, boost ? 1 : 0.4); audio.sirenLevel?.(clamp(1 - gap / 140, 0.15, 1));
   if (alongside && !DRV.flags.side) { DRV.flags.side = true; toast('SIDE BY SIDE!'); addStyle(300, 'LEVEL WITH MESSI'); say([['MESSI', 'Nice try, {HERO}! Nobody passes me!']]); }
+  if (DXB.villaLater && me.s > R.cityEnd - 60 && !DXB.villaP) DXB.villaP = load('models/dxb-villa-m.glb').then(v => placeVilla(R, v)).catch(e => console.error(e));
   if (me.s > R.cityEnd && !DRV.flags.desert) { DRV.flags.desert = true; place('DUBAI', 'DESERT ROAD'); if (rivalState.on) say([['RIVAL1', 'He is heading for the desert!']]); }
   if (ms.s > R.splitS && !DRV.flags.exit) { DRV.flags.exit = true; hint('He is taking the exit!', 3); }
   if (ms.s > R.tunS - 40 && !DRV.flags.tunnel) { DRV.flags.tunnel = true; hint('He is slowing down… that villa!', 3); }
@@ -1773,6 +1835,7 @@ function cityTowers(R, marina) {
   burj.position.set(420, 0, -820); scene.add(burj);
 }
 async function hideoutScene() {
+  if (DXB.villaP) await DXB.villaP;
   const R = DRV.R, ms = DRV.messi, V = DXB.door;
   pushMode('cut'); $('#letterbox').classList.add('on'); speedo(false); pedals(false); setObjective('CHAPTER 3 · DUBAI', 'Where is he going?', null);
   // Let the cars roll to a stop behind him.
@@ -2246,4 +2309,4 @@ me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
 frame();
 post('ready');
 // Test hooks.
-window.__street = { DRV, DXB, ANIMALS, dubai, startDrive, updateDrive, camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, chaseFlight, cabinSet, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
+window.__street = { worldMap, DRV, DXB, ANIMALS, dubai, startDrive, updateDrive, camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, chaseFlight, cabinSet, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };

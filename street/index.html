@@ -124,9 +124,15 @@
   #fade.trip .trip { display: flex; }
   #fade .trip b { color: #ffd400; font: 400 30px/1 'Bebas Neue', Impact, sans-serif; letter-spacing: .08em; }
   #fade .gps { position: relative; width: min(600px, 90vw); border-radius: 18px; overflow: hidden; border: 2px solid rgba(255,255,255,.14); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
-  #fade .gps svg { display: block; width: 100%; height: auto; }
-  #fade .gps .route { stroke-dasharray: 900; stroke-dashoffset: 900; }
-  #fade.trip .gps .route { animation: gpsDraw 5s ease-out forwards; }
+  #fade .gps { background: #16285f; aspect-ratio: 5 / 3; }
+  #fade .gps svg { display: block; width: 100%; height: 100%; transform: perspective(760px) rotateX(36deg) scale(1.38); transform-origin: 50% 72%; }
+  #fade .gps::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(180deg, rgba(11,23,64,.95) 0%, rgba(11,23,64,0) 30%), radial-gradient(ellipse at 50% 70%, transparent 55%, rgba(6,13,40,.55) 100%); }
+  #fade .gps .turn { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 2; display: flex; align-items: center; gap: 12px; background: rgba(10,138,58,.92); border-radius: 12px; padding: 9px 12px; font: 700 14px/1.2 Inter, Arial, sans-serif; letter-spacing: .02em; box-shadow: 0 6px 18px rgba(0,0,0,.35); transition: transform .35s; }
+  #fade .gps .turn i { font-style: normal; font-size: 24px; width: 28px; text-align: center; }
+  #fade .gps .turn small { display: block; opacity: .8; font-size: 11px; letter-spacing: .1em; }
+  #fade .gps .turn.flip { transform: translateY(6px) scale(.97); }
+  #fade .gps .hud { z-index: 2; } #fade .gps .spd { position: absolute; right: 12px; top: 12px; z-index: 2; width: 54px; height: 54px; border-radius: 50%; background: rgba(6,13,40,.88); border: 3px solid #ffd400; display: grid; place-items: center; text-align: center; font: 400 22px/0.9 'Bebas Neue', Impact, sans-serif; letter-spacing: .02em; }
+  #fade .gps .spd small { display: block; font: 700 8px Inter, Arial; letter-spacing: .1em; opacity: .7; }
   #fade .gps .ping { transform-origin: center; transform-box: fill-box; animation: gpsPing 1.4s ease-out infinite; }
   #fade .gps .hud { position: absolute; left: 12px; top: 12px; display: flex; gap: 8px; }
   #fade .gps .hud span { background: rgba(6,13,40,.82); border: 1px solid rgba(255,255,255,.15); border-radius: 8px; padding: 6px 10px; font-size: 11px; letter-spacing: .12em; }
@@ -135,7 +141,7 @@
   #fade .world { position: absolute; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center; gap: 14px; background: radial-gradient(ellipse at 50% 45%, #15296b 0%, #0b1740 60%, #060d28 100%); color: #fff; font: 800 13px/1.2 Inter, Arial, sans-serif; letter-spacing: .18em; text-align: center; padding: 0 16px; }
   #fade.world .world { display: flex; } #fade.world .trip { display: none; }
   #fade .world b { color: #ffd400; font: 400 30px/1 'Bebas Neue', Impact, sans-serif; letter-spacing: .08em; }
-  #fade .world .map { width: min(720px, 94vw); border-radius: 18px; overflow: hidden; border: 2px solid rgba(255,255,255,.14); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
+  #fade .world .map { position: relative; background: #0d2260; width: min(720px, 94vw); border-radius: 18px; overflow: hidden; border: 2px solid rgba(255,255,255,.14); box-shadow: 0 18px 50px rgba(0,0,0,.45); }
   #fade .world svg { display: block; width: 100%; height: auto; }
   #fade .world .tbc { color: #2ee6ff; opacity: 0; transition: opacity .6s; } #fade .world .tbc.on { opacity: 1; }
   @keyframes gpsDraw { to { stroke-dashoffset: 0; } }
@@ -277,6 +283,10 @@
       <!-- main roads -->
       <path d="M40 250 C120 236 200 250 300 214 C380 186 420 140 470 70" fill="none" stroke="rgba(255,255,255,.10)" stroke-width="7"/>
       <path d="M60 120 C150 140 250 120 330 150 C380 168 410 206 430 236" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="5"/>
+      <g fill="none" stroke="rgba(255,255,255,.06)" stroke-width="3">
+        <path d="M0 200 H600"/><path d="M0 160 C100 170 200 180 320 176"/><path d="M150 0 V360"/><path d="M260 0 C250 120 270 240 255 360"/><path d="M360 0 C350 100 380 220 360 360"/><path d="M60 40 C200 60 300 40 450 30"/><path d="M0 290 C120 280 200 300 300 280"/>
+      </g>
+      <g fill="rgba(255,255,255,.045)"><rect x="170" y="180" width="22" height="16"/><rect x="200" y="168" width="18" height="22"/><rect x="290" y="236" width="26" height="18"/><rect x="320" y="120" width="20" height="26"/><rect x="380" y="200" width="24" height="20"/><rect x="110" y="190" width="20" height="14"/><rect x="230" y="130" width="28" height="18"/><rect x="400" y="90" width="18" height="18"/></g>
       <!-- Ilha do Governador with the airport -->
       <path d="M470 40 C500 24 548 30 560 52 C572 76 540 98 506 96 C480 94 456 70 470 40 Z" fill="#1f3576"/>
       <!-- landmarks: Christ the Redeemer, Sugarloaf -->
@@ -295,30 +305,16 @@
       <circle cx="500" cy="62" r="8" fill="#2ee6ff"/><circle class="ping" cx="500" cy="62" r="8" fill="none" stroke="#2ee6ff" stroke-width="2"/>
       <path d="M492 58 l16 4 -16 4 3 -4 z" fill="#06102e"/>
       <text x="500" y="122" fill="#fff" font-size="12" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">RIO AIRPORT</text>
-      <!-- the car, riding the route -->
-      <g id="gpsCar" transform="translate(96 262)"><circle r="11" fill="#06102e" stroke="#ffd400" stroke-width="3"/><path d="M-6 3 h12 v-3 l-3 -4 h-6 l-3 4 z" fill="#2f62d9"/></g>
+      <!-- the route behind the car fills in -->
+      <path id="gpsDone" d="M96 262 C150 250 180 238 230 228 C300 214 330 196 370 170 C410 144 440 110 470 74 L500 62" fill="none" stroke="#2ee6ff" stroke-width="5" stroke-linecap="round"/>
+      <!-- the car: a navigation arrow with a soft halo -->
+      <g id="gpsCar" transform="translate(96 262)"><circle r="16" fill="rgba(46,230,255,.18)"><animate attributeName="r" values="12;18;12" dur="1.4s" repeatCount="indefinite"/></circle><path d="M0 -10 L8 9 L0 4 L-8 9 Z" fill="#fff" stroke="#2ee6ff" stroke-width="2.4" stroke-linejoin="round"/></g>
     </svg>
-    <div class="hud"><span>ETA <em id="gpsEta">12</em> MIN</span><span>BUGATTI · <em>CR7</em></span></div>
+    <div class="hud"><span>ETA <em id="gpsEta">12</em> MIN</span><span><em id="gpsDist">18.4</em> KM</span></div>
+    <div class="spd"><span id="gpsSpd">0</span><small>KM/H</small></div>
+    <div class="turn" id="gpsTurn"><i>↑</i><span><small>IN 400 M</small>Head east on Estrada da Gávea</span></div>
   </div>
   <span class="dots">ON THE WAY TO THE AIRPORT</span></div>
-  <div class="world"><b>RIO DE JANEIRO → DUBAI</b>
-    <div class="map"><svg viewBox="0 0 720 380" aria-hidden="true">
-      <rect width="720" height="380" fill="#0d2260"/>
-      <g fill="#24408f" stroke="#3b5bb0" stroke-width="1.5">
-        <path d="M150 150 C170 140 200 150 215 170 C232 192 236 220 226 248 C214 284 196 318 178 346 C170 358 160 352 160 338 C158 300 146 270 132 244 C120 222 118 196 126 176 C132 162 140 154 150 150 Z"/>
-        <path d="M60 40 C110 24 190 30 230 50 C250 62 240 84 220 96 C200 110 186 128 170 136 C150 140 120 120 100 100 C80 82 54 66 60 40 Z"/>
-        <path d="M340 120 C370 108 410 110 434 126 C452 140 454 168 446 194 C438 224 426 258 408 288 C396 308 380 314 370 300 C356 280 352 250 346 222 C340 196 322 178 318 156 C316 138 326 126 340 120 Z"/>
-        <path d="M330 40 C370 26 430 28 470 36 C520 30 590 34 640 52 C670 64 664 90 640 100 C610 112 576 110 548 120 C524 128 510 146 494 150 C478 150 470 136 456 128 C430 116 404 108 380 104 C356 100 334 88 326 70 C322 56 324 46 330 40 Z"/>
-        <path d="M470 140 C486 132 504 136 512 150 C520 164 512 182 496 186 C482 188 470 176 466 162 C464 152 466 144 470 140 Z"/>
-        <path d="M560 250 C590 240 630 246 650 264 C664 280 652 300 628 304 C600 308 572 300 560 284 C552 272 552 258 560 250 Z"/>
-      </g>
-      <path id="wRoute" d="M178 272 C260 210 380 150 488 156" fill="none" stroke="rgba(255,212,0,.25)" stroke-width="3" stroke-dasharray="7 8"/>
-      <path id="wDone" d="M178 272 C260 210 380 150 488 156" fill="none" stroke="#ffd400" stroke-width="4" stroke-linecap="round" stroke-dasharray="1000" stroke-dashoffset="1000"/>
-      <circle cx="178" cy="272" r="6" fill="#ff3b8d"/><text x="178" y="298" fill="#fff" font-size="13" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">RIO</text>
-      <circle cx="488" cy="156" r="6" fill="#2ee6ff"/><text x="488" y="140" fill="#fff" font-size="13" font-weight="800" text-anchor="middle" font-family="Inter,Arial" letter-spacing="1.5">DUBAI</text>
-      <g id="wPlane" transform="translate(178 272)"><path d="M-12 0 L10 -2 L14 0 L10 2 Z M-2 -1 L-6 -10 L-1 -10 L5 -1 Z M-2 1 L-6 10 L-1 10 L5 1 Z M-12 -1 L-15 -6 L-11 -6 L-9 -1 Z M-12 1 L-15 6 L-11 6 L-9 1 Z" fill="#ffd400"/></g>
-    </svg></div>
-    <span class="tbc">TO BE CONTINUED…</span></div></div><span class="dots">ON THE WAY TO THE AIRPORT</span></div>
   <div class="world"><b>RIO DE JANEIRO → DUBAI</b>
     <div class="map"><svg viewBox="0 0 720 380" aria-hidden="true">
       <rect width="720" height="380" fill="#0d2260"/>
@@ -358,14 +354,35 @@
   })();
 </script>
 <script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.178.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.178.0/examples/jsm/" } }</script>
-<script type="module" src="game.js?v=56"></script>
+<script type="module" src="game.js?v=57"></script>
 <script>
-  // GPS trip card: restart the car along the route and count the minutes down each time it shows.
-  (() => { const f = document.getElementById('fade'); let t = 0;
-    new MutationObserver(() => { if (!f.classList.contains('trip')) { clearInterval(t); return; }
-      const route = document.getElementById('gpsRoute'), car = document.getElementById('gpsCar'), L = route.getTotalLength(), t0 = performance.now();
-      const step = now => { if (!f.classList.contains('trip')) return; const k = Math.min(1, (now - t0) / 5000), e = 1 - Math.pow(1 - k, 2.2), q = route.getPointAtLength(e * L);
-        car.setAttribute('transform', `translate(${q.x.toFixed(1)} ${q.y.toFixed(1)})`); if (k < 1) requestAnimationFrame(step); };
+  // GPS trip card: a satnav view. The camera follows the car over the tilted map (the svg viewBox pans and zooms),
+  // the route fills in behind it, the turn card and the speed change as it goes, the ETA counts down.
+  (() => { const f = document.getElementById('fade'); let t = 0, on = false;
+    const TURNS = [[0, '↑', 'IN 400 M', 'Head east on Estrada da Gávea'], [0.22, '↱', 'IN 300 M', 'Keep right onto Linha Amarela'], [0.5, '↗', 'IN 1.2 KM', 'Exit toward Ilha do Governador'], [0.8, '↰', 'IN 200 M', 'Turn left, Av. 20 de Janeiro'], [0.95, '✈', 'ARRIVING', 'Rio Airport · Terminal 2']];
+    new MutationObserver(() => {
+      if (!f.classList.contains('trip')) { on = false; clearInterval(t); return; }
+      if (on) return; on = true;
+      const route = document.getElementById('gpsRoute'), done = document.getElementById('gpsDone'), car = document.getElementById('gpsCar'), svg = route.ownerSVGElement, L = route.getTotalLength(), t0 = performance.now();
+      const turn = document.getElementById('gpsTurn'), spd = document.getElementById('gpsSpd'), dist = document.getElementById('gpsDist'); let ti = -1;
+      done.style.strokeDasharray = L; done.style.strokeDashoffset = L;
+      const cam = { x: 300, y: 180, w: 600 };
+      const step = now => { if (!on) return;
+        const k = Math.min(1, (now - t0) / 5200), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, q = route.getPointAtLength(e * L), q2 = route.getPointAtLength(Math.min(L, e * L + 3));
+        const ang = Math.atan2(q2.y - q.y, q2.x - q.x) * 180 / Math.PI + 90;
+        car.setAttribute('transform', `translate(${q.x.toFixed(1)} ${q.y.toFixed(1)}) rotate(${ang.toFixed(1)})`);
+        done.style.strokeDashoffset = (L * (1 - e)).toFixed(1);
+        // Camera: wide on the whole city, swoops in behind the car, pulls back out on arrival.
+        const zin = Math.min(1, (now - t0) / 900), zout = Math.max(0, (k - 0.86) / 0.14), wz = 600 - (600 - 230) * zin * (1 - zout);
+        const dx = q2.x - q.x, dy = q2.y - q.y, dl = Math.hypot(dx, dy) || 1, ahead = 40 * (1 - zout);
+        const tx = q.x + dx / dl * ahead, ty = q.y + dy / dl * ahead;
+        cam.w += (wz - cam.w) * 0.12; cam.x += ((zout ? 300 : tx) - cam.x) * 0.1; cam.y += ((zout ? 180 : ty) - cam.y) * 0.1;
+        const h = cam.w * 0.6; svg.setAttribute('viewBox', `${(cam.x - cam.w / 2).toFixed(1)} ${(cam.y - h * 0.62).toFixed(1)} ${cam.w.toFixed(1)} ${h.toFixed(1)}`);
+        spd.textContent = Math.round(k < 1 ? 62 + 48 * Math.sin(Math.PI * Math.min(1, k * 1.15)) + 4 * Math.sin(now / 180) : 0);
+        dist.textContent = Math.max(0, 18.4 * (1 - e)).toFixed(1);
+        let n = 0; for (let i = 0; i < TURNS.length; i++) if (k >= TURNS[i][0]) n = i;
+        if (n !== ti) { ti = n; const [, ic, sm, tx2] = TURNS[n]; turn.classList.add('flip'); setTimeout(() => { turn.innerHTML = `<i>${ic}</i><span><small>${sm}</small>${tx2}</span>`; turn.classList.remove('flip'); }, 150); }
+        requestAnimationFrame(step); };
       requestAnimationFrame(step);
       let m = 12; const el = document.getElementById('gpsEta'); el.textContent = m; clearInterval(t);
       t = setInterval(() => { m = Math.max(1, m - 1); el.textContent = m; if (m === 1) clearInterval(t); }, 420); }).observe(f, { attributes: true, attributeFilter: ['class'] }); })();
