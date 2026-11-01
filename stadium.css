@@ -116,6 +116,8 @@ body.menu-open #burger i:nth-child(1){transform:translateY(6px) rotate(45deg)}bo
 @keyframes menuIn{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
 body.menu-open .top{color:var(--ink);text-shadow:none;z-index:6;position:absolute}
 .contact .formation-link{margin-top:14px;font:600 15px var(--round);color:var(--coral);text-decoration:none;align-self:flex-start;border-bottom:2px solid currentColor;padding-bottom:2px}
+.contact .portfolio-link{color:var(--ink,#16224f);margin-top:20px;font-size:17px}
+.contact .portfolio-link+.formation-link{margin-top:10px}
 @media(max-width:767px){#burger{display:block}#sound .label{display:none}}
 
 /* Speaker icon for the sound button on phones (muted cross when off, waves when on). */
