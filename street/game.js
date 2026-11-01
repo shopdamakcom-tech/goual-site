@@ -1361,6 +1361,19 @@ function placeVilla(R, villa) {
   scene.add(villa);
   DXB.door = { gate: toW(-1.8, -1, -48.5), door: toW(-1.2, -1, -32.6), inside: toW(-1.2, -1, -28), center: toW(-1.8, -1, -19) };
 }
+// Overhead signs before the split: the highway on, the private exit to the right.
+function exitSigns(R) {
+  for (const [ds, txt] of [[-160, ['AL AIN  ↑', 'EXIT 21  ↗  PRIVATE']], [-30, ['EXIT 21', '↗']]]) {
+    const s = R.splitS + ds, p = R.at(s), f = R.fwd(s), rt = R.right(s);
+    const g = new THREE.Group(); g.position.set(p.x, R.y(s), p.z); g.rotation.y = Math.atan2(f.x, f.z); scene.add(g);
+    const post = new THREE.MeshStandardMaterial({ color: 0x8a8f94, metalness: 0.6, roughness: 0.4, envMap: ENV });
+    for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 7, 8), post); m.position.set(sx * 6.5, 3.5, 0); g.add(m); }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(13.4, 0.35, 0.35), post); beam.position.set(0, 6.8, 0); g.add(beam);
+    txt.forEach((t, i) => { const w = txt.length > 1 ? 5.6 : 6;
+      const tex = canvasTex(512, 160, (x, cw, ch) => { x.fillStyle = '#0a6a3a'; x.fillRect(0, 0, cw, ch); x.strokeStyle = '#fff'; x.lineWidth = 6; x.strokeRect(8, 8, cw - 16, ch - 16); x.fillStyle = '#fff'; x.font = '800 58px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, cw / 2, ch / 2 + 3); });
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.75), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })); pl.position.set(txt.length > 1 ? (i ? -3.1 : 3.1) : -3, 5.7, -0.2); pl.rotation.y = Math.PI; g.add(pl); });
+  }
+}
 // Desert life: zebras galloping alongside the road, camels resting by the dunes, lions prowling.
 const ANIMALS = [];
 function desertAnimals(R, [camel, zebra, lion]) {
@@ -1445,7 +1458,8 @@ function freeLane(c, want) {
 // The route: east along the avenue, south down the big street, east again out of the city, then the desert road
 // to the tunnel. Messi stops inside the tunnel.
 const ROUTE_CITY = [[-215, -139], [-120, -139], [0, -139], [150, -139], [286, -139], [316, -133], [328, -112], [328, -40], [328, 60], [328, 160], [330, 212], [344, 232], [372, 236], [440, 236]];
-const ROUTE_DESERT = [[560, 236], [680, 228], [790, 205], [880, 178]];
+const ROUTE_DESERT = [[560, 236], [680, 228], [790, 205], [850, 188], [893, 194], [922, 222], [938, 262]];   // the last bend is the exit to the villa
+const ROUTE_SPLIT = [850, 188], MAIN_DIR = new V3(0.955, 0, -0.296).normalize();   // the highway carries on straight from here
 function makeRoad(R, s0, s1, width) {
   const n = Math.floor((s1 - s0) / 2) + 1, pos = new Float32Array(n * 6), uv = new Float32Array(n * 4), idx = [];
   for (let i = 0; i < n; i++) {
@@ -1486,7 +1500,9 @@ function buildRoute(marina) {
   const tunS = S.length;   // end of the asphalt
   const hw = s => s < cityEnd ? 5.3 : s < tunS ? 4.4 : 6;
   // The villa's plot centre: 48 m past the end of the road (its forecourt starts at the road).
-  return { at, fwd, right, y, hw, N, cityEnd, tunS, cliffS: N, L: N - 1, stopS: N - 5, samples, end, dirE, villaC: end.clone().addScaledVector(dirE, 48.7) };
+  let splitS = 0, bd = 1e9; samples.forEach((q, i) => { const d = Math.hypot(q.p.x - ROUTE_SPLIT[0], q.p.z - ROUTE_SPLIT[1]); if (d < bd) { bd = d; splitS = i; } });
+  const mainP0 = new V3(ROUTE_SPLIT[0], 0, ROUTE_SPLIT[1]), mainL = 900;
+  return { at, fwd, right, y, hw, N, cityEnd, tunS, cliffS: splitS, splitS, mainP0, mainL, L: N - 1, stopS: N - 5, samples, end, dirE, villaC: end.clone().addScaledVector(dirE, 48.7) };
 }
 function carPose(c) {
   const R = DRV.R, p = R.at(c.s), r = R.right(c.s), f = R.fwd(c.s);
@@ -1508,6 +1524,9 @@ async function startDrive() {
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: 0xdcbf8c, roughness: 1 }));
   sand.rotation.x = -Math.PI / 2; sand.position.y = -2.2; sand.receiveShadow = true; scene.add(sand);
   scene.add(makeRoad(R, 0, R.cityEnd, 12.5), makeRoad(R, R.cityEnd - 2, R.tunS, 10));
+  // The highway carries straight on into the desert; Messi takes the exit.
+  { const rgt = new V3(-MAIN_DIR.z, 0, MAIN_DIR.x); scene.add(makeRoad({ at: s => R.mainP0.clone().addScaledVector(MAIN_DIR, s), right: () => rgt, y: () => -0.012 }, 0, R.mainL, 10)); }
+  exitSigns(R);
   desertDecor(R); cityTowers(R, marina);
   setFov(TOUCH ? 68 : 62);
   // The racers: Messi ahead, you, the other two just behind.
@@ -1528,13 +1547,31 @@ async function startDrive() {
   desertAnimals(R, await DXB.animalsP);
   updateDrive(0); cam.ovPos = cam.override.pos.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
   warmUp();
-  speedo(true);
+  speedo(true); pedals(true);
   $('#fade').classList.remove('on'); $('#letterbox').classList.remove('on');
   audio.airportOff?.(); audio.drive?.(true);
   place('DUBAI', 'MARINA');
   setObjective('CHAPTER 3 · DUBAI', 'Chase Messi!', () => DXB.police.position);
-  hint(TOUCH ? 'Steer with the stick · SPRINT = boost' : 'A / D to steer · W or Shift = boost · S = brake', 6);
+  hint(TOUCH ? 'Steer with the stick · GAS to go faster · BRAKE to slow down' : 'A / D to steer · W or Shift = boost · S = brake', 6);
   setTimeout(() => { if (DRV.on && rivalState.on) say([['RIVAL2', 'Stay on him, {HERO}!']]); }, 2500);
+}
+// On phones: GAS and BRAKE pedals replace the on-foot buttons while you drive (the stick steers).
+function pedals(on) {
+  for (const id of ['#bSiu', '#bJump', '#bRun', '#bAct']) $(id)?.style.setProperty('display', on ? 'none' : '');
+  let box = $('#pedals');
+  if (on && !box) {
+    box = document.createElement('div'); box.id = 'pedals';
+    box.style.cssText = 'position:absolute;right:calc(18px + env(safe-area-inset-right));bottom:calc(22px + env(safe-area-inset-bottom));display:flex;gap:14px;align-items:flex-end;pointer-events:auto';
+    const mk = (label, key, big) => { const b = document.createElement('button'); b.textContent = label;
+      b.style.cssText = `width:${big ? 96 : 78}px;height:${big ? 96 : 78}px;border-radius:50%;border:3px solid ${big ? '#ffd400' : '#ff4d5a'};background:${big ? 'rgba(255,212,0,.28)' : 'rgba(255,77,90,.25)'};color:#fff;font:800 13px Inter,Arial;letter-spacing:.08em;touch-action:none`;
+      const set = v => e => { e.preventDefault(); e.stopPropagation(); DRV[key] = v; b.style.transform = v ? 'scale(.92)' : ''; };
+      b.addEventListener('pointerdown', set(true)); for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, set(false));
+      box.appendChild(b); };
+    mk('BRAKE', 'brk', false); mk('GAS', 'gas', true);
+    $('#touch').appendChild(box);
+  }
+  if (box) box.style.display = on ? 'flex' : 'none';
+  if (!on) DRV.gas = DRV.brk = false;
 }
 function speedo(on) {
   let el = $('#speedo');
@@ -1547,7 +1584,7 @@ function updateDrive(dt) {
   const ending = DRV.ending;
   // You: auto-throttle, boost, brake, steer.
   const mv = mode() === 'drive' && !ending ? readMove() : { x: 0, y: 0, m: 0 };
-  const boost = !ending && (keys.ShiftLeft || keys.ShiftRight || sprintToggle || mv.y > 0.45), brake = ending || mv.y < -0.45;
+  const boost = !ending && (keys.ShiftLeft || keys.ShiftRight || sprintToggle || mv.y > 0.45 || DRV.gas), brake = ending || mv.y < -0.45 || DRV.brk;
   const vWant = ending ? 0 : brake ? 9 : boost ? 46 : 32;
   me.v = damp(me.v, vWant, brake ? 1.6 : 0.85, dt);
   me.vd = damp(me.vd, mv.x * 10 * clamp(me.v / 14, 0.35, 1), 7, dt);
@@ -1594,13 +1631,15 @@ function updateDrive(dt) {
   audio.driveSpeed?.(me.v, boost ? 1 : 0.4); audio.sirenLevel?.(clamp(1 - gap / 140, 0.15, 1));
   if (alongside && !DRV.flags.side) { DRV.flags.side = true; toast('SIDE BY SIDE!'); addStyle(300, 'LEVEL WITH MESSI'); say([['MESSI', 'Nice try, {HERO}! Nobody passes me!']]); }
   if (me.s > R.cityEnd && !DRV.flags.desert) { DRV.flags.desert = true; place('DUBAI', 'DESERT ROAD'); if (rivalState.on) say([['RIVAL1', 'He is heading for the desert!']]); }
-  if (ms.s > R.tunS - 60 && !DRV.flags.tunnel) { DRV.flags.tunnel = true; hint('He is slowing down… that villa!', 3); }
+  if (ms.s > R.splitS && !DRV.flags.exit) { DRV.flags.exit = true; hint('He is taking the exit!', 3); }
+  if (ms.s > R.tunS - 40 && !DRV.flags.tunnel) { DRV.flags.tunnel = true; hint('He is slowing down… that villa!', 3); }
   if (!ending && ms.s >= R.stopS - 0.3 && me.s > R.stopS - 35) { DRV.ending = true; hideoutScene(); }
 }
 // The desert: one big height field of dunes, a valley for the road and a rocky mountain that buries the tunnel.
 function desertDecor(R) {
   const road = [];
   for (let s = R.cityEnd - 40; s < R.N; s += 5) road.push(R.at(s));
+  for (let k = 0; k <= R.mainL; k += 6) road.push(R.mainP0.clone().addScaledVector(MAIN_DIR, k));
   const yRoad = R.y(R.N - 1), xCity = R.at(R.cityEnd).x, VC = R.villaC;
   const dmin = (list, x, z) => { let m = 1e12; for (const q of list) { const d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < m) m = d; } return Math.sqrt(m); };
   const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
@@ -1675,7 +1714,7 @@ function cityTowers(R, marina) {
 }
 async function hideoutScene() {
   const R = DRV.R, ms = DRV.messi, V = DXB.door;
-  pushMode('cut'); $('#letterbox').classList.add('on'); speedo(false); setObjective('CHAPTER 3 · DUBAI', 'Where is he going?', null);
+  pushMode('cut'); $('#letterbox').classList.add('on'); speedo(false); pedals(false); setObjective('CHAPTER 3 · DUBAI', 'Where is he going?', null);
   // Let the cars roll to a stop behind him.
   await tween(1.6, () => {});
   DRV.on = false; audio.drive?.(false); audio.siren?.(false);
