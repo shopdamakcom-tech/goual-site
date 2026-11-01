@@ -722,7 +722,7 @@ load('../models/ballon-dor.glb').then(m => {
 }).catch(() => {});
 const theft = { i: 0, run: false, fallen: false, slipped: false, boost: 0 };
 async function enterAirport() {
-  const [{ wallColliders, carve, floorColliders, splitGlass }, src, ...blds] = await Promise.all([import('./airport.js?v=6'), load('models/airport.glb'), ...['Large_2', 'Medium_2_001', 'Small_1'].map(n => load(`models/bld-${n}.glb`))]);
+  const [{ wallColliders, carve, floorColliders, splitGlass }, src, ...blds] = await Promise.all([import('./airport.js?v=7'), load('models/airport.glb'), ...['Large_2', 'Medium_2_001', 'Small_1'].map(n => load(`models/bld-${n}.glb`))]);
   // Leave the favela: hide it all (lights, sky, car and the stars stay), swap the colliders.
   const keep = new Set([sun, sun.target, sky, clouds, car, ball.mesh, trophy, await ferrariP, ...Object.values(HEROES).map(h => h.ch.root)]);
   // The favela is not coming back: free its GPU memory (geometries and textures are re-uploaded if ever reused).
@@ -758,6 +758,7 @@ async function enterAirport() {
   const road = new THREE.Mesh(new THREE.PlaneGeometry(12, 600), new THREE.MeshStandardMaterial({ color: 0x3a3b3d, roughness: 0.9 }));
   road.rotation.x = -Math.PI / 2; road.position.set(31, -0.01, 0); road.receiveShadow = true; scene.add(road);
   buildCity(blds);
+  terminalCrowd();
   // The thief: black suit, cap, the golden ball under his arm.
   // The thief is Lionel Messi ("Model messi" by franko981, Sketchfab, CC BY 4.0).
   thief = new Character(await load('models/messi.glb'), { kind: 'mixamo', height: 1.70 });
@@ -792,12 +793,43 @@ function buildCity(blds) {
     ch.root.position.set(x, 0, w.z); scene.add(ch.root); walkers.push(w);
   }
 }
+// A rolling suitcase: shell, wheels and a pulled-out handle (origin on the floor, handle towards -z).
+function suitcase(color) {
+  const g = new THREE.Group(), m = new THREE.MeshStandardMaterial({ color, roughness: 0.55 }), dark = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.7 });
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.58, 0.24), m); body.position.y = 0.34; body.castShadow = true; g.add(body);
+  for (const x of [-0.15, 0.15]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.04, 8), dark); w.rotation.z = Math.PI / 2; w.position.set(x, 0.035, -0.08); g.add(w);
+    const rod = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.36, 0.02), dark); rod.position.set(x * 0.8, 0.8, -0.1); g.add(rod); }
+  const grip = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.03, 0.04), dark); grip.position.set(0, 0.98, -0.1); g.add(grip);
+  scene.add(g); return g;
+}
+// Travellers inside the terminal: a queue at three check-in desks and people pulling suitcases through the hall.
+function terminalCrowd() {
+  const LOOKS = [{ top: '#3d5a80', bottom: '#222', skin: '#e0b48f' }, { top: '#e07a5f', bottom: '#2f3e46', skin: '#8f5f42' }, { top: '#f4f1de', bottom: '#5c4d3c', skin: '#c99a76' }, { top: '#81b29a', bottom: '#1d1d1d', skin: '#6e4630' }, { top: '#9b2335', bottom: '#d9cbb0', skin: '#e3c09c' }, { top: '#222', bottom: '#4a5a7a', skin: '#b98566' }, { top: '#f2cc8f', bottom: '#333', skin: '#7a4a32' }];
+  const BAGS = [0x1f4e79, 0xb22222, 0x2e2e2e, 0x6a994e, 0xd4a017, 0x7b2d8b];
+  let n = 0;
+  const person = (x, z) => { const ch = new Character(kidSrc, { kind: 'mixamo', height: 1.6 + (n % 4) * 0.07 }); dress(ch, { ...LOOKS[n % LOOKS.length], shoes: '#222' }); const y = Math.max(0, groundAt(x, z, 1.5)); ch.root.position.set(x, y, z); scene.add(ch.root); return [ch, y, BAGS[n++ % BAGS.length]]; };
+  // The queues: people one behind the other in front of the counters (counters face +x at x = -12).
+  for (const [z, k] of [[-38.5, 3], [-45.5, 4], [-52.5, 3]]) for (let i = 0; i < k; i++) {
+    const x = -10.2 + i * 1.15, zz = z + (i % 2 ? 0.12 : -0.1), [ch, y, bag] = person(x, zz);
+    const b = suitcase(bag); b.position.set(x + 0.1, y, zz + 0.45); b.rotation.y = -Math.PI / 2 + 0.2;
+    walkers.push({ ch, x, z: zz, y, dir: 0, speed: 0, yaw: -Math.PI / 2 });
+    colliders.push({ x0: x - 0.3, x1: x + 0.35, z0: zz - 0.3, z1: zz + 0.65, y0: y, y1: y + 1.8 });
+  }
+  // Walking through the hall, suitcase rolling behind.
+  for (const [x, z, dir, sp] of [[5, -60, 1, 1.15], [7.5, -34, -1, 1.3], [-5.4, -64, 1, 1.0], [5.8, -45, -1, 1.2], [-5.4, -40, -1, 1.25], [8.4, -52, 1, 1.05]]) {
+    const [ch, y, bag] = person(x, z);
+    walkers.push({ ch, x, z, y, dir, speed: sp, z0: -64, z1: -28, bag: suitcase(bag) });
+  }
+  indexColliders();
+}
 function updateWalkers(dt) {
   for (const w of walkers) {
-    w.z += w.dir * w.speed * dt;
-    if (w.z > w.z1) w.dir = -1; else if (w.z < w.z0) w.dir = 1;
-    w.ch.root.position.set(w.x, 0, w.z); w.ch.root.rotation.y += angDiff(w.ch.root.rotation.y, w.dir > 0 ? 0 : Math.PI) * (1 - Math.exp(-dt * 6));
+    if (w.speed) { w.z += w.dir * w.speed * dt; if (w.z > w.z1) w.dir = -1; else if (w.z < w.z0) w.dir = 1; }
+    const yaw = w.yaw ?? (w.dir > 0 ? 0 : Math.PI), r = w.ch.root;
+    r.position.set(w.x, w.y || 0, w.z); r.rotation.y += angDiff(r.rotation.y, yaw) * (1 - Math.exp(-dt * 6));
     w.ch.animate({ dt, speed: w.speed, grounded: true });
+    // The suitcase rolls behind, on the right, tilted towards the hand.
+    if (w.bag) { const f = Math.sin(r.rotation.y), c = Math.cos(r.rotation.y); w.bag.position.set(w.x - f * 0.55 - c * 0.3, w.y || 0, w.z - c * 0.55 + f * 0.3); w.bag.rotation.set(0, r.rotation.y + Math.PI, 0); w.bag.rotateX(-0.45); }
   }
 }
 // The way out to the tarmac: glowing yellow arrows on the floor and big green signs over the openings.
@@ -985,6 +1017,10 @@ async function escaped() {
   shot(new V3(-30, 6, 70), new V3(-62, 3, 92), { cut: true });
   await say([['MESSI', 'Bye bye, {HERO}! See you in Dubai!']]);
   if (plane) {
+    // Its parked spot is free now: drop the collision boxes it left on the apron.
+    { const pb = new THREE.Box3().setFromObject(plane).expandByScalar(0.3);
+      for (let i = colliders.length - 1; i >= 0; i--) { const c = colliders[i]; if (c.x1 - c.x0 > 100) continue; if (pb.containsPoint(new V3((c.x0 + c.x1) / 2, (c.y0 + c.y1) / 2, (c.z0 + c.z1) / 2))) colliders.splice(i, 1); }
+      indexColliders(); }
     scene.attach(plane);                         // world space, so we can fly it
     const p0 = plane.position.clone(), q0 = plane.quaternion.clone(), box = new THREE.Box3().setFromObject(plane), c0 = box.getCenter(new V3());
     const off = p0.clone().sub(c0);              // pivot offset: we move the plane's centre
@@ -1025,18 +1061,28 @@ async function chaseFlight() {
   const RUN_X = -128, RUN_Z = 70;
   const RY = Math.max(0, groundAt(RUN_X, RUN_Z, 3)), AY = Math.max(0, groundAt(RUN_X + 7, RUN_Z + 7, 3));   // the runway and apron surfaces
   jet.rotation.set(0, -Math.PI / 2, 0); jet.position.set(RUN_X, RY, RUN_Z); jet.updateMatrixWorld(true);
-  // On the apron: the other two catch up with you.
-  me.root.visible = true; P.pos.set(RUN_X + 6, AY, RUN_Z + 6); P.yaw = Math.atan2(-6, -6); P.vel.set(0, 0, 0);
+  // Back on the apron: Messi is gone, but a private jet waits on the runway. Run to it.
+  me.root.visible = true; P.seated = false; P.vel.set(0, 0, 0); P.pos.y = Math.max(0, groundAt(P.pos.x, P.pos.z, P.pos.y + 1));
+  { const j = new V3(RUN_X, 0, RUN_Z).sub(P.pos).setY(0).normalize(); P.yaw = Math.atan2(j.x, j.z);
+    shot(P.pos.clone().addScaledVector(j, 2.6).add(new V3(j.z * 0.8, 1.5, -j.x * 0.8)), P.pos.clone().add(new V3(0, 1.6, 0)), { cut: true }); cam.blend = 1; }
+  await say([['HERO', 'Dubai… I need a plane. Now.']]);
+  $('#letterbox').classList.remove('on'); release(); state.modeStack = ['free']; P.mode = 'free'; behindCam();
+  if (TOUCH) $('#touch').classList.remove('hidden');
+  setObjective('CHAPTER 2 · THE AIRPORT', 'Run to the private jet on the runway!', new V3(RUN_X, RY, RUN_Z));
+  hint(TOUCH ? 'A jet is waiting on the runway — SPRINT!' : 'A jet is waiting on the runway — hold Shift!', 5);
+  while (Math.hypot(P.pos.x - RUN_X, P.pos.z - RUN_Z) > 14) await sleep(0.15);
+  pushMode('cut'); $('#letterbox').classList.add('on'); prompt(null); setObjective('CHAPTER 2 · THE AIRPORT', 'Next stop: Dubai', null);
+  // At the jet: the other two catch up with you.
+  P.pos.set(RUN_X + 6, AY, RUN_Z + 6); P.yaw = Math.atan2(-6, -6); P.vel.set(0, 0, 0);
   if (rivalState.on) rivals().forEach((r, i) => { r.ch.root.visible = true; r.ch.root.position.set(RUN_X + 9 + i * 1.2, AY, RUN_Z + 9 - i); r.ch.root.rotation.set(0, Math.atan2(-1, -1), 0); });
   rivalState.mode = 'stand';
   shot(new V3(RUN_X + 14, 3, RUN_Z + 12), new V3(RUN_X + 2, 1.5, RUN_Z), { cut: true }); cam.blend = 1;
   await say(rivalState.on ? [
-    ['HERO', 'Dubai… I need a plane. Now.'],
     ['RIVAL1', 'Wait! We are coming with you!'],
     ['HERO', 'Then get in. I am flying.'],
     ['RIVAL2', 'Since when can you fly a plane?!'],
     ['HERO', 'Since today. Next stop: Dubai.'],
-  ] : [['HERO', 'Dubai… I need a plane. Now.'], ['HERO', 'Since today. Next stop: Dubai.']]);
+  ] : [['HERO', 'Since today. Next stop: Dubai.']]);
   // They climb aboard (the jet's own cabin will come later).
   audio.engine?.(10);
   me.root.visible = false; P.seated = true; P.vel.set(0, 0, 0);

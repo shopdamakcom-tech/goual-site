@@ -57,7 +57,11 @@ export function carve(root, boxes) {
       const x = (a.x + b.x + c.x) / 3, y = (a.y + b.y + c.y) / 3, z = (a.z + b.z + c.z) / 3;
       e1.subVectors(b, a); e2.subVectors(c, a); nn.crossVectors(e1, e2); const ar = nn.length();
       if (ar < 1e-9 || Math.abs(nn.y / ar) > 0.75) continue;   // only walls: floors and ceilings stay
-      for (const B of boxes) if (x > B.x0 && x < B.x1 && z > B.z0 && z < B.z1 && y < B.y1) {
+      // Glass panes can be huge: drop any that touches a doorway, not only those centred in it.
+      const hit = B => o.userData.glass
+        ? Math.max(a.x, b.x, c.x) > B.x0 && Math.min(a.x, b.x, c.x) < B.x1 && Math.max(a.z, b.z, c.z) > B.z0 && Math.min(a.z, b.z, c.z) < B.z1 && Math.min(a.y, b.y, c.y) < B.y1
+        : x > B.x0 && x < B.x1 && z > B.z0 && z < B.z1 && y < B.y1;
+      for (const B of boxes) if (hit(B)) {
         // Make it a degenerate triangle (all three corners on the first one).
         if (!done.has(g)) { g.index = idx.clone(); done.add(g); }
         const I = g.index; I.setX(t + 1, I.getX(t)); I.setX(t + 2, I.getX(t)); n++; break;
