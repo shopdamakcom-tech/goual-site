@@ -12,7 +12,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=4';
 import { Builder, kitMaterials, dog, clutter, laundry, house } from './favela-kit.js';
-import { audio } from './audio.js?v=5';
+import { audio } from './audio.js?v=6';
 
 const $ = s => document.querySelector(s);
 const V3 = THREE.Vector3;
@@ -133,8 +133,8 @@ function makeCar(m = carSrc, len = 4.54, yaw = Math.PI / 2) {
   g.add(m); return g;
 }
 // Cristiano's car: a Mercedes-AMG G63 whose four doors open and shut (the model's own animation: closed, open,
-// closed again over its length). Nose along -z in the model.
-const car = makeCar(prepCar(carSrc), 4.87, -Math.PI / 2); car.visible = false; scene.add(car);
+// closed again over its length).
+const car = makeCar(prepCar(carSrc), 4.87, Math.PI / 2); car.visible = false; scene.add(car);   // model nose along +z
 const carMix = new THREE.AnimationMixer(carSrc), carClip = carSrc.userData.clips?.[0];
 if (carClip) carMix.clipAction(carClip).play();
 // 0 = doors shut, 1 = wide open.
@@ -152,7 +152,7 @@ function carDoorFor(from) {
   car.updateMatrixWorld(true);
   const cc = new THREE.Box3().setFromObject(car).getCenter(new V3());
   let best = null, bd = 1e9;
-  for (const n of ['Plane074_81', 'Plane003_120']) { const d = car.getObjectByName(n); if (!d) continue; const dd = new THREE.Box3().setFromObject(d).getCenter(new V3()).distanceTo(from); if (dd < bd) { bd = dd; best = d; } }
+  for (const n of ['Plane043_47', 'Plane044_122']) { const d = car.getObjectByName(n); if (!d) continue; const dd = new THREE.Box3().setFromObject(d).getCenter(new V3()).distanceTo(from); if (dd < bd) { bd = dd; best = d; } }
   if (!best) return null;
   return { node: null, sign: 1, mid: new THREE.Box3().setFromObject(best).getCenter(new V3()), centre: cc };
 }
@@ -1122,8 +1122,8 @@ const CARS = [
   { id: 'cyber', name: 'CYBERTRUCK', sub: 'Tesla', file: 'car-cyber.glb', len: 5.68, yaw: 0 },
 ];
 const DXB = { RW: { z: 410, y: 0 }, APRON: { z: 198 }, cars: {} };   // runway along x; apron in front of the terminal's south pier
-// Episode 3 is not public yet: only ?ep=3 (from the landing), ?ep=3d (the chase) or ?dubai (whole game) reach it.
-const EP3 = ['3', '3d'].includes(params.get('ep')) || params.has('dubai');
+// ?ep=3 starts at the Dubai landing, ?ep=3d at the chase.
+const EP3 = true;   // episode 3 is public: the game goes on to Dubai after the jet
 const DRV = { on: false, list: [], t: 0 };
 // Glass that the exporter made "transmissive" renders as a ghost in WebGL: make it plain tinted glass, the rest opaque.
 function setFov(f) { camera.fov = f; camera.updateProjectionMatrix(); }
