@@ -1175,6 +1175,7 @@ async function enterDubai() {
   { const b = new THREE.Box3().setFromObject(liner); liner.position.set(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2); }
   mp.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); mp.visible = false; scene.add(mp);
   if (jet) {
+    jet.traverse(o => { if (o.isMesh) for (const mt of [].concat(o.material)) { mt.envMap = ENV; mt.envMapIntensity = 1; if (mt.metalness > 0.6) mt.metalness = 0.6; mt.needsUpdate = true; } });
     jet.visible = false; jet.rotation.set(0, 0, 0); jet.position.set(0, 0, 0); jet.updateMatrixWorld(true);
     const src = jet.children[0], b = new THREE.Box3().setFromObject(src); src.position.x -= (b.min.x + b.max.x) / 2; src.position.z -= (b.min.z + b.max.z) / 2; src.position.y -= b.min.y;
     jet.rotation.set(0, Math.PI, 0);
@@ -1183,7 +1184,7 @@ async function enterDubai() {
   const pc = DXB.police = makeCar(prepCar(police), 4.46); policeLights(pc); scene.add(pc);
   CARS.forEach((c, i) => { const g = makeCar(prepCar(cs[i]), c.len, c.yaw); g.userData.car = c; scene.add(g); DXB.cars[c.id] = g; });
   const row = DXB.APRON.z + 34;
-  const park = (g, x) => { g.position.set(x, rayY(air, x, row) ?? RW.y, row); g.rotation.set(0, 0, 0); };
+  const park = (g, x) => { g.position.set(x, (rayY(air, x, row) ?? RW.y) + 0.12, row); g.rotation.set(0, 0, 0); };
   park(pc, -14); CARS.forEach((c, i) => { park(DXB.cars[c.id], -34 - i * 9); DXB.cars[c.id].userData.x0 = -34 - i * 9; });
   airportDressing();
   warmUp();
@@ -1240,9 +1241,9 @@ async function dubai() {
   // ...and we land right behind him.
   if (jet) { jet.visible = true; audio.engine?.(6); await landPlane(jetPose, JET_X, 6.2, new V3(-176, 2.2, RW.z + 50)); }
   // Cut: both planes have taxied to the apron, noses to the terminal.
-  { const ay = rayY(DXB.air, -10, DXB.APRON.z) ?? RW.y; DXB.mp.position.set(-8, ay, DXB.APRON.z); DXB.mp.rotation.set(0, Math.PI / 2, 0);
+  { const ay = (rayY(DXB.air, -10, DXB.APRON.z) ?? RW.y) + 0.12; DXB.mp.position.set(-8, ay, DXB.APRON.z); DXB.mp.rotation.set(0, Math.PI / 2, 0);
     if (jet) { jet.position.set(-74, ay, DXB.APRON.z + 4); jet.rotation.set(0, -Math.PI / 2, 0); } }
-  const pc = DXB.police, m0 = new V3(-2, DXB.mp.position.y, DXB.APRON.z + 8), m1 = pc.position.clone().add(new V3(0, 0, -1.6));
+  const pc = DXB.police, m0 = new V3(-2, (rayY(DXB.air, -2, DXB.APRON.z + 8) ?? RW.y) + 0.13, DXB.APRON.z + 8), m1 = pc.position.clone().add(new V3(0, 0.13, -1.6));
   thief.root.visible = true; thief.root.position.copy(m0); thief.root.rotation.set(0, Math.atan2(m1.x - m0.x, m1.z - m0.z), 0); trophy.visible = true; theft.cut = 5;
   shot(m1.clone().add(new V3(8, 1.6, 9)), m0.clone().add(new V3(0, 1.2, 0)), { cut: true, follow: 6 });
   await Promise.all([tween(m0.distanceTo(m1) / 5, k => { thief.root.position.lerpVectors(m0, m1, k); cam.override.look = thief.root.position.clone().add(new V3(0, 1.1, 0)); }),
@@ -1255,8 +1256,10 @@ async function dubai() {
   // On the apron: the three of us by the jet.
   const st = new V3(-64, DXB.mp.position.y, DXB.APRON.z + 14), toCars = new V3(1, 0, 1.2).normalize();
   const yaw = Math.atan2(toCars.x, toCars.z);
+  const gy = (x, z) => (rayY(DXB.air, x, z) ?? RW.y) + 0.13;   // the painted apron sits 0.12 above the photo ground
+  st.y = gy(st.x, st.z);
   P.seated = false; P.pos.copy(st); P.yaw = Math.atan2(1, 0.3); P.vel.set(0, 0, 0); me.root.visible = true; me.root.position.copy(st); me.root.rotation.set(0, P.yaw, 0);
-  if (rivalState.on) rivals().forEach((r, i) => { r.ch.root.visible = true; r.ch.root.scale.setScalar(1); r.ch.root.position.copy(st).add(new V3(-1.6 - i * 1.2, 0, i ? -1.4 : 1.4)); r.ch.root.rotation.set(0, P.yaw, 0); });
+  if (rivalState.on) rivals().forEach((r, i) => { r.ch.root.visible = true; r.ch.root.scale.setScalar(1); const q = st.clone().add(new V3(-1.6 - i * 1.2, 0, i ? -1.4 : 1.4)); q.y = gy(q.x, q.z); r.ch.root.position.copy(q); r.ch.root.rotation.set(0, P.yaw, 0); });
   rivalState.mode = 'stand';
   shot(st.clone().add(new V3(9, 1.7, 8)), st.clone().add(new V3(-1, 1.4, 0)), { cut: true });
   await say(rivalState.on ? [['HERO', 'He is taking the police car!'], ['RIVAL1', 'There are more cars over there. Everybody grab one!']] : [['HERO', 'He is taking the police car! I need a car… now.']]);
@@ -1282,6 +1285,9 @@ async function dubai() {
 function warmUp() {
   const hidden = []; scene.traverse(o => { if (!o.visible) { hidden.push(o); o.visible = true; } });
   try { renderer.compile(scene, camera); } catch (e) { }
+  const culled = []; scene.traverse(o => { if (o.frustumCulled) { culled.push(o); o.frustumCulled = false; } });
+  const rt = new THREE.WebGLRenderTarget(16, 16); try { renderer.setRenderTarget(rt); renderer.render(scene, camera); } catch (e) { } renderer.setRenderTarget(null); rt.dispose();
+  culled.forEach(o => { o.frustumCulled = true; });
   scene.traverse(o => { if (o.isMesh) for (const m of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) if (m[k] && !m[k].userData.warm) { m[k].userData.warm = 1; try { renderer.initTexture(m[k]); } catch (e) { } } });
   hidden.forEach(o => { o.visible = false; });
 }
@@ -1334,13 +1340,17 @@ function tunnelPortal(R) {
   const g = new THREE.Group(); g.position.set(p.x, y0, p.z); g.rotation.y = Math.atan2(f.x, f.z); scene.add(g);
   const box = (w, h, d, x, y, z, tex, rep) => { const t = tex.clone(); t.needsUpdate = true; t.repeat.set(w / rep, h / rep); const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 })); m.position.set(x, y, z); m.receiveShadow = true; g.add(m); return m; };
   // Rock face around, concrete head wall and lining at the mouth.
-  // A sloped concrete head wall (like a motorway tunnel mouth); the mountain rises behind it.
-  const wallT = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#b9b2a4'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.09); x.fillStyle = 'rgba(80,70,60,.25)'; for (let j = 0; j < h; j += 32) x.fillRect(0, j, w, 2); for (let i = 0; i < w; i += 64) x.fillRect(i, 0, 2, h); x.fillStyle = 'rgba(90,70,40,.12)'; for (let i = 0; i < 30; i++) x.fillRect(Math.random() * w, 0, 3 + Math.random() * 6, h); });
-  const face = [box(side, 16, 2.5, -(ow + side / 2), 6, 1, wallT, 8), box(side, 16, 2.5, ow + side / 2, 6, 1, wallT, 8), box(ow * 2, 16 - oh, 2.5, 0, oh + (16 - oh) / 2, 1, wallT, 8)];
-  for (const m of face) m.rotation.x = -0.12;   // leaning back into the hill
-  box(side * 2 + ow * 2, 14, 10, 0, 21, 8, rock, 14);   // rock above it, under the mountain's skin
+  // A concrete portal of normal size set into the rock face: head wall over the mouth, short wing walls.
+  const wallT = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#b9b2a4'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.09); x.fillStyle = 'rgba(80,70,60,.25)'; for (let j = 0; j < h; j += 32) x.fillRect(0, j, w, 2); for (let i = 0; i < w; i += 64) x.fillRect(i, 0, 2, h); });
+  box(ow * 2 + 6, 3.4, 2, 0, oh + 1.7, 0.6, wallT, 6);
+  for (const sx of [-1, 1]) { box(3, oh + 3.4, 2, sx * (ow + 1.5), (oh + 3.4) / 2, 0.6, wallT, 6); const ww = box(9, oh + 2, 1.2, sx * (ow + 6), (oh + 2) / 2 - 0.5, -3, wallT, 6); ww.rotation.y = sx * 0.55; }
   box(ow * 2 + 3, 1.6, 1.2, 0, oh + 0.8, -0.2, conc, 6); for (const sx of [-1, 1]) box(1.5, oh + 1.6, 1.2, sx * (ow + 0.75), (oh + 1.6) / 2, -0.2, conc, 6);
-  box(0.6, oh, 14, -ow - 0.3, oh / 2, 7, conc, 6); box(0.6, oh, 14, ow + 0.3, oh / 2, 7, conc, 6); box(ow * 2 + 1.2, 0.6, 14, 0, oh + 0.3, 7, conc, 6);
+  // Lining from the mouth to where the model's own gallery starts, in short pieces that follow the bend.
+  for (let k = 0; k < 30; k += 3) {
+    const sk = s + k + 1.5, q = R.at(sk), fk = R.fwd(sk), yk = R.y(sk), seg = new THREE.Group(); seg.position.set(q.x, yk, q.z); seg.rotation.y = Math.atan2(fk.x, fk.z); scene.add(seg);
+    for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.6, oh + 1.4, 3.3), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.95 })); w.position.set(sx * (ow + 0.3), (oh + 1.4) / 2, 0); seg.add(w); }
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(ow * 2 + 1.2, 0.6, 3.3), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.95 })); roof.position.y = oh + 0.6; seg.add(roof);
+  }
   // Its name over the mouth.
   const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.3), new THREE.MeshBasicMaterial({ map: canvasTex(512, 72, (x, w, h) => { x.fillStyle = '#0a6a3a'; x.fillRect(0, 0, w, h); x.fillStyle = '#fff'; x.font = '800 38px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('AL HAJAR TUNNEL', w / 2, h / 2 + 2); }) }));
   sign.position.set(0, oh + 2.4, -0.85); sign.rotation.y = Math.PI; g.add(sign);
@@ -1556,7 +1566,8 @@ function updateDrive(dt) {
   DXB.police.userData.flash?.(dt);
   // GTA camera: behind and a little above your car, lagging the turns.
   const f = new V3(Math.cos(me.yaw), 0, -Math.sin(me.yaw)); DRV.camF.lerp(f, 1 - Math.exp(-dt * 3.5)).normalize();
-  const p = me.g.position, cp = p.clone().addScaledVector(DRV.camF, -8.4).add(new V3(0, 3.3, 0)), look = p.clone().addScaledVector(DRV.camF, 5).add(new V3(0, 1.1, 0));
+  const kt = clamp((me.s - (R.cliffS - 28)) / 18, 0, 1);   // closer and lower in the tunnel, under its roof
+  const p = me.g.position, cp = p.clone().addScaledVector(DRV.camF, -lerp(8.4, 5.6, kt)).add(new V3(0, lerp(3.3, 2.0, kt), 0)), look = p.clone().addScaledVector(DRV.camF, 5).add(new V3(0, lerp(1.1, 0.9, kt), 0));
   cam.override = { pos: cp, look, follow: 14 }; cam.blend = 1;
   P.pos.copy(p); P.lastSafe.copy(p);
   // HUD, sound, story beats.
@@ -1573,6 +1584,7 @@ function desertDecor(R) {
   for (let s = R.cityEnd - 40; s < R.cliffS; s += 5) road.push(R.at(s));
   for (let s = R.cliffS - 4; s < R.N; s += 3) tube.push(R.at(s));
   const yRoad = R.y(R.cliffS), tubeTop = yRoad + 2.7 * R.K, mid = R.at(R.stopS), xCity = R.at(R.cityEnd).x;
+  const PP = R.at(R.cliffS - 1), PF = R.fwd(R.cliffS - 1);   // the tunnel mouth and the road's direction there
   const dmin = (list, x, z) => { let m = 1e12; for (const q of list) { const d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < m) m = d; } return Math.sqrt(m); };
   const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const dunes = (x, z) => { const u = x * 0.8 + z * 0.6, w = -x * 0.6 + z * 0.8;
@@ -1584,8 +1596,14 @@ function desertDecor(R) {
     if (x < xCity + 10) return -1.5;                          // under the marina
     const dr = dmin(road, x, z), dt = dmin(tube, x, z), mn = mount(x, z);
     let h = Math.max(dunes(x, z) * ss(xCity, xCity + 160, x), mn);
-    h = lerp(yRoad - 0.35, h, ss(9, 42, dr));                  // the road's valley
-    if (dt < 12) h = mn > tubeTop + 2 ? Math.max(h, tubeTop + 1.4) : Math.min(h, yRoad - 0.35);
+    // The road's valley: wide out in the desert, narrowing to a cutting with steep sides at the tunnel mouth,
+    // and nothing past the mouth (the mountain face stands there).
+    const u = (x - PP.x) * PF.x + (z - PP.z) * PF.z;
+    if (u < 0) { const k = clamp(-u / 90, 0, 1); h = lerp(yRoad - 0.35, h, ss(8, lerp(11, 42, k), dr)); }
+    // Over the tunnel the mountain comes down to just above its roof (a heightfield cannot overhang), which also
+    // leaves the mouth open under it.
+    if (dt < 9 && u >= -1) h = mn > tubeTop + 2 ? tubeTop + 1.4 : Math.min(h, yRoad - 0.35);
+    else if (dt < 12 && u >= -1) h = Math.max(h, tubeTop + 1.4);
     const edge = Math.min(x - (cx - W / 2), (cx + W / 2) - x, z - (cz - D / 2), (cz + D / 2) - z);
     return lerp(-0.3, h, ss(0, 220, edge));
   };
@@ -1594,7 +1612,9 @@ function desertDecor(R) {
   const pa = g.attributes.position, col = new Float32Array(pa.count * 3), sand = new THREE.Color(0.93, 0.78, 0.55), crest = new THREE.Color(0.98, 0.87, 0.66), rock = new THREE.Color(0.66, 0.5, 0.36);
   for (let i = 0; i < pa.count; i++) { const x = pa.getX(i), z = pa.getZ(i), h = hAt(x, z); pa.setY(i, h);
     const r = clamp((mount(x, z) - dunes(x, z) - 4) / 14, 0, 1), c = sand.clone().lerp(crest, clamp(h / 14, 0, 1)).lerp(rock, r); col.set([c.r, c.g, c.b], i * 3); }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
+  g.computeVertexNormals();
+  { const nr = g.attributes.normal; for (let i = 0; i < pa.count; i++) { const st = clamp((0.86 - nr.getY(i)) / 0.3, 0, 1); if (st > 0) { const c = new THREE.Color(col[i * 3], col[i * 3 + 1], col[i * 3 + 2]).lerp(rock, st); col.set([c.r, c.g, c.b], i * 3); } } }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   // Sand texture: fine grain and wind ripples.
   const c = document.createElement('canvas'); c.width = c.height = 256; const x = c.getContext('2d');
   x.fillStyle = '#e9dfcf'; x.fillRect(0, 0, 256, 256);
