@@ -1280,7 +1280,7 @@ async function dubai() {
   shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.ferrari.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
   // Pick a car.
   // The chase scenery loads while you choose (parsing it during the landing made the picture freeze).
-  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-tunnel.glb'), load('models/ferrari.glb'), load('models/car.glb')]);
+  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/dxb-palms.glb')]);
   const myId = await pickCar();
   const others = CARS.map(c => c.id).filter(id => id !== myId).sort(() => Math.random() - 0.5);
   DRV.ids = { me: myId, r: rivalState.on ? others.slice(0, 2) : [] };
@@ -1347,28 +1347,19 @@ function airportDressing() {
   const lm = new THREE.InstancedMesh(new THREE.BoxGeometry(0.5, 0.45, 0.5), new THREE.MeshBasicMaterial({ color: 0xfff3c0 }), lights.length), M = new THREE.Matrix4();
   lights.forEach(([lx, lz], i) => { M.makeTranslation(lx, (rayY(air, lx, lz) ?? RW.y) + 0.22, lz); lm.setMatrixAt(i, M); }); scene.add(lm);
 }
-// A concrete portal where the road enters the mountain (the cut into the hill ends on a proper tunnel mouth).
-function tunnelPortal(R) {
-  const s = R.cliffS - 1, p = R.at(s), f = R.fwd(s), y0 = R.y(s), ow = 3.4 * R.K + 0.7, oh = 2.7 * R.K + 0.4, H = 30, side = 44;
-  const conc = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#a49c8f'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.08); x.strokeStyle = 'rgba(60,50,40,.35)'; x.lineWidth = 2; for (let j = 0; j < h; j += 64) { x.beginPath(); x.moveTo(0, j); x.lineTo(w, j); x.stroke(); } for (let i = 0; i < w; i += 128) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.stroke(); } }, 1, 1);
-  const rock = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#b08d64'; x.fillRect(0, 0, w, h); for (let i = 0; i < 400; i++) { x.fillStyle = `rgba(${90 + Math.random() * 60},${70 + Math.random() * 40},${40 + Math.random() * 30},.35)`; x.beginPath(); x.ellipse(Math.random() * w, Math.random() * h, 4 + Math.random() * 16, 3 + Math.random() * 8, Math.random() * 3, 0, 7); x.fill(); } }, 1, 1);
-  const g = new THREE.Group(); g.position.set(p.x, y0, p.z); g.rotation.y = Math.atan2(f.x, f.z); scene.add(g);
-  const box = (w, h, d, x, y, z, tex, rep) => { const t = tex.clone(); t.needsUpdate = true; t.repeat.set(w / rep, h / rep); const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshStandardMaterial({ map: t, roughness: 0.95 })); m.position.set(x, y, z); m.receiveShadow = true; g.add(m); return m; };
-  // Rock face around, concrete head wall and lining at the mouth.
-  // A concrete portal of normal size set into the rock face: head wall over the mouth, short wing walls.
-  const wallT = canvasTex(256, 256, (x, w, h) => { x.fillStyle = '#b9b2a4'; x.fillRect(0, 0, w, h); grain(x, w, h, 0.09); x.fillStyle = 'rgba(80,70,60,.25)'; for (let j = 0; j < h; j += 32) x.fillRect(0, j, w, 2); for (let i = 0; i < w; i += 64) x.fillRect(i, 0, 2, h); });
-  box(ow * 2 + 6, 3.4, 2, 0, oh + 1.7, 0.6, wallT, 6);
-  for (const sx of [-1, 1]) { box(3, oh + 3.4, 2, sx * (ow + 1.5), (oh + 3.4) / 2, 0.6, wallT, 6); const ww = box(9, oh + 2, 1.2, sx * (ow + 6), (oh + 2) / 2 - 0.5, -3, wallT, 6); ww.rotation.y = sx * 0.55; }
-  box(ow * 2 + 3, 1.6, 1.2, 0, oh + 0.8, -0.2, conc, 6); for (const sx of [-1, 1]) box(1.5, oh + 1.6, 1.2, sx * (ow + 0.75), (oh + 1.6) / 2, -0.2, conc, 6);
-  // Lining from the mouth to where the model's own gallery starts, in short pieces that follow the bend.
-  for (let k = 0; k < 30; k += 3) {
-    const sk = s + k + 1.5, q = R.at(sk), fk = R.fwd(sk), yk = R.y(sk), seg = new THREE.Group(); seg.position.set(q.x, yk, q.z); seg.rotation.y = Math.atan2(fk.x, fk.z); scene.add(seg);
-    for (const sx of [-1, 1]) { const w = new THREE.Mesh(new THREE.BoxGeometry(0.6, oh + 1.4, 3.3), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.95 })); w.position.set(sx * (ow + 0.3), (oh + 1.4) / 2, 0); seg.add(w); }
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(ow * 2 + 1.2, 0.6, 3.3), new THREE.MeshStandardMaterial({ map: conc, roughness: 0.95 })); roof.position.y = oh + 0.6; seg.add(roof);
-  }
-  // Its name over the mouth.
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(9, 1.3), new THREE.MeshBasicMaterial({ map: canvasTex(512, 72, (x, w, h) => { x.fillStyle = '#0a6a3a'; x.fillRect(0, 0, w, h); x.fillStyle = '#fff'; x.font = '800 38px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('AL HAJAR TUNNEL', w / 2, h / 2 + 2); }) }));
-  sign.position.set(0, oh + 2.4, -0.85); sign.rotation.y = Math.PI; g.add(sign);
+// Messi's hideout: a modern villa ("Modern Villa 2021") alone in the desert, its paved forecourt where the road
+// ends. Model metres, ground at y = -1, entrance side towards -z (house x -14..15, z -31..-6; plot x -29..26, z -47..8).
+function placeVilla(R, villa, palms) {
+  const f = R.dirE, Y = new V3(0, 1, 0), y0 = R.y(R.N - 1);
+  villa.rotation.y = Math.atan2(f.x, f.z);
+  const toW = (x, y, z) => new V3(x, y, z).applyAxisAngle(Y, villa.rotation.y).add(villa.position);
+  const anchor = new V3(-1.8, -1.0, -66).applyAxisAngle(Y, villa.rotation.y);
+  villa.position.set(R.end.x + f.x * 2 - anchor.x, y0 - anchor.y + 0.02, R.end.z + f.z * 2 - anchor.z);
+  villa.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  scene.add(villa);
+  DXB.door = { gate: toW(-1.8, -1, -48.5), door: toW(-1.2, -1, -32.6), inside: toW(-1.2, -1, -28), center: toW(-1.8, -1, -19) };
+  // Palm groves around the plot (each model is a small cluster of palms).
+  if (palms) for (const [x, z, r] of [[-40, -50, 0], [34, -52, 1.3], [-42, 4, 2.2], [36, 12, 0.7], [-20, -72, 3.1], [20, -72, 4]]) { const pg = palms.clone(true); pg.position.copy(toW(x, -1, z)); pg.rotation.y = r; pg.traverse(o => { if (o.isMesh) o.castShadow = true; }); scene.add(pg); }
 }
 // Traffic: Ferraris in several colours, Bugatti Chirons and the car nobody picked, slower than you, in their lanes.
 const TRAFFIC = [];
@@ -1442,7 +1433,7 @@ function makeRoad(R, s0, s1, width) {
   const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, roughness: 0.92, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   m.receiveShadow = true; return m;
 }
-function buildRoute(marina, tunnel) {
+function buildRoute(marina) {
   // City + desert: a smooth curve sampled every metre; heights read from the marina where it has ground.
   const pts = [...ROUTE_CITY, ...ROUTE_DESERT].map(([x, z]) => new V3(x, 0, z));
   const curve = new THREE.CatmullRomCurve3(pts, false, 'centripetal');
@@ -1452,37 +1443,19 @@ function buildRoute(marina, tunnel) {
   for (let i = 0; i < S.length; i += 10) { const y = S[i].x > 430 ? null : rayY(marina, S[i].x, S[i].z, 40, 3); last = y !== null ? y : S[i].x > 430 ? 0 : last; for (let k = 0; k < 10 && i + k < S.length; k++) ys[i + k] = last; }
   for (let pass = 0; pass < 3; pass++) for (let i = 1; i < S.length - 1; i++) ys[i] = (ys[i - 1] + ys[i] + ys[i + 1]) / 3;
   const cityEnd = S.findIndex(p => p.x > 440);
-  // The tunnel ("American Road Through Tunnel"): its road runs along +x through the cliff (x -7..17) and then a
-  // covered gallery to x 85. Scaled up 1.6x so the gallery is tall enough. Centre line from its own road mesh.
-  const K = 1.6; tunnel.scale.setScalar(K); tunnel.updateMatrixWorld(true);
-  let roadMesh = null; tunnel.traverse(o => { if (o.isMesh && /ROADlines/.test(o.material.name)) roadMesh = o; });
-  const buckets = new Map(), v = new V3(), inv = new THREE.Matrix4().copy(tunnel.matrixWorld).invert();
-  if (roadMesh) { const pa = roadMesh.geometry.attributes.position; for (let i = 0; i < pa.count; i++) { v.fromBufferAttribute(pa, i).applyMatrix4(roadMesh.matrixWorld).applyMatrix4(inv); if (v.x < -64 || v.x > 83) continue; const k = Math.round(v.x / 2) * 2; const bk = buckets.get(k) || { x: 0, z: 0, y: 0, n: 0 }; bk.x += v.x; bk.z += v.z; bk.y += v.y; bk.n++; buckets.set(k, bk); } }
-  const cl = [...buckets.values()].sort((p1, p2) => p1.x / p1.n - p2.x / p2.n).map(bk => new V3(bk.x / bk.n, bk.y / bk.n, bk.z / bk.n));   // tunnel-local
+  // The road runs on a little over the villa's paved forecourt, where Messi stops.
   const end = S[S.length - 1], dirE = end.clone().sub(S[S.length - 4]).setY(0).normalize();
-  let tun = [];
-  if (cl.length > 10) {
-    const m0 = cl[0], md = cl[4].clone().sub(m0).setY(0).normalize();
-    const th = Math.atan2(md.z, md.x) - Math.atan2(dirE.z, dirE.x);   // turn the model so its road lines up with ours
-    tunnel.rotation.y = th;
-    const m0w = m0.clone().multiplyScalar(K).applyAxisAngle(new V3(0, 1, 0), th);
-    tunnel.position.set(end.x + dirE.x * 1.5 - m0w.x, ys[ys.length - 1] - m0.y * K, end.z + dirE.z * 1.5 - m0w.z); tunnel.updateMatrixWorld(true);
-    tun = cl.map(c => ({ w: c.clone().applyMatrix4(tunnel.matrixWorld), mx: c.x }));
-  }
-  // One sampled list: city, desert, tunnel (each tunnel sample remembers where it is along the model's road).
-  const samples = S.map((p, i) => ({ p, y: ys[i], mx: -1e9 }));
-  for (const q of tun) { const a2 = samples[samples.length - 1]; const d = Math.hypot(q.w.x - a2.p.x, q.w.z - a2.p.z), n = Math.max(1, Math.floor(d));
-    for (let k = 1; k <= n; k++) { const t = k / n; samples.push({ p: new V3(lerp(a2.p.x, q.w.x, t), 0, lerp(a2.p.z, q.w.z, t)), y: lerp(a2.y, q.w.y, t), mx: lerp(a2.mx < -1e8 ? q.mx : a2.mx, q.mx, t) }); } }
+  const samples = S.map((p, i) => ({ p, y: ys[i] }));
+  for (let k = 1; k <= 22; k++) samples.push({ p: end.clone().addScaledVector(dirE, k), y: ys[ys.length - 1] });
   const N = samples.length;
   const at = s => { const i = clamp(Math.floor(s), 0, N - 2), f = clamp(s - i, 0, 1); return samples[i].p.clone().lerp(samples[i + 1].p, f); };
   const fwd = s => { const i = clamp(Math.floor(s), 2, N - 3); return samples[i + 2].p.clone().sub(samples[i - 2].p).setY(0).normalize(); };
   const right = s => { const f = fwd(s); return new V3(-f.z, 0, f.x); };
   const y = s => { const i = clamp(Math.floor(s), 0, N - 2), f = clamp(s - i, 0, 1); return lerp(samples[i].y, samples[i + 1].y, f); };
-  const tunS = S.length;
-  const idxMx = x => { const i = samples.findIndex((q, j) => j >= tunS && q.mx >= x); return i < 0 ? N - 6 : i; };
-  const cliffS = idxMx(-8), stopS = idxMx(40);   // the portal, and the middle of the tunnel where Messi stops
-  const hw = s => s < cityEnd ? 5.3 : s < tunS ? 4.4 : 3.4 * K - 1.2;
-  return { at, fwd, right, y, hw, N, cityEnd, tunS, cliffS, L: N - 1, stopS, K, samples };
+  const tunS = S.length;   // end of the asphalt
+  const hw = s => s < cityEnd ? 5.3 : s < tunS ? 4.4 : 6;
+  // The villa's plot centre: 48 m past the end of the road (its forecourt starts at the road).
+  return { at, fwd, right, y, hw, N, cityEnd, tunS, cliffS: N, L: N - 1, stopS: N - 5, samples, end, dirE, villaC: end.clone().addScaledVector(dirE, 48.7) };
 }
 function carPose(c) {
   const R = DRV.R, p = R.at(c.s), r = R.right(c.s), f = R.fwd(c.s);
@@ -1491,24 +1464,19 @@ function carPose(c) {
   c.g.rotation.set(0, c.yaw, 0);
 }
 async function startDrive() {
-  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-tunnel.glb'), load('models/ferrari.glb'), load('models/car.glb')]);
-  const [marina, tunnel, ferrariT, chironT] = await DXB.chaseP;
+  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/dxb-palms.glb')]);
+  const [marina, villa, ferrariT, chironT, palms] = await DXB.chaseP;
   // Leave the airport; keep only the cars that race.
   const racing = [DXB.police, ...Object.values(DXB.cars)];   // the car nobody took joins the traffic
   leaveScene([trophy, thief?.root, ...racing, ...Object.values(HEROES).map(h => h.ch.root), ...scene.children.filter(o => o.material?.type === 'ShaderMaterial')]);
   // Dubai Marina, the desert, the tunnel.
   marina.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }); scene.add(marina);
-  // (its flat ground slab goes: our own mountain buries the tunnel instead)
-  tunnel.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; for (const mt of [].concat(o.material)) mt.side = THREE.DoubleSide; if (o.material.name === 'Ground') o.visible = false; } }); scene.add(tunnel);
-  const R = DRV.R = buildRoute(marina, tunnel);
-  tunnelPortal(R);
+  const R = DRV.R = buildRoute(marina);
+  placeVilla(R, villa, palms);
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: 0xdcbf8c, roughness: 1 }));
   sand.rotation.x = -Math.PI / 2; sand.position.y = -0.25; sand.receiveShadow = true; scene.add(sand);
   scene.add(makeRoad(R, 0, R.cityEnd, 12.5), makeRoad(R, R.cityEnd - 2, R.tunS, 10));
   desertDecor(R); cityTowers(R, marina);
-  DXB.door = hideoutDoor(R, tunnel);
-  // Lamps along the tunnel.
-  for (let s = R.cliffS + 6; s < R.N - 4; s += 22) { const p = R.at(s); const l = new THREE.PointLight(0xffd6a0, 22, 24, 1.5); l.position.set(p.x, R.y(s) + 3.6, p.z); scene.add(l); }
   setFov(TOUCH ? 68 : 62);
   // The racers: Messi ahead, you, the other two just behind.
   const mk = (g, role, s, d) => ({ g, role, s, d, v: 26, vd: 0, yaw: 0 });
@@ -1584,7 +1552,7 @@ function updateDrive(dt) {
   DXB.police.userData.flash?.(dt);
   // GTA camera: behind and a little above your car, lagging the turns.
   const f = new V3(Math.cos(me.yaw), 0, -Math.sin(me.yaw)); DRV.camF.lerp(f, 1 - Math.exp(-dt * 3.5)).normalize();
-  const kt = clamp((me.s - (R.cliffS - 28)) / 18, 0, 1);   // closer and lower in the tunnel, under its roof
+  const kt = 0;
   const p = me.g.position, cp = p.clone().addScaledVector(DRV.camF, -lerp(8.4, 5.6, kt)).add(new V3(0, lerp(3.3, 2.0, kt), 0)), look = p.clone().addScaledVector(DRV.camF, 5).add(new V3(0, lerp(1.1, 0.9, kt), 0));
   cam.override = { pos: cp, look, follow: 14 }; cam.blend = 1;
   P.pos.copy(p); P.lastSafe.copy(p);
@@ -1593,35 +1561,27 @@ function updateDrive(dt) {
   audio.driveSpeed?.(me.v, boost ? 1 : 0.4); audio.sirenLevel?.(clamp(1 - gap / 140, 0.15, 1));
   if (alongside && !DRV.flags.side) { DRV.flags.side = true; toast('SIDE BY SIDE!'); addStyle(300, 'LEVEL WITH MESSI'); say([['MESSI', 'Nice try, {HERO}! Nobody passes me!']]); }
   if (me.s > R.cityEnd && !DRV.flags.desert) { DRV.flags.desert = true; place('DUBAI', 'DESERT ROAD'); if (rivalState.on) say([['RIVAL1', 'He is heading for the desert!']]); }
-  if (ms.s > R.tunS - 60 && !DRV.flags.tunnel) { DRV.flags.tunnel = true; hint('He is slowing down… the tunnel!', 3); }
+  if (ms.s > R.tunS - 60 && !DRV.flags.tunnel) { DRV.flags.tunnel = true; hint('He is slowing down… that villa!', 3); }
   if (!ending && ms.s >= R.stopS - 0.3 && me.s > R.stopS - 35) { DRV.ending = true; hideoutScene(); }
 }
 // The desert: one big height field of dunes, a valley for the road and a rocky mountain that buries the tunnel.
 function desertDecor(R) {
-  const road = [], tube = [];
-  for (let s = R.cityEnd - 40; s < R.cliffS; s += 5) road.push(R.at(s));
-  for (let s = R.cliffS - 4; s < R.N; s += 3) tube.push(R.at(s));
-  const yRoad = R.y(R.cliffS), tubeTop = yRoad + 2.7 * R.K, mid = R.at(R.stopS), xCity = R.at(R.cityEnd).x;
-  const PP = R.at(R.cliffS - 1), PF = R.fwd(R.cliffS - 1);   // the tunnel mouth and the road's direction there
+  const road = [];
+  for (let s = R.cityEnd - 40; s < R.N; s += 5) road.push(R.at(s));
+  const yRoad = R.y(R.N - 1), xCity = R.at(R.cityEnd).x, VC = R.villaC;
   const dmin = (list, x, z) => { let m = 1e12; for (const q of list) { const d = (q.x - x) ** 2 + (q.z - z) ** 2; if (d < m) m = d; } return Math.sqrt(m); };
   const ss = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
   const dunes = (x, z) => { const u = x * 0.8 + z * 0.6, w = -x * 0.6 + z * 0.8;
     return 11 * Math.pow(0.5 + 0.5 * Math.sin(u * 0.010 + 2.2 * Math.sin(w * 0.0035)), 2.4) + 5 * Math.pow(0.5 + 0.5 * Math.sin(w * 0.017 + 1.6 * Math.sin(u * 0.006)), 2) + 1.2 * Math.sin(u * 0.045 + w * 0.03); };
-  const mount = (x, z) => { const d = Math.hypot(x - mid.x, z - mid.z); return 62 * Math.pow(1 - ss(0, 260, d), 1.3) * (0.85 + 0.15 * Math.sin(x * 0.05) * Math.cos(z * 0.043)) + 9 * (1 - ss(0, 300, d)) * Math.abs(Math.sin(x * 0.021 + z * 0.017)); };
-  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const q of [...road, ...tube]) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); z0 = Math.min(z0, q.z); z1 = Math.max(z1, q.z); }
+  const mount = () => 0;
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (const q of [...road, VC]) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); z0 = Math.min(z0, q.z); z1 = Math.max(z1, q.z); }
   const PAD = 650, W = x1 - x0 + PAD * 2, D = z1 - z0 + PAD * 2, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
   const hAt = (x, z) => {
     if (x < xCity + 10) return -1.5;                          // under the marina
-    const dr = dmin(road, x, z), dt = dmin(tube, x, z), mn = mount(x, z);
-    let h = Math.max(dunes(x, z) * ss(xCity, xCity + 160, x), mn);
-    // The road's valley: wide out in the desert, narrowing to a cutting with steep sides at the tunnel mouth,
-    // and nothing past the mouth (the mountain face stands there).
-    const u = (x - PP.x) * PF.x + (z - PP.z) * PF.z;
-    if (u < 0) { const k = clamp(-u / 90, 0, 1); h = lerp(yRoad - 0.35, h, ss(8, lerp(11, 42, k), dr)); }
-    // Over the tunnel the mountain comes down to just above its roof (a heightfield cannot overhang), which also
-    // leaves the mouth open under it.
-    if (dt < 9 && u >= -1) h = mn > tubeTop + 2 ? tubeTop + 1.4 : Math.min(h, yRoad - 0.35);
-    else if (dt < 12 && u >= -1) h = Math.max(h, tubeTop + 1.4);
+    const dr = dmin(road, x, z), dv = Math.hypot(x - VC.x, z - VC.z);
+    let h = dunes(x, z) * ss(xCity, xCity + 160, x);
+    h = lerp(yRoad - 0.35, h, ss(9, 42, dr));                  // the road's valley
+    h = lerp(yRoad - 1.6, h, ss(58, 100, dv));                 // a flat pad under the villa and its paved forecourt
     const edge = Math.min(x - (cx - W / 2), (cx + W / 2) - x, z - (cz - D / 2), (cz + D / 2) - z);
     return lerp(-0.3, h, ss(0, 220, edge));
   };
@@ -1679,66 +1639,35 @@ function cityTowers(R, marina) {
   const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 3.5, 160, 8), bm); spire.position.y = y + 80; burj.add(spire);
   burj.position.set(420, 0, -820); scene.add(burj);
 }
-// Messi's hidden house: a lit doorway in the tunnel wall, right where he stops.
-function hideoutDoor(R, tunnel) {
-  const s = R.stopS + 2, p = R.at(s), r = R.right(s), y0 = R.y(s);
-  let wall = R.hw(s) + 0.6;
-  const rc = new THREE.Raycaster(new V3(p.x, y0 + 1.5, p.z), r.clone(), 0.5, 20); const h = rc.intersectObject(tunnel, true)[0]; if (h) wall = h.distance - 0.15;
-  const g = new THREE.Group(); g.position.set(p.x + r.x * wall, y0, p.z + r.z * wall); g.rotation.y = Math.atan2(-r.x, -r.z);   // facing the road
-  const c = document.createElement('canvas'); c.width = 256; c.height = 256; const x = c.getContext('2d');
-  x.fillStyle = '#cdb38c'; x.fillRect(0, 0, 256, 256); x.strokeStyle = 'rgba(90,60,30,.35)'; x.lineWidth = 2;
-  for (let yy = 0; yy < 256; yy += 32) for (let xx = (yy / 32) % 2 ? -32 : 0; xx < 256; xx += 64) x.strokeRect(xx + 1, yy + 1, 62, 30);
-  const tx = new THREE.CanvasTexture(c); tx.colorSpace = THREE.SRGBColorSpace; tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(2, 1.4);
-  const wallM = new THREE.MeshStandardMaterial({ map: tx, roughness: 0.95 }), wood = new THREE.MeshStandardMaterial({ color: 0x5a3418, roughness: 0.7 }), frameM = new THREE.MeshStandardMaterial({ color: 0x2b1a0e, roughness: 0.8 });
-  const facade = new THREE.Mesh(new THREE.BoxGeometry(5, 3.7, 0.4), wallM); facade.position.set(0, 1.85, -0.1); g.add(facade);
-  const top = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.25, 0.5), frameM); top.position.set(0, 2.55, 0.15); g.add(top);
-  for (const sx of [-0.85, 0.85]) { const post = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.5, 0.5), frameM); post.position.set(sx, 1.25, 0.15); g.add(post); }
-  const hinge = new THREE.Group(); hinge.position.set(-0.75, 0, 0.15); g.add(hinge);
-  const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.4, 0.08), wood); leaf.position.set(0.75, 1.2, 0); hinge.add(leaf);
-  const inside = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 2.4), new THREE.MeshBasicMaterial({ color: 0x1a0d04 })); inside.position.set(0, 1.2, 0.05); g.add(inside);
-  // A golden ball over the door, and a lantern.
-  const ballM = new THREE.MeshStandardMaterial({ color: 0xffc94a, metalness: 1, roughness: 0.25, envMap: ENV, emissive: 0x4a3008, emissiveIntensity: 0.5 });
-  const gb = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 14), ballM); gb.position.set(0, 3.15, 0.25); g.add(gb);
-  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.32, 0.22), new THREE.MeshBasicMaterial({ color: 0xffd27a })); lamp.position.set(1.2, 2.3, 0.3); g.add(lamp);
-  const pl = new THREE.PointLight(0xffc06a, 14, 12, 1.5); pl.position.set(1.2, 2.3, 1); g.add(pl);
-  scene.add(g); return { g, hinge, wall, s };
-}
 async function hideoutScene() {
-  const R = DRV.R, ms = DRV.messi, door = DXB.door;
+  const R = DRV.R, ms = DRV.messi, V = DXB.door;
   pushMode('cut'); $('#letterbox').classList.add('on'); speedo(false); setObjective('CHAPTER 3 · DUBAI', 'Where is he going?', null);
   // Let the cars roll to a stop behind him.
   await tween(1.6, () => {});
   DRV.on = false; audio.drive?.(false); audio.siren?.(false);
   // The other two pull up behind you (off camera while we cut).
   DRV.list.filter(c => c.role === 'rival').forEach((c, k) => { c.s = DRV.me.s - 7 - k * 6; c.d = k ? -2 : 2; c.v = c.vd = 0; carPose(c); });
-  const pc = DXB.police, r = R.right(ms.s), dp = door.g.position.clone(), out = new V3(-Math.sin(door.g.rotation.y), 0, -Math.cos(door.g.rotation.y));
-  const nrm = new V3(Math.sin(door.g.rotation.y), 0, Math.cos(door.g.rotation.y));   // out of the wall, towards the road
-  const m0 = pc.position.clone().addScaledVector(r, 1.4), m1 = dp.clone().addScaledVector(nrm, 0.9);
-  scene.add(thief.root); thief.root.scale.setScalar(1); theft.seated = false;   // out of the car
-  thief.root.visible = true; trophy.visible = true; thief.root.position.copy(m0); thief.root.rotation.set(0, Math.atan2(m1.x - m0.x, m1.z - m0.z), 0); theft.cut = 3.5;
-  // Watch from up the road, the door on one side, his car on the other.
-  // Inside the tunnel the only clear view is down the road: from behind, above the cars.
-  const camP = R.at(R.stopS - 12).addScaledVector(R.right(R.stopS - 12), -1.5).add(new V3(0, R.y(R.stopS - 12) + 3.2, 0));
-  shot(camP, dp.clone().add(new V3(0, 1.2, 0)), { cut: true });
-  await tween(m0.distanceTo(m1) / 3.5, k => { thief.root.position.lerpVectors(m0, m1, k); });
-  // Across the road, facing the door.
-  { const sA = Math.min(R.N - 2, R.stopS + 5); shot(R.at(sA).addScaledVector(R.right(sA), -(R.hw(sA) - 0.8)).add(new V3(0, R.y(sA) + 2, 0)), dp.clone().add(new V3(0, 1.3, 0)), { cut: true }); }
-  theft.cut = 0; audio.kick(0.25);
-  await tween(0.5, k => { door.hinge.rotation.y = -1.6 * k; });
-  thief.root.rotation.set(0, Math.atan2(-nrm.x, -nrm.z), 0); theft.cut = 2.5;
-  const m2 = dp.clone().addScaledVector(nrm, -1.2);
-  await tween(0.7, k => { thief.root.position.lerpVectors(m1, m2, k); });
-  thief.root.visible = false; trophy.visible = false; theft.cut = 0;
-  await tween(0.4, k => { door.hinge.rotation.y = -1.6 * (1 - k); }); audio.kick(0.7); cam.shake = 0.2;
-  // We get out and look at the door.
+  // Messi jumps out and runs through the gate to the front door.
+  const pc = DXB.police, r = R.right(ms.s), m0 = pc.position.clone().addScaledVector(r, 1.4);
+  scene.add(thief.root); thief.root.scale.setScalar(1); theft.seated = false;
+  thief.root.visible = true; trophy.visible = true; thief.root.position.copy(m0); theft.cut = 4.5;
+  const f = R.dirE, side = new V3(f.z, 0, -f.x);
+  shot(V.gate.clone().addScaledVector(f, -9).addScaledVector(side, 6).add(new V3(0, 2.4, 0)), m0.clone().add(new V3(0, 1.4, 0)), { cut: true, follow: 5 });
+  for (const [a, b] of [[m0, V.gate], [V.gate, V.door]]) {
+    thief.root.rotation.set(0, Math.atan2(b.x - a.x, b.z - a.z), 0);
+    await tween(a.distanceTo(b) / 4.5, k => { thief.root.position.lerpVectors(a, b, k); cam.override.look = thief.root.position.clone().add(new V3(0, 1.4, 0)); });
+  }
+  await tween(0.5, k => { thief.root.position.lerpVectors(V.door, V.inside, k); });
+  thief.root.visible = false; trophy.visible = false; theft.cut = 0; audio.kick(0.7); cam.shake = 0.2;
+  // We get out and look at the villa.
   const base = DRV.me.g.position.clone().addScaledVector(R.right(DRV.me.s), DRV.me.d > 0 ? -1.8 : 1.8);
-  for (const ch of [me, ...rivals().map(r => r.ch)]) { scene.add(ch.root); ch.root.scale.setScalar(1); } act(null, 0);
-  P.seated = false; P.pos.copy(base); P.yaw = Math.atan2(dp.x - base.x, dp.z - base.z); me.root.visible = true; me.root.position.copy(base); me.root.rotation.set(0, P.yaw, 0);
-  if (rivalState.on) rivals().forEach((rv, i) => { const q = base.clone().addScaledVector(R.fwd(DRV.me.s), -1.2 - i * 0.9).addScaledVector(R.right(DRV.me.s), (i ? -1 : 1) * 1.3); rv.ch.root.visible = true; rv.ch.root.position.copy(q); rv.ch.root.rotation.set(0, P.yaw, 0); });
+  for (const ch of [me, ...rivals().map(rv => rv.ch)]) { scene.add(ch.root); ch.root.scale.setScalar(1); } act(null, 0);
+  P.seated = false; P.pos.copy(base); P.yaw = Math.atan2(V.door.x - base.x, V.door.z - base.z); me.root.visible = true; me.root.position.copy(base); me.root.rotation.set(0, P.yaw, 0);
+  if (rivalState.on) rivals().forEach((rv, i) => { const q = base.clone().addScaledVector(f, -1.2 - i * 0.9).addScaledVector(R.right(DRV.me.s), (i ? -1 : 1) * 1.3); rv.ch.root.visible = true; rv.ch.root.position.copy(q); rv.ch.root.rotation.set(0, P.yaw, 0); });
   rivalState.mode = 'stand';
-  { const f = R.fwd(DRV.me.s); shot(base.clone().addScaledVector(f, -4.5).addScaledVector(R.right(DRV.me.s), -1.6).add(new V3(0, 2.1, 0)), dp.clone().add(new V3(0, 1.3, 0)), { cut: true }); }
-  await say(rivalState.on ? [['HERO', 'He went inside… a house, in this tunnel?'], ['RIVAL2', 'This must be his secret hideout.'], ['HERO', 'Then the Ballon d\'Or is in there. Let\'s go.']]
-    : [['HERO', 'He went inside… a house, in this tunnel?'], ['HERO', 'Then the Ballon d\'Or is in there. Let\'s go.']]);
+  shot(base.clone().addScaledVector(f, -6).addScaledVector(side, -2).add(new V3(0, 2.2, 0)), V.center.clone().add(new V3(0, 3, 0)), { cut: true });
+  await say(rivalState.on ? [['HERO', 'He ran into that villa…'], ['RIVAL2', 'This must be his secret hideout.'], ['HERO', 'Then the Ballon d\'Or is in there. Let\'s go.']]
+    : [['HERO', 'He ran into that villa…'], ['HERO', 'Then the Ballon d\'Or is in there. Let\'s go.']]);
   endScreen('hideout');
 }
 // Test entry: ?ep=3 jumps straight to the Dubai landing.
