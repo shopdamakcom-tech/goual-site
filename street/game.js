@@ -1280,7 +1280,7 @@ async function dubai() {
   shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.ferrari.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
   // Pick a car.
   // The chase scenery loads while you choose (parsing it during the landing made the picture freeze).
-  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/dxb-palms.glb')]);
+  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb')]);
   const myId = await pickCar();
   const others = CARS.map(c => c.id).filter(id => id !== myId).sort(() => Math.random() - 0.5);
   DRV.ids = { me: myId, r: rivalState.on ? others.slice(0, 2) : [] };
@@ -1349,7 +1349,7 @@ function airportDressing() {
 }
 // Messi's hideout: a modern villa ("Modern Villa 2021") alone in the desert, its paved forecourt where the road
 // ends. Model metres, ground at y = -1, entrance side towards -z (house x -14..15, z -31..-6; plot x -29..26, z -47..8).
-function placeVilla(R, villa, palms) {
+function placeVilla(R, villa) {
   const f = R.dirE, Y = new V3(0, 1, 0), y0 = R.y(R.N - 1);
   villa.rotation.y = Math.atan2(f.x, f.z);
   const toW = (x, y, z) => new V3(x, y, z).applyAxisAngle(Y, villa.rotation.y).add(villa.position);
@@ -1358,24 +1358,25 @@ function placeVilla(R, villa, palms) {
   villa.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   scene.add(villa);
   DXB.door = { gate: toW(-1.8, -1, -48.5), door: toW(-1.2, -1, -32.6), inside: toW(-1.2, -1, -28), center: toW(-1.8, -1, -19) };
-  // Palm groves around the plot (each model is a small cluster of palms).
-  if (palms) for (const [x, z, r] of [[-40, -50, 0], [34, -52, 1.3], [-42, 4, 2.2], [36, 12, 0.7], [-20, -72, 3.1], [20, -72, 4]]) { const pg = palms.clone(true); pg.position.copy(toW(x, -1, z)); pg.rotation.y = r; pg.traverse(o => { if (o.isMesh) o.castShadow = true; }); scene.add(pg); }
 }
 // Traffic: Ferraris in several colours, Bugatti Chirons and the car nobody picked, slower than you, in their lanes.
 const TRAFFIC = [];
 const lanesAt = s => { const R = DRV.R, h = R.hw(s) - 1.1; return s < R.cityEnd ? [-3, 0, 3].filter(d => Math.abs(d) <= h) : [-2.2, 2.2]; };
-function makeTraffic(R, ferT, chiT, spareId) {
+function makeTraffic(R, ferT, chiT, spareId, more = {}) {
   TRAFFIC.length = 0;
   const fer = makeCar(prepCar(ferT), 4.7), chi = makeCar(prepCar(chiT));
   let paint = null; fer.traverse(o => { if (o.isMesh && o.material.color && o.material.color.r > 0.55 && o.material.color.g < 0.5 && o.material.color.b < 0.5) paint = o.material; });
   const ferrari = hex => { const g = fer.clone(true); if (paint) { const m = paint.clone(); m.color.setHex(hex); m.map = null; m.metalness = 0.35; m.roughness = 0.3; m.envMap = ENV; m.envMapIntensity = 0.6; g.traverse(o => { if (o.isMesh && o.material === paint) o.material = m; }); } return g; };
-  const kinds = [() => ferrari(0x8a0006), () => chi.clone(true), () => ferrari(0xf0f0f0), () => ferrari(0x111111), () => ferrari(0x16408f), () => chi.clone(true), () => ferrari(0x9aa3ab), () => ferrari(0xd8a400)];
+  const big = (m, len) => { if (!m) return null; const g = makeCar(prepCar(m), len); g.userData.len = len; return g; };
+  const coach = big(more.coach, 12), van = big(more.van, 5.2), skoda = big(more.skoda, 4.7);
+  const once = g => { let used = false; return () => { if (!used && g) { used = true; return g; } return g ? g.clone(true) : chi.clone(true); }; };
+  const kinds = [() => ferrari(0x8a0006), once(coach), () => skoda ? skoda.clone(true) : chi.clone(true), once(van), () => chi.clone(true), () => ferrari(0xf0f0f0), () => coach ? coach.clone(true) : ferrari(0x111111), () => van ? van.clone(true) : ferrari(0x16408f), () => ferrari(0x111111), () => skoda ? skoda.clone(true) : ferrari(0x9aa3ab)];
   const spare = DXB.cars[spareId];
   let s = 140, i = 0, seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   while (s < R.cliffS - 150 && TRAFFIC.length < 18) {
     const g = i === 4 && spare ? spare : kinds[i % kinds.length](); i++;
     g.visible = true; scene.add(g);
-    const ls = lanesAt(s); TRAFFIC.push({ g, s, d: ls[Math.floor(rnd() * ls.length)], v: 13 + rnd() * 8, vd: 0, yaw: 0 });
+    const ls = lanesAt(s), len = g.userData.len || 4.7; TRAFFIC.push({ g, s, d: ls[Math.floor(rnd() * ls.length)], v: len > 10 ? 11 + rnd() * 3 : 13 + rnd() * 8, vd: 0, yaw: 0, len });
     s += 55 + rnd() * 45;
   }
   for (const t of TRAFFIC) carPose(t);
@@ -1395,16 +1396,16 @@ function trafficStep(dt) {
 function trafficHits(c) {
   for (const t of TRAFFIC) {
     if (t.s < -1e8) continue;
-    const ds = c.s - t.s, dd = c.d - t.d;
-    if (Math.abs(ds) > 5 || Math.abs(dd) > 2.15) continue;
-    if (Math.abs(ds) < 2.4) { c.d += Math.sign(dd || 1) * (2.15 - Math.abs(dd)); c.vd = 0; }
-    else if (ds < 0) { c.s = t.s - 5; c.v = Math.min(c.v, t.v - 1); }
+    const ds = c.s - t.s, dd = c.d - t.d, reach = t.len / 2 + 2.45, wide = t.len > 10 ? 2.5 : 2.15;
+    if (Math.abs(ds) > reach || Math.abs(dd) > wide) continue;
+    if (Math.abs(ds) < reach - 2.6) { c.d += Math.sign(dd || 1) * (wide - Math.abs(dd)); c.vd = 0; }
+    else if (ds < 0) { c.s = t.s - reach; c.v = Math.min(c.v, t.v - 1); }
     if (c === DRV.me && !DRV.hitT) { DRV.hitT = 0.8; cam.shake = 0.35; audio.kick(0.8); if (!DRV.flags.trafficHint) { DRV.flags.trafficHint = true; hint('Traffic! Steer around the cars.', 3); } }
   }
 }
 // The lane a driver should aim for: the one he wants, unless a slower car is in it just ahead.
 function freeLane(c, want) {
-  const blocked = d => TRAFFIC.some(t => t.s > -1e8 && t.s - c.s > 0 && t.s - c.s < 42 && Math.abs(t.d - d) < 2.3);
+  const blocked = d => TRAFFIC.some(t => t.s > -1e8 && t.s - c.s > -t.len / 2 && t.s - c.s < 42 + t.len / 2 && Math.abs(t.d - d) < 2.5);
   if (!blocked(want)) return want;
   const ls = lanesAt(c.s).filter(d => !blocked(d)).sort((a, b) => Math.abs(a - c.d) - Math.abs(b - c.d));
   return ls.length ? ls[0] : want;
@@ -1464,17 +1465,17 @@ function carPose(c) {
   c.g.rotation.set(0, c.yaw, 0);
 }
 async function startDrive() {
-  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/dxb-palms.glb')]);
-  const [marina, villa, ferrariT, chironT, palms] = await DXB.chaseP;
+  DXB.chaseP ??= Promise.all([load('models/dxb-marina.glb'), load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), load('models/bus-coach.glb'), load('models/bus-van.glb'), load('models/car-skoda.glb')]);
+  const [marina, villa, ferrariT, chironT, coachT, vanT, skodaT] = await DXB.chaseP;
   // Leave the airport; keep only the cars that race.
   const racing = [DXB.police, ...Object.values(DXB.cars)];   // the car nobody took joins the traffic
   leaveScene([trophy, thief?.root, ...racing, ...Object.values(HEROES).map(h => h.ch.root), ...scene.children.filter(o => o.material?.type === 'ShaderMaterial')]);
   // Dubai Marina, the desert, the tunnel.
   marina.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }); scene.add(marina);
   const R = DRV.R = buildRoute(marina);
-  placeVilla(R, villa, palms);
+  placeVilla(R, villa);
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: 0xdcbf8c, roughness: 1 }));
-  sand.rotation.x = -Math.PI / 2; sand.position.y = -0.25; sand.receiveShadow = true; scene.add(sand);
+  sand.rotation.x = -Math.PI / 2; sand.position.y = -2.2; sand.receiveShadow = true; scene.add(sand);
   scene.add(makeRoad(R, 0, R.cityEnd, 12.5), makeRoad(R, R.cityEnd - 2, R.tunS, 10));
   desertDecor(R); cityTowers(R, marina);
   setFov(TOUCH ? 68 : 62);
@@ -1492,7 +1493,7 @@ async function startDrive() {
   seatDriver(thief, DXB.police); theft.seated = true; trophy.visible = false;
   const spareId = CARS.map(c => c.id).find(id => id !== DRV.ids.me && !DRV.ids.r.includes(id));
   for (const [id, g] of Object.entries(DXB.cars)) if (id !== DRV.ids.me && !DRV.ids.r.includes(id) && id !== spareId) g.visible = false;
-  makeTraffic(R, ferrariT, chironT, spareId);
+  makeTraffic(R, ferrariT, chironT, spareId, { coach: coachT, van: vanT, skoda: skodaT });
   updateDrive(0); cam.ovPos = cam.override.pos.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
   warmUp();
   speedo(true);
@@ -1581,9 +1582,9 @@ function desertDecor(R) {
     const dr = dmin(road, x, z), dv = Math.hypot(x - VC.x, z - VC.z);
     let h = dunes(x, z) * ss(xCity, xCity + 160, x);
     h = lerp(yRoad - 0.35, h, ss(9, 42, dr));                  // the road's valley
-    h = lerp(yRoad - 1.6, h, ss(58, 100, dv));                 // a flat pad under the villa and its paved forecourt
+    h = lerp(yRoad - 3, h, ss(60, 100, dv));                 // a flat pad under the villa and its paved forecourt
     const edge = Math.min(x - (cx - W / 2), (cx + W / 2) - x, z - (cz - D / 2), (cz + D / 2) - z);
-    return lerp(-0.3, h, ss(0, 220, edge));
+    return lerp(-2.2, h, ss(0, 220, edge));
   };
   const NX = TOUCH ? 200 : 280, NZ = Math.round(NX * D / W);
   const g = new THREE.PlaneGeometry(W, D, NX, NZ); g.rotateX(-Math.PI / 2); g.translate(cx, 0, cz);
