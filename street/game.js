@@ -1344,6 +1344,7 @@ async function dubai() {
   state.stage = STAGES.DUBAI; if (!state.modeStack.includes('cut')) pushMode('cut'); prompt(null); hint('', 0);
   await enterDubai();
   prefetch(chaseFiles());   // the whole chase downloads during the landing and Messi's getaway
+  if (!TOUCH) setTimeout(() => { DXB.prepP ??= prepareDrive(); DXB.prepP.catch(e => console.error(e)); }, 2500);   // computers build it now too: ready before the car menu
   const RW = DXB.RW, jet = AP.jet, MP_X = -150, JET_X = -228;
   $('#fade').classList.remove('on', 'world', 'trip'); $('#letterbox').classList.add('on');
   setFov(TOUCH ? 46 : 36);   // a longer lens: the terminal and the parked jets fill the background
@@ -1454,20 +1455,20 @@ async function placeVilla(R, villa) {
   villa.position.set(gateW.x - g0.x, y0 + 0.03 - g0.y, gateW.z - g0.z);
   // No perimeter fence (white boards on a stone base): the garden and its pool open onto the desert.
   villa.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; if (/^(White wood|Cobblestone)$/.test(o.material.name)) o.visible = false; } });
-  scene.add(villa); villa.updateMatrixWorld(true);
+  addW(villa); villa.updateMatrixWorld(true);
   const toW = (x, y, z) => new V3(x, y, z).applyAxisAngle(Y, villa.rotation.y).add(villa.position);
   R.villaC = toW(-1.8, -2, -19);
   // The entrance: two lit stone pillars where the road ends.
   const stone = new THREE.MeshStandardMaterial({ color: 0xcfc3ad, roughness: 0.9 }), lampM = new THREE.MeshBasicMaterial({ color: 0xffe2a0 });
-  for (const sx of [-1, 1]) { const p = gateW.clone().addScaledVector(side, sx * 3.4); const pil = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3, 0.8), stone); pil.position.copy(p).add(new V3(0, 1.5, 0)); pil.castShadow = true; scene.add(pil);
-    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), lampM); lamp.position.copy(p).add(new V3(0, 3.2, 0)); scene.add(lamp); }
+  for (const sx of [-1, 1]) { const p = gateW.clone().addScaledVector(side, sx * 3.4); const pil = new THREE.Mesh(new THREE.BoxGeometry(0.8, 3, 0.8), stone); pil.position.copy(p).add(new V3(0, 1.5, 0)); pil.castShadow = true; addW(pil);
+    const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), lampM); lamp.position.copy(p).add(new V3(0, 3.2, 0)); addW(lamp); }
   DXB.door = { gate: gateW.clone(), path: toW(-18, -2, -2), door: toW(-11.5, -2, -6.8), inside: toW(-11.5, -2, -10.5), center: R.villaC.clone(), pool: toW(1.5, -2, -12) };
 }
 // Overhead signs before the split: the highway on, the private exit to the right.
 function exitSigns(R) {
   for (const [ds, txt] of [[-160, ['AL AIN  ↑', 'EXIT 21  ↗  PRIVATE']], [-30, ['EXIT 21', '↗']]]) {
     const s = R.splitS + ds, p = R.at(s), f = R.fwd(s), rt = R.right(s);
-    const g = new THREE.Group(); g.position.set(p.x, R.y(s), p.z); g.rotation.y = Math.atan2(f.x, f.z); scene.add(g);
+    const g = new THREE.Group(); g.position.set(p.x, R.y(s), p.z); g.rotation.y = Math.atan2(f.x, f.z); addW(g);
     const post = new THREE.MeshStandardMaterial({ color: 0x8a8f94, metalness: 0.6, roughness: 0.4, envMap: ENV });
     for (const sx of [-1, 1]) { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 7, 8), post); m.position.set(sx * 6.5, 3.5, 0); g.add(m); }
     const beam = new THREE.Mesh(new THREE.BoxGeometry(13.4, 0.35, 0.35), post); beam.position.set(0, 6.8, 0); g.add(beam);
@@ -1508,18 +1509,18 @@ const burjModel = () => (DXB.burjP ??= load('models/dxb-burj.glb').catch(() => n
 async function placeLandmarks(R) {
   const [mq, hs, c17, bmp] = await Promise.all([load('models/dxb-mosque.glb').catch(() => null), load('models/dxb-house.glb').catch(() => null), load('models/dxb-c17.glb').catch(() => null), TOUCH ? null : load('models/dxb-bmp.glb').catch(() => null)]);
   if (mq) { const c = R.mosqueC, f = R.fwd(R.mosqueS); mq.scale.setScalar(0.8); mq.rotation.y = Math.atan2(f.x, f.z) + Math.PI / 2; mq.position.set(c.x, (DXB.hAt ? DXB.hAt(c.x, c.z) : 0) - 0.05, c.z);
-    mq.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); scene.add(mq); }
+    mq.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); addW(mq); }
   // Old Emirati house by the roadside: its long side runs along the road (model is ~60 m long, origin off-centre).
   if (hs && R.houseC) { const c = R.houseC, f = R.fwd(R.houseS), w = new THREE.Group(); hs.position.set(10, 0, 6); w.add(hs);
     w.rotation.y = Math.atan2(f.x, f.z) - Math.PI / 2; w.position.set(c.x, (DXB.hAt ? DXB.hAt(c.x, c.z) : 0) - 0.05, c.z);
-    hs.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); scene.add(w); }
+    hs.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); addW(w); }
   // An army BMP parked on the sand beside the road, just before the villa.
   if (bmp) { const s = R.N - 70, p = R.at(s), r = R.right(s), f = R.fwd(s), o = R.hw(s) + 7, x = p.x + r.x * o, z = p.z + r.z * o;
     const b = new THREE.Box3().setFromObject(bmp), c = b.getCenter(new V3()), w = new THREE.Group(); bmp.position.set(-c.x, -b.min.y, -c.z); w.add(bmp);
     w.rotation.y = Math.atan2(f.x, f.z) + 0.35; w.position.set(x, DXB.hAt ? DXB.hAt(x, z) : R.y(s), z);
-    bmp.traverse(o2 => { if (o2.isMesh) { o2.castShadow = true; o2.receiveShadow = true; } }); scene.add(w); }
+    bmp.traverse(o2 => { if (o2.isMesh) { o2.castShadow = true; o2.receiveShadow = true; } }); addW(w); }
   // A C-17 that flies over the desert road (started by the chase once you are out of the city).
-  if (c17) { const b = new THREE.Box3().setFromObject(c17), c = b.getCenter(new V3()), w = new THREE.Group(); c17.position.set(-c.x, -c.y, -c.z); w.add(c17); w.visible = false; scene.add(w); DXB.c17 = w; }
+  if (c17) { const b = new THREE.Box3().setFromObject(c17), c = b.getCenter(new V3()), w = new THREE.Group(); c17.position.set(-c.x, -c.y, -c.z); w.add(c17); w.visible = false; addW(w); DXB.c17 = w; }
 }
 // The C-17 flyover: crosses the road ahead of you at ~130 m, low enough to hear and see it pass.
 function flyover(dt) {
@@ -1555,7 +1556,7 @@ function propInstances(parts, list, shadow = true) {
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), Y = new V3(0, 1, 0), S = new V3(), P = new V3();
   for (const { g, m } of parts) { const im = new THREE.InstancedMesh(g, m, list.length);
     list.forEach(([x, y, z, yaw, k = 1, kx = 1], i) => { Q.setFromAxisAngle(Y, yaw); M.compose(P.set(x, y, z), Q, S.set(k * kx, k, k)); im.setMatrixAt(i, M); });
-    im.castShadow = shadow; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); }
+    im.castShadow = shadow; im.receiveShadow = true; im.computeBoundingSphere(); addW(im); }
 }
 function palmGroves(R, src) {
   if (!src) return;
@@ -1581,7 +1582,7 @@ function palmGroves(R, src) {
   for (const { g, m } of parts) {
     const im = new THREE.InstancedMesh(g, m, spots.length); im.castShadow = true; im.receiveShadow = false; im.frustumCulled = false;
     spots.forEach(([x, z], i) => { const sc = k * (0.85 + ((i * 37) % 10) / 30), y = groundY(x, z) + lift * sc / k - 0.3; Q.setFromAxisAngle(Y, (i * 2.399) % 6.283); M.compose(new V3(x, y, z), Q, new V3(sc, sc, sc)); im.setMatrixAt(i, M); });
-    scene.add(im);
+    addW(im);
   }
 }
 // Desert life: zebras galloping alongside the road, camels resting by the dunes, lions prowling.
@@ -1593,7 +1594,7 @@ function desertAnimals(R, [camel, zebra, lion]) {
     const g = cloneSkinned(src); g.scale.setScalar(scale); g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; for (const m of [].concat(o.material)) { m.metalness = 0; m.roughness = Math.max(0.75, m.roughness ?? 1); m.needsUpdate = true; } } });   // fur, not metal (it rendered black)
     const mixer = new THREE.AnimationMixer(g), clips = src.userData.clips || [], clip = clips.find(c => clipRe.test(c.name)) || clips[0];
     if (clip) { const a = mixer.clipAction(clip); a.timeScale = timeScale; a.time = Math.random() * clip.duration; a.play(); }
-    scene.add(g); ANIMALS.push({ g, mixer, s, off, speed, yawFix, s0: s });
+    addW(g); ANIMALS.push({ g, mixer, s, off, speed, yawFix, s0: s });
   };
   const S0 = R.cityEnd + 80, S1 = R.N - 90;
   // A herd of zebras racing the cars for a while.
@@ -1734,6 +1735,18 @@ function carPose(c) {
 }
 const CHASE = { group: null };
 // Build the chase world into one hidden group (it overlaps the airport's ground, so it stays hidden until the cut).
+let BUILD = null;
+const addW = (...o) => (BUILD || scene).add(...o);
+// Warm the chase world up without freezing the cutscene: shaders compile in the background (compileAsync), then
+// the textures are uploaded a few per frame.
+async function gentleWarm(group) {
+  const hidden = []; group.traverse(o => { if (!o.visible) { hidden.push(o); o.visible = true; } });
+  let p = null; try { p = renderer.compileAsync(group, camera, scene); } catch (e) { }
+  hidden.forEach(o => { o.visible = false; });   // compileAsync collects the materials right away
+  if (p) await p.catch(() => {});
+  const texs = new Set(); group.traverse(o => { if (o.material) for (const m of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) if (m[k]) texs.add(m[k]); });
+  let n = 0; for (const t of texs) { if (t.userData.warm) continue; t.userData.warm = 1; try { renderer.initTexture(t); } catch (e) { } if (++n % 4 === 0) await frames(1); }
+}
 async function prepareDrive() {
   // Phones get 256 px textures (the 1024 px marina alone took ~400 MB of video memory), the villa later (when
   // the desert starts) and a shorter traffic line-up; computers get everything.
@@ -1741,23 +1754,24 @@ async function prepareDrive() {
   DXB.chaseP ??= Promise.all([load(`models/dxb-marina${M}.glb`), TOUCH ? none : load('models/dxb-villa.glb'), load('models/ferrari.glb'), load('models/car.glb'), heavy('bus-coach'), heavy('bus-van'), load('models/car-skoda.glb'), load('models/car-peugeot.glb'), ...['maybach', 'ram', 'jeep', 'porsche', 'gronos'].map(n => heavy(`car-${n}`)), load('models/car-grab.glb').catch(() => null), heavy('bus-fire')]);
   const [marina, villa, ferrariT, chironT, coachT, vanT, skodaT, peugeotT, maybachT, ramT, jeepT, porscheT, gronosT, grabT, fireT] = await DXB.chaseP;
   DXB.animalsP ??= Promise.all(['camel', 'zebra', 'lion'].map(n => loadAnim(`models/an-${n}.glb`).catch(() => null)));
-  const before = new Set(scene.children);
-  marina.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }); scene.add(marina);
+  // Everything the chase builds goes into its own hidden group (addW), so it can be built while a cutscene
+  // plays at the airport without mixing the two.
+  const group = CHASE.group = new THREE.Group(); group.visible = false; scene.add(group); BUILD = group;
+  try {
+  marina.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = true; } }); addW(marina);
   const R = DRV.R = buildRoute(marina);
   if (villa) await placeVilla(R, villa);
   else { fetch('models/dxb-villa-m.glb').then(r => r.blob()).catch(() => {}); DXB.villaLater = true; }   // download now, build later
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(8000, 8000), new THREE.MeshStandardMaterial({ color: 0xdcbf8c, roughness: 1 }));
-  sand.rotation.x = -Math.PI / 2; sand.position.y = -2.2; sand.receiveShadow = true; scene.add(sand);
-  scene.add(makeRoad(R, 0, R.cityEnd, 12.5), makeRoad(R, R.cityEnd - 2, R.tunS, 10));
+  sand.rotation.x = -Math.PI / 2; sand.position.y = -2.2; sand.receiveShadow = true; addW(sand);
+  addW(makeRoad(R, 0, R.cityEnd, 12.5), makeRoad(R, R.cityEnd - 2, R.tunS, 10));
   // The highway carries straight on into the desert; Messi takes the exit.
-  { const rgt = new V3(-MAIN_DIR.z, 0, MAIN_DIR.x); scene.add(makeRoad({ at: s => R.mainP0.clone().addScaledVector(MAIN_DIR, s), right: () => rgt, y: () => -0.012 }, 0, R.mainL, 10)); }
+  { const rgt = new V3(-MAIN_DIR.z, 0, MAIN_DIR.x); addW(makeRoad({ at: s => R.mainP0.clone().addScaledVector(MAIN_DIR, s), right: () => rgt, y: () => -0.012 }, 0, R.mainL, 10)); }
   exitSigns(R);
   desertDecor(R); await cityDressing(R, marina); palmGroves(R, await load('models/dxb-palms.glb').catch(() => null)); await placeLandmarks(R);   // (no pedestrians: the only model looked like Messi and seemed to follow the chase)
   desertAnimals(R, await DXB.animalsP);
-  const group = CHASE.group = new THREE.Group(); group.visible = false;
-  for (const o of [...scene.children]) if (!before.has(o)) group.add(o);
-  scene.add(group);
-  warmUp(); DXB.warmed = true;   // shaders and textures uploaded now, while the menu is up
+  } finally { BUILD = null; }
+  await gentleWarm(group); DXB.warmed = true;   // shaders and textures go to the GPU a little at a time, no freeze
   return { ferrariT, chironT, coachT, vanT, skodaT, peugeotT, maybachT, ramT, jeepT, porscheT, gronosT, grabT, fireT };
 }
 // Loading card between the car menu and the chase (building the city can take a few seconds).
@@ -1955,7 +1969,7 @@ function desertDecor(R) {
   for (let i = 0; i < 26; i++) { x.strokeStyle = `rgba(150,110,60,${0.06 + Math.random() * 0.06})`; x.lineWidth = 1 + Math.random() * 2; x.beginPath(); const y0 = i * 10 + Math.random() * 4; x.moveTo(0, y0); for (let k = 0; k <= 256; k += 16) x.lineTo(k, y0 + Math.sin(k * 0.05 + i) * 3); x.stroke(); }
   for (let i = 0; i < 5000; i++) { x.fillStyle = `rgba(${Math.random() < 0.5 ? '255,250,240' : '120,90,50'},0.12)`; x.fillRect(Math.random() * 256, Math.random() * 256, 1, 1); }
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(W / 16, D / 16); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
-  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, vertexColors: true, roughness: 1, side: THREE.DoubleSide })); m.receiveShadow = true; scene.add(m);   // two-sided: it is the ceiling over the tunnel mouth
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ map: t, vertexColors: true, roughness: 1, side: THREE.DoubleSide })); m.receiveShadow = true; addW(m);   // two-sided: it is the ceiling over the tunnel mouth
   // Dry shrubs and a few rocks along the road.
   let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   const shrub = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color: 0x6b6a3a, roughness: 1, flatShading: true }), 160);
@@ -1964,7 +1978,7 @@ function desertDecor(R) {
   const scatter = (im, n, size) => { for (let i = 0; i < n; i++) { const s0 = lerp(R.cityEnd + 60, R.cliffS - 40, rnd()), p0 = R.at(s0), r0 = R.right(s0), off = (rnd() < 0.5 ? -1 : 1) * (R.hw(s0) + 4 + rnd() * 22);
     const px = p0.x + r0.x * off, pz = p0.z + r0.z * off; Q.setFromAxisAngle(new V3(0, 1, 0), rnd() * 6); const k = size * (0.5 + rnd()); Sc.set(k, k * (0.45 + rnd() * 0.4), k * (0.7 + rnd() * 0.5));
     const hy = hAt(px, pz); if (hy > 2.5) Sc.set(0, 0, 0);   // only on the flat sand by the road (no floating rocks on slopes)
-    M.compose(new V3(px, hy - k * 0.1, pz), Q, Sc); im.setMatrixAt(i, M); } scene.add(im); };
+    M.compose(new V3(px, hy - k * 0.1, pz), Q, Sc); im.setMatrixAt(i, M); } addW(im); };
   scatter(shrub, 160, 0.9); scatter(stone, 60, 1.3);
 }
 // Dubai towers along the city part of the route (only where the marina has open ground), and the Burj Khalifa.
@@ -1992,13 +2006,13 @@ function cityTowers(R, marina, models = []) {
       let clear = true; for (let u = 0; u < R.cityEnd + 60 && clear; u += 4) { const a = R.samples[Math.min(u, R.N - 1)].p; if (Math.hypot(a.x - q.x, a.z - q.z) < rad + R.hw(u) + 6) clear = false; }
       if (clear && !placed.some(t => Math.hypot(t.x - q.x, t.z - q.z) < foot * 0.8 + 14)) {
         const t = K.m.clone(), c = K.b.getCenter(new V3()), w = new THREE.Group(); t.scale.setScalar(k); t.position.set(-c.x * k, -K.b.min.y * k, -c.z * k);
-        w.add(t); w.position.set(q.x, hy ?? 0, q.z); w.rotation.y = rnd() * Math.PI * 2; scene.add(w);
+        w.add(t); w.position.set(q.x, hy ?? 0, q.z); w.rotation.y = rnd() * Math.PI * 2; addW(w);
         used++; placed.push(q); } continue; }
     const h = 45 + Math.pow(rnd(), 1.6) * 240, w = 18 + rnd() * 14, d = 18 + rnd() * 14, mt = mats[Math.floor(rnd() * mats.length)];
     const g = new THREE.BoxGeometry(w, h, d); const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w / 10, uv.getY(i) * h / 14);
-    const b = new THREE.Mesh(g, mt); b.position.set(p.x, h / 2 + (hy ?? 0), p.z); b.rotation.y = Math.atan2(R.fwd(s).x, R.fwd(s).z); scene.add(b);
-    if (rnd() < 0.5) { const cr = new THREE.Mesh(new THREE.BoxGeometry(w * 0.55, h * 0.07, d * 0.55), mt); cr.position.set(p.x, h + h * 0.035 + (hy ?? 0), p.z); cr.rotation.y = b.rotation.y; scene.add(cr); }
-    if (rnd() < 0.3) { const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.8, h * 0.18, 6), mats[2]); sp.position.set(p.x, h * 1.09 + (hy ?? 0), p.z); scene.add(sp); }
+    const b = new THREE.Mesh(g, mt); b.position.set(p.x, h / 2 + (hy ?? 0), p.z); b.rotation.y = Math.atan2(R.fwd(s).x, R.fwd(s).z); addW(b);
+    if (rnd() < 0.5) { const cr = new THREE.Mesh(new THREE.BoxGeometry(w * 0.55, h * 0.07, d * 0.55), mt); cr.position.set(p.x, h + h * 0.035 + (hy ?? 0), p.z); cr.rotation.y = b.rotation.y; addW(cr); }
+    if (rnd() < 0.3) { const sp = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.8, h * 0.18, 6), mats[2]); sp.position.set(p.x, h * 1.09 + (hy ?? 0), p.z); addW(sp); }
     placed.push(p);
   }
 }
@@ -2032,16 +2046,16 @@ async function cityDressing(R, marina) {
   // Speed camera on the right, watching the oncoming lane; it flashes for every car that goes by.
   if (P.radar) { const s = R.radarS = Math.round(R.cityEnd * 0.55), q = spot(s, 1, R.hw(s) + 1.6) || (() => { const p = R.at(s), r = R.right(s), o = R.hw(s) + 1.6; return [p.x + r.x * o, R.y(s), p.z + r.z * o]; })();
     const f = R.fwd(s); propInstances(P.radar, [[q[0], q[1], q[2], Math.atan2(-f.x, -f.z)]]);
-    const fl = new THREE.PointLight(0xffffff, 0, 45, 1.6); fl.position.set(q[0], q[1] + PROPS.radar[1] * 0.75, q[2]); scene.add(fl);
+    const fl = new THREE.PointLight(0xffffff, 0, 45, 1.6); fl.position.set(q[0], q[1] + PROPS.radar[1] * 0.75, q[2]); addW(fl);
     const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(220,235,255,.8)'); gr.addColorStop(1, 'rgba(200,220,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64);
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 })); glow.scale.setScalar(6); glow.position.copy(fl.position); scene.add(glow);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 })); glow.scale.setScalar(6); glow.position.copy(fl.position); addW(glow);
     R.flash = { fl, glow, t: 0 }; }
   // The Burj Khalifa stands over the marina (seen from the whole chase, desert included).
   const burj = await burjModel(); if (burj) {
     // Well clear of the road wherever it bends (its base is ~150 m wide).
     const clear = q => { for (let u = 0; u < R.N; u += 6) { const a = R.samples[u].p; if (Math.hypot(a.x - q.x, a.z - q.z) < 190) return false; } return true; };
     let best = null; for (const k of [0.4, 0.3, 0.5, 0.2, 0.6]) for (const o of [-420, 420, -600, 600]) { if (best) break; const s = R.cityEnd * k, q = R.at(s).addScaledVector(R.right(s), o); if (clear(q)) best = q; }
-    if (best) { burj.position.set(best.x, -2, best.z); scene.add(burj); } }
+    if (best) { burj.position.set(best.x, -2, best.z); addW(burj); } }
 }
 // Name tags floating over the cars: who is driving what.
 function nameTag(text) {
