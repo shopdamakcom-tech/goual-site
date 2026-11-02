@@ -1529,7 +1529,7 @@ function palmGroves(R, src) {
   const parts = []; src.traverse(o => { if (o.isMesh) { const g = plain(o.geometry); g.applyMatrix4(o.matrixWorld); g.computeBoundingSphere(); const m = o.material; if (m.alphaTest || m.transparent) { m.side = THREE.DoubleSide; m.alphaTest = Math.max(m.alphaTest || 0, 0.5); m.transparent = false; } parts.push({ g, m }); } });
   const box = new THREE.Box3().setFromObject(src), k = 0.34, lift = -box.min.y * k;   // ~10 m palms, a grove ~30 m across
   const spots = []; let seed = 21; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const n = TOUCH ? 16 : 40, s0 = R.cityEnd + 40, s1 = R.N - 30;
+  const n = TOUCH ? 30 : 90, s0 = R.cityEnd + 40, s1 = R.N - 30;   // many candidates: the ones on dune slopes are dropped below
   for (let i = 0; i < n; i++) { const s = lerp(s0, s1, (i + rnd() * 0.8) / n), p = R.at(s), r = R.right(s), off = (i % 2 ? 1 : -1) * (R.hw(s) + 22 + rnd() * 40); if (Math.abs(s - R.splitS) < 60) continue; if (R.houseC && Math.hypot(p.x + r.x * off - R.houseC.x, p.z + r.z * off - R.houseC.z) < 55) continue; spots.push([p.x + r.x * off, p.z + r.z * off]); }
   if (R.villaC) for (const [dx, dz] of [[-45, -30], [45, -25], [-40, 40], [42, 38]]) spots.push([R.villaC.x + dx, R.villaC.z + dz]);
   // A grove is ~30 m across: on a dune slope its palms would hang in the air. Keep the flat spots only, and sit
