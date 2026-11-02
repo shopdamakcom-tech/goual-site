@@ -1505,6 +1505,7 @@ function palmGroves(R, src) {
   const n = TOUCH ? 16 : 40, s0 = R.cityEnd + 40, s1 = R.N - 30;
   for (let i = 0; i < n; i++) { const s = lerp(s0, s1, (i + rnd() * 0.8) / n), p = R.at(s), r = R.right(s), off = (i % 2 ? 1 : -1) * (R.hw(s) + 22 + rnd() * 40); if (Math.abs(s - R.splitS) < 60) continue; if (R.houseC && Math.hypot(p.x + r.x * off - R.houseC.x, p.z + r.z * off - R.houseC.z) < 55) continue; spots.push([p.x + r.x * off, p.z + r.z * off]); }
   if (R.villaC) for (const [dx, dz] of [[-45, -30], [45, -25], [-40, 40], [42, 38]]) spots.push([R.villaC.x + dx, R.villaC.z + dz]);
+  DXB.palmSpots = spots;   // solid when you drive off the road
   const M = new THREE.Matrix4(), Q = new THREE.Quaternion(), Y = new V3(0, 1, 0);
   for (const { g, m } of parts) {
     const im = new THREE.InstancedMesh(g, m, spots.length); im.castShadow = true; im.receiveShadow = false; im.frustumCulled = false;
@@ -1644,9 +1645,18 @@ function buildRoute(marina) {
   const mainP0 = new V3(ROUTE_SPLIT[0], 0, ROUTE_SPLIT[1]), mainL = 900;
   return { at, fwd, right, y, hw, N, cityEnd, tunS, cliffS: splitS, splitS, mainP0, mainL, L: N - 1, stopS: N - 3, samples, end, dirE, villaC: end.clone().addScaledVector(dirE, 40) };
 }
+const sstep = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+// How far from the road centre a car may go. In the desert your car may leave the tarmac (up to ~80 m out on the
+// sand); the limit eases back in before the exit so you are guided onto the road again.
+function sideLimit(c) {
+  const R = DRV.R, h = R.hw(c.s) - 1.1;
+  if (c.role !== 'me' || !DXB.hAt) return h;
+  return h + 80 * sstep(R.cityEnd + 30, R.cityEnd + 180, c.s) * (1 - sstep(R.splitS - 320, R.splitS - 90, c.s));
+}
 function carPose(c) {
   const R = DRV.R, p = R.at(c.s), r = R.right(c.s), f = R.fwd(c.s);
-  c.g.position.set(p.x + r.x * c.d, R.y(c.s), p.z + r.z * c.d);
+  const x = p.x + r.x * c.d, z = p.z + r.z * c.d, yr = R.y(c.s);
+  c.g.position.set(x, Math.abs(c.d) > R.hw(c.s) - 0.5 && DXB.hAt ? lerp(yr, DXB.hAt(x, z), sstep(R.hw(c.s) - 0.5, R.hw(c.s) + 6, Math.abs(c.d))) : yr, z);
   const dir = f.multiplyScalar(Math.max(c.v, 4)).addScaledVector(r, c.vd); c.yaw = Math.atan2(-dir.z, dir.x);
   c.g.rotation.set(0, c.yaw, 0);
 }
@@ -1706,7 +1716,7 @@ async function startDrive() {
   state.modeStack = ['drive']; P.mode = 'drive'; P.seated = true;
   seatDriver(me, meCar.g); act('sit', 1e9);
   DRV.list.filter(c => c.role === 'rival').forEach((c, i) => { const rv = rivals()[i]; if (rv) { seatDriver(rv.ch, c.g); c.ch = rv.ch; } });
-  seatDriver(thief, DXB.police); theft.seated = true; trophy.visible = false;
+  seatDriver(thief, DXB.police); theft.seated = true; trophy.visible = false; thief.root.visible = false;   // nobody seen at the wheel during the chase (he shows again at the villa)
   const spareId = CARS.map(c => c.id).find(id => id !== DRV.ids.me && !DRV.ids.r.includes(id));
   for (const [id, g] of Object.entries(DXB.cars)) if (id !== DRV.ids.me && !DRV.ids.r.includes(id) && id !== spareId) g.visible = false;
   makeTraffic(R, T.ferrariT, T.chironT, spareId, { coach: T.coachT, van: T.vanT, skoda: T.skodaT, peugeot: T.peugeotT, maybach: T.maybachT, ram: T.ramT, jeep: T.jeepT, porsche: T.porscheT, gronos: T.gronosT });
@@ -1751,8 +1761,10 @@ function updateDrive(dt) {
   const mv = mode() === 'drive' && !ending ? readMove() : { x: 0, y: 0, m: 0 };
   const boost = !ending && (keys.ShiftLeft || keys.ShiftRight || sprintToggle || mv.y > 0.45 || DRV.gas), brake = ending || mv.y < -0.45 || DRV.brk;
   const vWant = ending ? 0 : brake ? 9 : boost ? 46 : 32;
-  me.v = damp(me.v, vWant, brake ? 1.6 : 0.85, dt);
-  me.vd = damp(me.vd, mv.x * 10 * clamp(me.v / 14, 0.35, 1), 7, dt);
+  const sand = Math.abs(me.d) > R.hw(me.s) + 1;   // off the tarmac: slower on the sand, a little bumpy
+  me.v = damp(me.v, sand ? vWant * 0.72 : vWant, brake ? 1.6 : 0.85, dt);
+  me.vd = damp(me.vd, mv.x * (sand ? 13 : 10) * clamp(me.v / 14, 0.35, 1), 7, dt);
+  if (sand && me.v > 8) cam.shake = Math.max(cam.shake || 0, 0.04);
   // Messi: always a little ahead. Get close and he finds more speed; fall back and he waits for you.
   const gap = ms.s - me.s;
   let vm = 31; if (gap < 16) vm = Math.max(me.v, 30) + (16 - gap) * 0.9; else if (gap > 45) vm = Math.max(6, Math.min(24, me.v - (gap - 45) * 0.3));   // too far ahead: he waits for you
@@ -1769,7 +1781,10 @@ function updateDrive(dt) {
     const lane = (k ? -1 : 1) * 2.8 * (Math.abs(c.s - me.s) < 6 && Math.abs(c.d - me.d) < 2.6 ? 1.3 : 1);
     c.vd = damp(c.vd, clamp((freeLane(c, lane) - c.d) * 1.4, -7, 7), 3.5, dt); });
   trafficStep(dt); animalsStep(dt); pedsStep(dt);
-  for (const c of DRV.list) { c.s += c.v * dt; c.d += c.vd * dt; const h = R.hw(c.s) - 1.1; if (Math.abs(c.d) > h) { c.d = Math.sign(c.d) * h; c.vd = 0; } }
+  for (const c of DRV.list) { c.s += c.v * dt; c.d += c.vd * dt; const h = sideLimit(c); if (Math.abs(c.d) > h) { const k = c.role === 'me' && h > R.hw(c.s) ? 1 - Math.exp(-dt * 2) : 1; c.d += (Math.sign(c.d) * h - c.d) * k; if (k === 1) c.vd = 0; } }
+  // Off the road: the landmarks are solid (slide around them).
+  if (Math.abs(me.d) > R.hw(me.s)) for (const [C, rad] of [[R.mosqueC, 40], [R.houseC, 30], ...(DXB.palmSpots || []).map(([x, z]) => [{ x, z }, 13])]) { if (!C) continue; const p = me.g.position, dx = p.x - C.x, dz = p.z - C.z, dd = Math.hypot(dx, dz);
+    if (dd < rad) { const r = R.right(me.s), push = (rad - dd) * Math.sign(dx * r.x + dz * r.z || 1); me.d += push; me.v = Math.min(me.v, 12); if (!DRV.bumpT) { DRV.bumpT = 0.5; cam.shake = 0.3; audio.kick(0.6); } } }
   for (const c of DRV.list) trafficHits(c);
   ms.s = Math.min(ms.s, R.stopS);
   // Nobody gets past Messi: level with him at best.
@@ -1789,6 +1804,7 @@ function updateDrive(dt) {
   const f = new V3(Math.cos(me.yaw), 0, -Math.sin(me.yaw)); DRV.camF.lerp(f, 1 - Math.exp(-dt * 3.5)).normalize();
   const kt = 0;
   const p = me.g.position, cp = p.clone().addScaledVector(DRV.camF, -lerp(8.4, 5.6, kt)).add(new V3(0, lerp(3.3, 2.0, kt), 0)), look = p.clone().addScaledVector(DRV.camF, 5).add(new V3(0, lerp(1.1, 0.9, kt), 0));
+  if (DXB.hAt && Math.abs(me.d) > R.hw(me.s)) cp.y = Math.max(cp.y, DXB.hAt(cp.x, cp.z) + 1.6);
   cam.override = { pos: cp, look, follow: 14 }; cam.blend = 1;
   P.pos.copy(p); P.lastSafe.copy(p);
   // HUD, sound, story beats.
