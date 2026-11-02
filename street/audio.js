@@ -142,8 +142,24 @@ export const audio = {
   // Driving: a high-revving race engine (flat-six / F1 style). Three harmonics of the firing frequency through a
   // hard soft-clip, two resonant "scream" peaks and a bright exhaust hiss; the revs climb through each gear and
   // drop at every upshift with a crackle from the exhaust.
-  drive(on) {
+  // A recorded Porsche: a start rev, then a high-rev loop whose pitch follows the revs (synth engine if the files fail).
+  sfxBuf(n) { this._sfx ??= {}; return this._sfx[n] ??= fetch('sfx/' + n).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => this.ctx.decodeAudioData(b, ok, no))).catch(() => null); },
+  async drive(on) {
     if (!this.ctx) return;
+    this._drvWant = on;
+    if (on && !this._drv && !this._drvLoading) {
+      this._drvLoading = true; const [loop, start] = await Promise.all([this.sfxBuf('porsche-loop.mp3'), this.sfxBuf('porsche-start.mp3')]); this._drvLoading = false;
+      if (!this._drvWant) return;
+      if (loop && !this._drv) {
+        const c = this.ctx, g = c.createGain(), src = c.createBufferSource(); src.buffer = loop; src.loop = true;
+        src.loopStart = 0.06; src.loopEnd = loop.duration - 0.06;   // skip the mp3 padding at both ends
+        src.connect(g); g.gain.value = 0; g.connect(this.sfx); src.start(c.currentTime + (start ? 1.2 : 0), 0.06);
+        if (start) { const s0 = c.createBufferSource(), sg = c.createGain(); s0.buffer = start; sg.gain.value = this.on ? 0.55 : 0; s0.connect(sg).connect(this.sfx); s0.start(); g.gain.setValueAtTime(0, c.currentTime); }
+        const nb = c.createBuffer(1, c.sampleRate, c.sampleRate), d = nb.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        this._drv = { sample: true, src, g, nb, gear: 0, t0: c.currentTime + (start ? 1.2 : 0), srcs: [src] };
+        return;
+      }
+    }
     if (on && !this._drv) {
       const c = this.ctx, g = c.createGain(), pre = c.createGain(), sh = c.createWaveShaper(), lp = c.createBiquadFilter();
       const curve = new Float32Array(2048); for (let i = 0; i < 2048; i++) { const x = i / 1024 - 1; curve[i] = Math.tanh(x * 5) * 0.9; } sh.curve = curve; sh.oversample = '4x';
@@ -165,6 +181,15 @@ export const audio = {
   driveSpeed(v, thr) {
     const d = this._drv; if (!d) return; const c = this.ctx, t = c.currentTime;
     const gearLen = 11, gear = Math.floor(v / gearLen), rpm = 0.35 + 0.65 * ((v % gearLen) / gearLen);   // climbs, then drops a gear later
+    if (d.sample) {
+      d.src.playbackRate.setTargetAtTime(0.62 + rpm * 0.5 + Math.min(gear, 5) * 0.03, t, 0.06);
+      if (t > d.t0) d.g.gain.setTargetAtTime(this.on ? 0.32 + thr * 0.22 : 0, t, 0.08);
+      if (gear > d.gear && v > 6 && t > d.t0) { d.g.gain.setValueAtTime(this.on ? 0.18 : 0, t); d.g.gain.setTargetAtTime(this.on ? 0.45 : 0, t + 0.08, 0.06);
+        const s = c.createBufferSource(); s.buffer = d.nb; const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 1500; const cg = c.createGain();
+        cg.gain.setValueAtTime(0.0001, t); for (let k = 0; k < 5; k++) { const tk = t + 0.03 + k * 0.045 + Math.random() * 0.02; cg.gain.setValueAtTime(0.2 * Math.random() + 0.08, tk); cg.gain.setValueAtTime(0.0001, tk + 0.012); }
+        s.connect(f).connect(cg).connect(this.sfx); s.start(t); s.stop(t + 0.35); }
+      d.gear = gear; return;
+    }
     const f0 = 70 + rpm * 230 + gear * 12;                                                            // the whine: 100-310 Hz firing
     for (const { o, mul } of d.osc) o.frequency.setTargetAtTime(f0 * mul, t, 0.035);
     d.pk1.frequency.setTargetAtTime(900 + rpm * 1400, t, 0.05);
