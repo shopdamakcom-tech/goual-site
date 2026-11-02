@@ -2006,14 +2006,14 @@ async function cityDressing(R, marina) {
     if (best) { burj.position.set(best.x, -2, best.z); scene.add(burj); } }
 }
 // Name tags floating over the cars: who is driving what.
-function nameTag(text, color) {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const x = c.getContext('2d');
-  x.font = '400 40px "Bebas Neue", Impact, sans-serif'; const w = Math.min(244, x.measureText(text).width + 40);
-  x.fillStyle = 'rgba(8,14,40,.82)'; x.beginPath(); x.roundRect((256 - w) / 2, 8, w, 46, 23); x.fill();
-  x.strokeStyle = color; x.lineWidth = 4; x.stroke();
-  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(text, 128, 33);
+function nameTag(text) {
+  // FIFA style: the name in small white letters, a little arrow under it pointing at the car.
+  const c = document.createElement('canvas'); c.width = 256; c.height = 96; const x = c.getContext('2d');
+  x.shadowColor = 'rgba(0,0,0,.45)'; x.shadowBlur = 6;   // just enough to read it against a bright sky
+  x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '800 34px Inter, Arial, sans-serif'; x.fillText(text, 128, 32);
+  x.beginPath(); x.moveTo(116, 62); x.lineTo(140, 62); x.lineTo(128, 78); x.closePath(); x.fill();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); sp.scale.set(3.6, 0.9, 1); sp.renderOrder = 5; return sp;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); sp.scale.set(2.6, 0.975, 1); sp.renderOrder = 5; return sp;
 }
 function carTags() {
   for (const c of DRV.list) if (c.tag) { scene.remove(c.tag); c.tag = null; }
@@ -2024,7 +2024,7 @@ function carTags() {
     else if (c.role === 'me') { txt = hero.label; col = hero.color; }
     else if (c.role === 'rival') { const r = c.ch && rv.find(h => h.ch === c.ch); if (r) { txt = r.label; col = r.color; } }
     if (!txt) continue;
-    c.tag = nameTag(txt, col); c.tagH = new THREE.Box3().setFromObject(c.g).max.y - c.g.position.y + 1.1; scene.add(c.tag);
+    c.tag = nameTag(txt); c.tagH = new THREE.Box3().setFromObject(c.g).max.y - c.g.position.y + 1.1; scene.add(c.tag);
   }
 }
 // Speed camera + speed bump, every frame of the chase.
