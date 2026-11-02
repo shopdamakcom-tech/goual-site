@@ -204,6 +204,47 @@ export const audio = {
     }
     d.gear = gear;
   },
+  // Chase soundtrack: 126 bpm electronic beat with a Middle-Eastern riff (D Phrygian dominant), scheduled ahead.
+  chaseMusic(on) {
+    if (!this.ctx) return;
+    if (on && !this._cm) {
+      const c = this.ctx, bus = c.createGain(); bus.gain.value = 0; bus.gain.setTargetAtTime(this.on ? 0.55 : 0, c.currentTime, 1.2); bus.connect(this.master);
+      const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4; comp.connect(bus);
+      const cm = this._cm = { bus, out: comp, step: 0, next: c.currentTime + 0.1 };
+      const spb = 60 / 126 / 4;
+      // D E♭ F♯ G A B♭ C D: the "hijaz" colour.
+      const N = n => 146.83 * Math.pow(2, n / 12), riff = [0, 1, 4, 1, 0, -2, 0, 4, 5, 4, 1, 0, 1, -2, -5, 0], bass = [0, 0, 0, 0, -2, -2, 1, 1];
+      const tick = () => {
+        while (cm.next < c.currentTime + 0.25) {
+          const s16 = cm.step % 16, bar = Math.floor(cm.step / 16), t = cm.next, out = cm.out;
+          if (s16 % 4 === 0) this.tone(out, t, { f: 120, to: 42, level: 0.55, a: 0.002, d: 0.28 });                                  // kick
+          if (s16 === 4 || s16 === 12) { this.noise(out, t, { type: 'bandpass', f: 1800, q: 0.8, level: 0.22, d: 0.16 }); this.tone(out, t, { f: 220, to: 150, level: 0.12, d: 0.08, type: 'triangle' }); }   // clap
+          if (s16 % 2 === 1) this.noise(out, t, { type: 'highpass', f: 8000, level: s16 % 4 === 3 ? 0.09 : 0.05, d: 0.04 });           // hats
+          if (s16 % 2 === 0) { const b = bass[Math.floor(s16 / 2)]; this.tone(out, t, { f: N(b) / 4, level: 0.26, type: 'sawtooth', a: 0.004, d: spb * 1.6 }); }   // rolling bass
+          if (bar % 4 >= 2 && s16 % 2 === 0) { const n = riff[(s16 / 2 + (bar % 2) * 8) % 16]; this.tone(out, t, { f: N(n) * 2, level: 0.07, type: 'square', a: 0.003, d: spb * 1.4 }); }   // riff, every other 2 bars
+          if (bar % 8 === 7 && s16 >= 12) this.noise(out, t, { type: 'highpass', f: 2000 + (s16 - 12) * 1500, level: 0.06 + (s16 - 12) * 0.03, d: spb });   // riser into the next phrase
+          cm.step++; cm.next += spb;
+        }
+      };
+      tick(); cm.timer = setInterval(tick, 60);
+    } else if (!on && this._cm) { const cm = this._cm; this._cm = null; clearInterval(cm.timer); cm.bus.gain.setTargetAtTime(0, this.ctx.currentTime, 0.6); setTimeout(() => cm.bus.disconnect(), 3000); }
+  },
+  // A big transport plane passing overhead: turbofan roar (filtered noise + low drone), level and brightness by distance.
+  plane(on) {
+    if (!this.ctx) return;
+    if (on && !this._pl) {
+      const c = this.ctx, g = c.createGain(); g.gain.value = 0; g.connect(this.sfx);
+      const n = c.createBufferSource(); n.buffer = this.noiseBuf; n.loop = true; const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 400; lp.Q.value = 0.5;
+      const o = c.createOscillator(), og = c.createGain(); o.type = 'sawtooth'; o.frequency.value = 58; og.gain.value = 0.08; const olp = c.createBiquadFilter(); olp.type = 'lowpass'; olp.frequency.value = 220;
+      const w = c.createOscillator(), wg = c.createGain(); w.type = 'sine'; w.frequency.value = 1900; wg.gain.value = 0.012;   // turbine whine
+      n.connect(lp).connect(g); o.connect(olp).connect(og).connect(g); w.connect(wg).connect(g); n.start(); o.start(); w.start();
+      this._pl = { g, lp, w, srcs: [n, o, w] };
+    } else if (!on && this._pl) { const p = this._pl; this._pl = null; p.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.5); setTimeout(() => p.srcs.forEach(x => x.stop()), 2500); }
+  },
+  planeLevel(k, closing) {   // k: 0 far … 1 overhead; closing: >0 approaching (higher whine), <0 going away
+    const p = this._pl; if (!p) return; const t = this.ctx.currentTime;
+    p.g.gain.setTargetAtTime(this.on ? 0.5 * k : 0, t, 0.15); p.lp.frequency.setTargetAtTime(250 + 1400 * k, t, 0.15); p.w.frequency.setTargetAtTime(1900 * (1 + 0.06 * closing), t, 0.2);
+  },
   // Police siren (wail), its level set by how far the police car is.
   siren(on) {
     if (!this.ctx) return;
