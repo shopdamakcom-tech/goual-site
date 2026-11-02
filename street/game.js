@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { buildWorld, buildBackdrop } from './world.js?v=4';
-import { Character, dress } from './rig.js?v=7';
+import { Character, dress } from './rig.js?v=9';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { makeBallonDor, loadFavela, makeSky, makeClouds } from './favela.js?v=4';
@@ -25,7 +25,11 @@ const TOUCH = matchMedia('(pointer: coarse)').matches || params.has('touch');
 
 // ================= renderer, scene, light =================
 const renderer = new THREE.WebGLRenderer({ canvas: $('#game'), antialias: !TOUCH, powerPreference: 'high-performance' });
-renderer.setPixelRatio(Math.min(devicePixelRatio, TOUCH ? 1.3 : 1.6));
+// Computers render at the screen's own sharpness (2x on a Retina Mac); if the frame rate drops, the quality steps
+// down gently (see the loop), and climbs back when there is room again. Phones stay at 1.3.
+const PR_STEPS = TOUCH ? [1.3, 1] : [2, 1.6, 1.3, 1].filter(v => v <= Math.max(1, devicePixelRatio));
+let prStep = 0;
+renderer.setPixelRatio(Math.min(devicePixelRatio, PR_STEPS[0]));
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08;
@@ -95,8 +99,11 @@ const gltf = url => {
   if (!pf) return viaNet();
   return pf.then(buf => buf ? new Promise((res, rej) => loader.parse(buf, url.slice(0, url.lastIndexOf('/') + 1), res, rej)) : viaNet());
 };
-const load = url => gltf(url).then(g => g.scene);
-const loadAnim = url => gltf(url).then(g => { g.scene.userData.clips = g.animations; return g.scene; });
+// Textures stay sharp when seen at a grazing angle (roads, ground, car bodies).
+const ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+const sharpen = g => { g.scene.traverse(o => { if (o.material) for (const m of [].concat(o.material)) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap']) if (m[k]) m[k].anisotropy = ANISO; }); return g; };
+const load = url => gltf(url).then(g => sharpen(g).scene);
+const loadAnim = url => gltf(url).then(g => { sharpen(g); g.scene.userData.clips = g.animations; return g.scene; });
 const loadHero = url => new Promise((res, rej) => loader.load(url, g => { g.scene.userData.run = g.animations.find(a => /run/i.test(a.name)) || null; res(g.scene); }, undefined, rej));
 const [art, cr7Src, kidSrc, zeSrc, triondaSrc, mbappeSrc, yamalSrc, kaneSrc, carSrc] = await Promise.all([loadFavela(renderer, ['plate', 'band', 'clouds']), load('models/cr7.glb'), load('models/kid.glb'), load('models/ze.glb'), load('models/trionda.glb').catch(() => null), loadHero('models/mbappe.glb'), loadHero('models/yamal.glb'), loadHero('models/kane.glb'), loadAnim(hd('models/g63.glb'))]);
 
@@ -499,6 +506,7 @@ function nearestInteractable() {
 // ================= mission =================
 const waits = [];
 const waitFor = fn => new Promise(r => waits.push({ fn, r }));
+// (the cabin's per-frame work is hooked into update below)
 const sleep = s => new Promise(r => setTimeout(r, s * 1000));
 // The duel with Cristiano: the penalty (default), or '?duel=goal' for the goal-to-goal we tried.
 const DUEL = params.get('duel') === 'goal' ? 'goal' : 'pen';
@@ -1181,14 +1189,159 @@ async function chaseFlight() {
   await tween(5, (k, raw) => { const d = 230 * raw * raw, lift = Math.max(0, raw - 0.5); jet.position.set(RUN_X, RY + 120 * lift * lift, RUN_Z - d); jet.rotation.x = Math.min(0.22, lift * 0.8);
     const look = jet.position.clone().add(new V3(0, 1.5, 0)); cam.override = { pos: camT, look, follow: 50 }; cam.ovPos = camT.clone(); cam.ovLook = look; cam.blend = 1; });
   // Rio → Dubai on the world map. Episode 3 is still hidden (direct link only): the public game stops half way.
+  if (EP3) {   // in the cabin on the way to Dubai (Dubai's airport finishes loading meanwhile)
+    $('#fade').classList.add('on'); await sleep(0.6);
+    try { await jetCabin(); await cabinTalk(); } catch (e) { console.error(e); }
+    $('#fade').classList.add('on'); await sleep(0.7); leaveCabin(); $('#letterbox').classList.remove('on');
+    return;
+  }
   $('#fade').classList.add('on', 'world'); worldMap(EP3);
-  await sleep(EP3 ? 5.6 : 6.2);
-  if (!EP3) $('#fade').classList.remove('world');
+  await sleep(6.2);
+  $('#fade').classList.remove('world');
 }
+// ================= the airport car park =================
+// Down in the lift to the car park under the terminal, where the five cars wait in their bays. The chase keeps
+// building behind it. Computers only (phones go straight to the menu: memory).
+async function parkingScene() {
+  if (TOUCH) return false;
+  const pk = await load('models/dxb-parking.glb').catch(() => null); if (!pk) return false;
+  $('#fade').classList.add('on'); await sleep(0.5);
+  const G = DXB.park = new THREE.Group(), Y = -420; G.position.set(0, Y, 0); G.add(pk); scene.add(G);
+  pk.traverse(o => { if (o.isMesh) { o.receiveShadow = true; o.castShadow = false; } });
+  for (const z of [-13, -4, 5, 14]) { const l = new THREE.PointLight(0xfff1dc, 2.4, 20, 1.3); l.position.set(0, 3.3, z); G.add(l); }
+  const lift = new THREE.PointLight(0xffffff, 1.6, 6, 1.4); lift.position.set(0, 2.6, -20); G.add(lift);
+  colliders[0].y1 = Y; indexColliders();
+  // The five cars, noses to the driving lane.
+  const bays = [[-7.2, -10, 0], [7.2, -10, Math.PI], [-7.2, -3, 0], [7.2, -3, Math.PI], [-7.2, 4, 0]];
+  CARS.forEach((c, i) => { const g = DXB.cars[c.id], [x, z, r] = bays[i]; g.visible = true; g.position.set(x, Y + 0.02, z); g.rotation.set(0, r, 0); });
+  // The three of us in the lift, facing the doors.
+  const inLift = [new V3(0, Y, -19.3), new V3(-0.8, Y, -20.3), new V3(0.8, Y, -20.3)];
+  P.seated = false; P.pos.copy(inLift[0]); P.vel.set(0, 0, 0); P.yaw = 0; me.root.position.copy(inLift[0]); me.root.rotation.set(0, 0, 0); me.root.visible = true;
+  if (rivalState.on) rivals().forEach((r, i) => { r.ch.root.position.copy(inLift[i + 1]); r.ch.root.rotation.set(0, 0, 0); r.ch.root.visible = true; });
+  rivalState.mode = 'stand';
+  const door = pk.getObjectByName('asansor_22_0') || null, d0 = door?.position.x ?? 0;
+  shot(new V3(0, Y + 1.75, -22.2), new V3(0, Y + 1.35, -16), { cut: true });
+  $('#fade').classList.remove('on'); place('DUBAI AIRPORT', 'CAR PARK · LEVEL -2');
+  await sleep(1.4); audio.chime?.();
+  if (door) await tween(1.3, k => { door.position.x = d0 + 3.2 * k; });
+  // Out of the lift and down the lane: the cars, lit, waiting.
+  const c0 = new V3(0, Y + 1.75, -22.2), c1 = new V3(0, Y + 2.3, -13.5), l0 = new V3(0, Y + 1.35, -16), l1 = new V3(0, Y + 0.7, -2);
+  await tween(3.2, (k, raw) => { const e = raw * raw * (3 - 2 * raw); cam.override = { pos: c0.clone().lerp(c1, e), look: l0.clone().lerp(l1, e) }; cam.ovPos = cam.override.pos.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1; });
+  return true;
+}
+// ================= the jet cabin (Rio → Dubai) =================
+// The three stars fly to Dubai in the private jet: a short scene in the cabin while Dubai loads behind it.
+const CABIN = { root: null, seats: [], on: false, sat: [] };
+async function buildCabin() {
+  if (CABIN.root) return CABIN;
+  const m = await load('models/jet-cabin.glb'); m.updateMatrixWorld(true);
+  // The fuselage lies at an angle in the file: find its long axis (principal axis of the vertices) and turn it onto z.
+  const v = new V3(); let n = 0, mx = 0, mz = 0, xx = 0, zz = 0, xz = 0;
+  m.traverse(o => { if (o.isMesh) { const p = o.geometry.attributes.position; for (let i = 0; i < p.count; i += 11) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); n++; mx += v.x; mz += v.z; xx += v.x * v.x; zz += v.z * v.z; xz += v.x * v.z; } } });
+  mx /= n; mz /= n; const cxx = xx / n - mx * mx, czz = zz / n - mz * mz, cxz = xz / n - mx * mz, ang = 0.5 * Math.atan2(2 * cxz, cxx - czz);
+  const w = new THREE.Group(); w.add(m); w.rotation.y = ang - Math.PI / 2; w.updateMatrixWorld(true);
+  const b = new THREE.Box3().setFromObject(w), c = b.getCenter(new V3());
+  const floor = rayY(w, c.x, c.z, c.y, c.y) ?? b.min.y;   // first thing below the middle of the cabin: the floor
+  m.position.set(0, 0, 0); w.position.set(-c.x, -floor, -c.z); const root = new THREE.Group(); root.add(w); root.updateMatrixWorld(true);
+  m.traverse(o => { if (o.isMesh) { o.receiveShadow = true; o.castShadow = false; } });
+  // Seats: the grey leather parts, grouped by place; the backrest is the tall side, the seat faces away from it.
+  const parts = []; m.traverse(o => { if (o.isMesh && /Leather_Grey/i.test(o.material.name)) { const bb = new THREE.Box3().setFromObject(o); parts.push({ o, bb, c: bb.getCenter(new V3()) }); } });
+  const groups = []; for (const p of parts) { const g = groups.find(g => Math.hypot(g.c.x - p.c.x, g.c.z - p.c.z) < 0.6); if (g) { g.items.push(p); g.bb.union(p.bb); g.c = g.bb.getCenter(new V3()); } else groups.push({ items: [p], bb: p.bb.clone(), c: p.c.clone() }); }
+  for (const g of groups) {
+    const h = g.bb.max.y - g.bb.min.y; let hx = 0, hz = 0, hn = 0, lx = 0, lz = 0, ln = 0;
+    for (const it of g.items) { const p = it.o.geometry.attributes.position; for (let i = 0; i < p.count; i += 3) { v.fromBufferAttribute(p, i).applyMatrix4(it.o.matrixWorld);
+      if (v.y > g.bb.min.y + 0.72 * h) { hx += v.x; hz += v.z; hn++; } else if (v.y < g.bb.min.y + 0.5 * h) { lx += v.x; lz += v.z; ln++; } } }
+    if (!hn || !ln) continue;
+    const f = new V3(lx / ln - hx / hn, 0, lz / ln - hz / hn); if (f.lengthSq() < 1e-4) continue; f.normalize();
+    const probe = g.c.clone().addScaledVector(f, 0.12), top = rayY(root, probe.x, probe.z, g.bb.max.y + 0.05, g.bb.max.y) ?? (g.bb.min.y + 0.45);
+    CABIN.seats.push({ c: g.c.clone(), f, back: g.c.clone().addScaledVector(f, -(Math.max(g.bb.max.x - g.bb.min.x, g.bb.max.z - g.bb.min.z) * 0.5 - 0.08)), top });
+  }
+  CABIN.seats.sort((a, b2) => a.c.z - b2.c.z);
+  const lamp = new THREE.PointLight(0xfff2dd, 2.2, 14, 1.2); lamp.position.set(0, 1.9, 0); root.add(lamp);
+  CABIN.root = root; return CABIN;
+}
+// Put a seated character on a seat: hips on the cushion, back against the backrest (measured on the posed rig).
+function fitSeat(ch, st) {
+  ch.root.rotation.set(0, Math.atan2(st.f.x, st.f.z), 0); ch.root.updateMatrixWorld(true);
+  const hp = ch.bones.hips.getWorldPosition(new V3()), want = st.back.clone().addScaledVector(st.f, 0.2);
+  ch.root.position.x += want.x - hp.x; ch.root.position.z += want.z - hp.z; ch.root.position.y += st.top + 0.11 - hp.y;
+}
+function cabinStep(dt) {
+  if (!CABIN.on) return;
+  const standMe = CABIN.stand === me;
+  P.action = standMe ? (talking === me ? 'talk' : 'lean') : talking === me ? 'loungeTalk' : 'lounge'; P.actT = performance.now() / 1000; P.actLen = 1e9;
+  for (const [ch] of CABIN.sat) if (ch !== me) ch.animate({ dt, speed: 0, grounded: true, action: talking === ch ? 'loungeTalk' : 'lounge' });
+  if (CABIN.stand && CABIN.stand !== me) CABIN.stand.animate({ dt, speed: 0, grounded: true, action: talking === CABIN.stand ? 'talk' : 'lean', actionT: performance.now() / 1000 });
+  if (CABIN.fitN-- > 0) for (const [ch, st] of CABIN.sat) fitSeat(ch, st);
+  for (const cl of CABIN.clouds || []) { cl.position.z += dt * 60; if (cl.position.z > 220) cl.position.z -= 440; }   // clouds sliding past the windows
+}
+async function jetCabin() {
+  const C = await buildCabin();
+  leaveScene([trophy, AP.jet, thief?.root, ...Object.values(HEROES).map(h => h.ch.root)]);
+  if (AP.jet) AP.jet.visible = false; trophy.visible = false; if (thief) thief.root.visible = false;
+  scene.add(C.root); scene.background = new THREE.Color(0x8fc2ee); scene.fog.color.set(0xbfdcf3); scene.fog.near = 60; scene.fog.far = 900;
+  // Clouds outside, below and around the jet.
+  if (!C.clouds) { const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d');
+    for (let i = 0; i < 14; i++) { const gx = 30 + Math.random() * 68, gy = 50 + Math.random() * 28, r = 18 + Math.random() * 22, gr = x.createRadialGradient(gx, gy, 0, gx, gy, r); gr.addColorStop(0, 'rgba(255,255,255,.95)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128); }
+    const tex = new THREE.CanvasTexture(cv); C.clouds = [];
+    for (let i = 0; i < 26; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false })); const side = i % 2 ? 1 : -1;
+      sp.position.set(side * (30 + Math.random() * 120), -25 - Math.random() * 60, -220 + Math.random() * 440); sp.scale.setScalar(50 + Math.random() * 70); C.root.add(sp); C.clouds.push(sp); } }
+  // Who sits where: you facing the camera, the other two across the table.
+  // The club seats face each other in pairs: you on one side, the other two across from you.
+  const club = C.seats.filter(st => Math.abs(st.f.z) > 0.9), mine = club.find(st => st.f.z < 0) || C.seats[0], across = club.filter(st => st.f.z * mine.f.z < 0).sort((a, b) => Math.abs(a.c.x - mine.c.x) - Math.abs(b.c.x - mine.c.x));
+  // Kane stays on his feet, leaning on the seat back; the other two sit face to face across a table.
+  const all = [me, ...(rivalState.on ? rivals().map(r => r.ch) : [])], kane = all.length > 2 ? HEROES.kane.ch : null;
+  const sitters = all.filter(ch => ch !== kane), opp = across[0];
+  CABIN.sat = [[sitters[0], mine], ...(sitters[1] && opp ? [[sitters[1], opp]] : [])];
+  for (const ch of all) { if (ch.root.parent !== scene) scene.add(ch.root); ch.root.visible = true; ch.root.scale.setScalar(1); ch.legOut = 0.6; }
+  const mid = opp ? mine.c.clone().add(opp.c).multiplyScalar(0.5) : mine.c.clone().addScaledVector(mine.f, 0.7);
+  if (opp) {   // the table between the two seats: it also hides their legs
+    const yaw = Math.atan2(mine.f.x, mine.f.z);
+    if (!C.table) { const wood = new THREE.MeshStandardMaterial({ color: 0x5a3a22, roughness: 0.35, metalness: 0.05 }), chrome = new THREE.MeshStandardMaterial({ color: 0xcfd3d6, roughness: 0.2, metalness: 0.9, envMap: ENV });
+      const t = C.table = new THREE.Group(), top = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.05, Math.max(0.55, mine.c.distanceTo(opp.c) - 0.75)), wood);
+      top.position.y = 0.72; const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.7, 16), chrome); leg.position.y = 0.35; const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.26, 0.03, 24), chrome); foot.position.y = 0.015;
+      const depth = top.geometry.parameters.depth, sides = [-0.46, 0.46].map(x => { const pn = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.66, depth), wood); pn.position.set(x, 0.37, 0); return pn; });   // side panels hide the legs under it
+      t.add(top, leg, foot, ...sides); top.castShadow = true; C.root.add(t); }
+    C.table.position.set(mid.x, 0, mid.z); C.table.rotation.y = yaw;
+  }
+  if (kane) {   // standing behind the seat across from you, hands on its back
+    // Further down the cabin, by the door at the end, standing in the aisle and looking at the other two.
+    const base = opp || mine, dir = mine.f.clone(), spots = [];
+    for (let d = 3.2; d >= 1.4; d -= 0.2) for (const dx of [0, -0.45, 0.45]) spots.push(base.c.clone().addScaledVector(dir, d).setX(dx));
+    const clear = q => C.seats.every(st => Math.hypot(st.c.x - q.x, st.c.z - q.z) > 0.85) && (rayY(C.root, q.x, q.z, 1.7, 1.7) ?? 0) < 0.15;   // no seat, nothing between the floor and his head
+    const free = spots.find(clear) || base.c.clone().addScaledVector(dir, 1.4);
+    const look = mid.clone().sub(free); kane.root.position.set(free.x, 0, free.z); kane.root.rotation.set(0, Math.atan2(look.x, look.z), 0); CABIN.stand = kane;
+  } else CABIN.stand = null;
+  P.seated = true; rivalState.mode = 'away'; CABIN.on = true; CABIN.fitN = 16;
+  // Camera spots: from the aisle on the table, on each speaker, out of the window.
+  const aisle = new V3(mid.x > 0 ? -1 : 1, 0, 0), up = y => new V3(0, y, 0);
+  CABIN.view = {
+    wide: () => [mid.clone().addScaledVector(aisle, 1.45).add(up(1.45)), mid.clone().add(up(0.85))],
+    seat: st => [st.c.clone().addScaledVector(st.f, 1.45).addScaledVector(aisle, 0.75).add(up(1.2)), st.c.clone().add(up(0.85))],
+    stand: ch => { const f = new V3(Math.sin(ch.root.rotation.y), 0, Math.cos(ch.root.rotation.y)), p = ch.root.position; return [p.clone().addScaledVector(f, 1.7).addScaledVector(aisle, 0.6).add(up(1.5)), p.clone().add(up(1.45))]; },
+    window: () => { const p = mine.c.clone().add(up(1.15)).addScaledVector(aisle, -0.25); return [p, p.clone().addScaledVector(aisle, -4).add(up(-0.6))]; },
+  };
+  const [wp, wl] = CABIN.view.wide(); shot(wp, wl, { cut: true });
+  $('#fade').classList.remove('on', 'world', 'trip'); $('#letterbox').classList.add('on');
+  audio.engine?.(4); place('PRIVATE JET', 'RIO → DUBAI');
+  await sleep(1.2);
+  return C;
+}
+// The talk on the way: each line framed on whoever says it.
+async function cabinTalk() {
+  const V = CABIN.view, who = { HERO: me, RIVAL1: rivals()[0]?.ch, RIVAL2: rivals()[1]?.ch };
+  const frame = w => { const ch = who[w]; if (!ch) return; const s = CABIN.sat.find(([c]) => c === ch); const [p, l] = s ? V.seat(s[1]) : CABIN.stand === ch ? V.stand(ch) : V.wide(); shot(p, l, { cut: true }); };
+  const lines = rivalState.on ? [['HERO', 'Messi left Rio two hours before us. He will be in Dubai first.'], ['RIVAL1', 'Dubai… supercars, police, the desert. That is his playground.'],
+    ['RIVAL2', 'Then we land, we take the fastest cars there, and we hunt him down.'], ['HERO', 'This time, the Ballon d\'Or comes home.']]
+    : [['HERO', 'Messi left Rio two hours before me. He will be in Dubai first.'], ['HERO', 'This time, the Ballon d\'Or comes home.']];
+  for (const [w, t] of lines) { frame(w); await say([[w, t]]); }
+  { const [p, l] = V.window(); shot(p, l, { cut: true }); place('DUBAI', 'DESCENT'); await sleep(2.2); }
+}
+function leaveCabin() { CABIN.on = false; P.action = null; scene.background = null; CABIN.root = null; CABIN.seats = []; CABIN.clouds = null; }   // the next leaveScene clears (and frees) the cabin
 // ================= episode 3: Dubai =================
 // Messi lands first and grabs the Dubai Police Bugatti; each of the three stars picks a car and the chase goes
 // through Dubai Marina, out into the desert, to a tunnel where he slips into a hidden house.
-const dubaiFiles = () => ['models/dxb-airport.glb', 'models/dxb-airliner.glb', 'models/car-police.glb', ...CARS.map(c => hd('models/' + c.file))];
+const dubaiFiles = () => ['models/jet-cabin.glb', 'models/dxb-airport.glb', 'models/dxb-airliner.glb', 'models/car-police.glb', ...CARS.map(c => hd('models/' + c.file))];
 const chaseFiles = () => { const M = TOUCH ? '-m' : '';
   return [`models/dxb-marina${M}.glb`, `models/dxb-villa${M}.glb`, 'models/car-grab.glb', 'models/ferrari.glb', 'models/car.glb', 'models/car-skoda.glb', 'models/car-peugeot.glb',
     ...(TOUCH ? [] : ['bus-fire', 'bus-coach', 'bus-van', 'car-maybach', 'car-ram', 'car-jeep', 'car-porsche', 'car-gronos'].map(n => `models/${n}.glb`)),
@@ -1380,7 +1533,7 @@ async function dubai() {
   rivalState.mode = 'stand';
   shot(st.clone().add(new V3(9, 1.7, 8)), st.clone().add(new V3(-1, 1.4, 0)), { cut: true });
   await say(rivalState.on ? [['HERO', 'He is taking the police car!'], ['RIVAL1', 'There are more cars over there. Everybody grab one!']] : [['HERO', 'He is taking the police car! I need a car… now.']]);
-  shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.ferrari.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
+  if (!await parkingScene()) shot(new V3(-40, 2.8, DXB.APRON.z + 76), DXB.cars.ferrari.position.clone().add(new V3(0, 0.8, -6)), { cut: true });
   // Pick a car.
   // The whole chase (Dubai Marina, the desert, the villa) is built behind the car menu, so the cut is instant.
   if (!TOUCH) DXB.prepP ??= prepareDrive();   // on phones the airport is freed first (both at once ran out of memory)
@@ -2452,7 +2605,7 @@ function updatePlayer(dt) {
   IN.jump = IN.use = IN.trick = IN.shoot = IN.siu = false;
 }
 // ================= main loop =================
-const clock = new THREE.Clock(); let fpsAcc = 0, fpsN = 0, lowQ = false;
+const clock = new THREE.Clock(); let fpsAcc = 0, fpsN = 0, fpsGood = 0;
 function frame() {
   requestAnimationFrame(frame);
   const dt = Math.min(0.05, clock.getDelta());
@@ -2461,10 +2614,14 @@ function frame() {
   renderer.render(scene, camera);
   // Adaptive resolution if the device struggles.
   fpsAcc += dt; fpsN++;
-  if (fpsAcc > 3) { const fps = fpsN / fpsAcc; if (fps < 32 && !lowQ) { lowQ = true; renderer.setPixelRatio(Math.min(1, devicePixelRatio)); } fpsAcc = 0; fpsN = 0; }
+  if (fpsAcc > 3 && !params.has('test')) { const fps = fpsN / fpsAcc;
+    if (fps < 38 && prStep < PR_STEPS.length - 1) { renderer.setPixelRatio(PR_STEPS[++prStep]); fpsGood = 0; }                 // struggling: one step down
+    else if (fps > 57 && prStep > 0 && ++fpsGood >= 4) { renderer.setPixelRatio(PR_STEPS[--prStep]); fpsGood = 0; }          // ~12 s of headroom: one step up
+    fpsAcc = 0; fpsN = 0; }
 }
 function update(dt) {
   if (!state.paused) {
+    cabinStep(dt);
     for (let i = waits.length - 1; i >= 0; i--) if (waits[i].fn()) { const w = waits.splice(i, 1)[0]; w.r(); }
     if (state.started) state.playTime = (performance.now() - state.t0) / 1000;
     for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i](dt)) tweens.splice(i, 1);
@@ -2555,6 +2712,7 @@ $('#playBtn').onclick = async () => {
   audio.init(); $('#title').classList.add('hidden'); $('#hud').classList.remove('hidden');
   state.started = true; state.t0 = performance.now();
   if (params.get('ep') === '3' || params.get('ep') === '3d') { await startEp3(params.get('ep') === '3d'); return; }
+  if (params.get('ep') === 'jet') { rivalState.on = true; pushMode('cut'); await jetCabin(); await cabinTalk(); return; }   // test: the cabin scene alone
   await intro();
 };
 
@@ -2569,4 +2727,4 @@ me.root.position.copy(P.pos); me.root.rotation.y = P.yaw;
 frame();
 post('ready');
 // Test hooks.
-window.__street = { THREE, TRAFFIC, worldMap, DRV, DXB, ANIMALS, dubai, startDrive, updateDrive, camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, chaseFlight, cabinSet, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };
+window.__street = { THREE, TRAFFIC, CABIN, cam, worldMap, DRV, DXB, ANIMALS, dubai, startDrive, updateDrive, camera, findLedge, keys, step: (n = 1, dt = 1 / 60, each) => { for (let i = 0; i < n; i++) { if (each) each(); update(dt); } }, info: () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geos: renderer.info.memory.geometries, tex: renderer.info.memory.textures }), snap: () => { cam.target.set(P.pos.x, P.pos.y + 1.55, P.pos.z); cam.cur = cam.dist * cam.zoom; cam.blend = 0; cam.override = null; cam.ovPos = cam.ovLook = null; }, fps: () => fpsN / Math.max(0.001, fpsAcc), P, state, cam, W, ball, cards, kids, car, setStage: async (s) => { state.stage = s; }, tp: (x, y, z) => { P.pos.set(x, y, z); P.lastSafe.set(x, y, z); }, talkZe, talkThiago, cr7Turn, setPenSpot: v => { penSpot = v; }, DUEL, winPens: () => { if (state.pen) { state.pen.scored = true; endPens(); } }, missPen: () => { if (state.pen) endPens(); }, meetRonaldo, afterGoal, rideAway, enterAirport, arriveAirport, startChase, caught, escaped, chaseFlight, cabinSet, theft, AP, rivalState, ferrariP, getThief: () => thief, trophy, celebrate, pickHero, heroes: HEROES, ronaldo, gloves, SPOT, GOAL, groundAt, IN, mode: () => mode() };

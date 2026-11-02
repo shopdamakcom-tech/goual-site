@@ -223,7 +223,20 @@ export class Character {
       this.rot('lArm', X, -0.9 * (1 - sm(e(t, 0.3, 0.6)))); this.rot('spine', X, 0.25); this.rot('lCalf', X, 0.3); this.rot('rCalf', X, 0.3);
     } else if (a === 'sit') {
       this.rot('lThigh', X, -1.5); this.rot('rThigh', X, -1.5); this.rot('lCalf', X, 1.5); this.rot('rCalf', X, 1.5);
-      this.rot('lArm', X, -0.35); this.rot('rArm', X, -0.35); this.rot('lFore', X, -0.6); this.rot('rFore', X, -0.6);
+      this.rot('lArm', X, -0.35); this.rot('rArm', X, -0.35); this.rot('lFore', X, -0.6); this.rot('rFore', X, -0.6);    } else if (a === 'lounge' || a === 'loungeTalk') {   // relaxed in a jet seat: back on the backrest, forearms on the armrests, knees apart
+      const T = this.t, br = Math.sin(T * 1.7) * 0.015, talk = a === 'loungeTalk', g = Math.sin(T * 3.1), h = Math.sin(T * 2.2 + 1);
+      const L = this.legOut || 0;   // 0: shins straight down … 1: legs stretched out in front (low seats)
+      this.rot('lThigh', X, -1.38 + 0.25 * L); this.rot('rThigh', X, -1.42 + 0.3 * L); this.rot('lThigh', Z, -0.13); this.rot('rThigh', Z, 0.13);
+      this.rot('lCalf', X, 1.2 - 0.85 * L); this.rot('rCalf', X, 1.3 - 0.95 * L); this.rot('lFoot', X, -0.15 + 0.2 * L); this.rot('rFoot', X, -0.15 + 0.2 * L);
+      this.rot('spine', X, talk ? 0.12 : -0.14); this.rot('chest', X, (talk ? 0.06 : -0.05) + br); this.rot('neck', X, talk ? -0.04 : 0.1);
+      this.rot('head', Y, 0.25 * Math.sin(T * 0.23) + 0.12 * Math.sin(T * 0.61)); this.rot('head', X, 0.03 * Math.sin(T * 0.4));
+      if (talk) {   // leaning in, forearms on the thighs, the right hand making the point
+        this.rot('lArm', X, -0.75); this.rot('rArm', X, -0.75 - 0.2 * Math.max(0, g)); this.rot('lArm', Z, -0.12); this.rot('rArm', Z, 0.12);
+        this.rot('lFore', X, -0.75); this.rot('rFore', X, -1.0 - 0.35 * g); this.rot('head', X, 0.04 * h);
+      } else {      // forearms along the armrests
+        this.rot('lArm', X, 0.08); this.rot('rArm', X, 0.12); this.rot('lArm', Z, -0.1); this.rot('rArm', Z, 0.1);
+        this.rot('lFore', X, -1.0); this.rot('rFore', X, -0.95); this.rot('lHand', X, 0.25); this.rot('rHand', X, 0.25);
+      }
     }
   }
   headWorld(out = new THREE.Vector3()) { return this.bones.head.getWorldPosition(out); }
