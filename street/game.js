@@ -1222,7 +1222,8 @@ function seatDriver(ch, car) {
   const b = new THREE.Box3().setFromObject(car), H = b.max.y - b.min.y, L = b.max.x - b.min.x;
   const k = 0.9; ch.root.scale.setScalar(k);
   car.attach ? null : null; car.add(ch.root);
-  ch.root.position.set(-L * 0.06, Math.max(0.28, H - 0.92) - 0.5 * ch.height * k, -0.36);
+  const drop = car.userData.car?.id === 'cyber' ? 0.4 : 0;   // its roof is low over the cabin: the head poked through
+  ch.root.position.set(-L * 0.06, Math.max(0.28, H - 0.92) - 0.5 * ch.height * k - drop, -0.36);
   ch.root.rotation.set(0, Math.PI / 2, 0); ch.root.visible = true;
 }
 function rayY(root, x, z, top = 60, below = 6) {
@@ -1737,7 +1738,7 @@ async function prepareDrive() {
   const group = CHASE.group = new THREE.Group(); group.visible = false;
   for (const o of [...scene.children]) if (!before.has(o)) group.add(o);
   scene.add(group);
-  warmUp();   // shaders and textures uploaded now, while the menu is up
+  warmUp(); DXB.warmed = true;   // shaders and textures uploaded now, while the menu is up
   return { ferrariT, chironT, coachT, vanT, skodaT, peugeotT, maybachT, ramT, jeepT, porscheT, gronosT };
 }
 // Loading card between the car menu and the chase (building the city can take a few seconds).
@@ -1793,7 +1794,8 @@ async function startDrive() {
   makeTraffic(R, T.ferrariT, T.chironT, spareId, { coach: T.coachT, van: T.vanT, skoda: T.skodaT, peugeot: T.peugeotT, maybach: T.maybachT, ram: T.ramT, jeep: T.jeepT, porsche: T.porscheT, gronos: T.gronosT });
   carTags();
   updateDrive(0); cam.ovPos = cam.override.pos.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
-  warmUp();
+  // Already warmed while the car menu was up (computers): only the few new things need their shaders.
+  if (DXB.warmed) { try { renderer.compile(scene, camera); } catch (e) { } } else warmUp();
   chaseLoading(false);
   speedo(true); pedals(true);
   $('#fade').classList.remove('on'); $('#letterbox').classList.remove('on');
@@ -2036,7 +2038,6 @@ function carTags() {
   for (const c of DRV.list) {
     let txt = null, col = '#ffd400';
     if (c.role === 'messi') { txt = 'MESSI'; col = '#ff3b3b'; }
-    else if (c.role === 'me') { txt = hero.label; col = hero.color; }
     else if (c.role === 'rival') { const r = c.ch && rv.find(h => h.ch === c.ch); if (r) { txt = r.label; col = r.color; } }
     if (!txt) continue;
     c.tag = nameTag(txt); c.tagH = new THREE.Box3().setFromObject(c.g).max.y - c.g.position.y + 1.1; scene.add(c.tag);
@@ -2045,7 +2046,8 @@ function carTags() {
 // Speed camera + speed bump, every frame of the chase.
 function streetFx(dt) {
   const R = DRV.R, me = DRV.me;
-  for (const c of DRV.list) if (c.tag) { c.tag.position.set(c.g.position.x, c.g.position.y + c.tagH, c.g.position.z); c.tag.visible = DRV.on; }
+  for (const c of DRV.list) if (c.tag) { c.tag.position.set(c.g.position.x, c.g.position.y + c.tagH, c.g.position.z); c.tag.visible = DRV.on;
+    const d = clamp(camera.position.distanceTo(c.tag.position), 4, 200) * 0.13; c.tag.scale.set(d, d * 0.375, 1); }   // same small size on screen, near or far
   if (R.flash) { const F = R.flash;
     for (const c of DRV.list) { const prev = c.prevS ?? c.s; if (prev < R.radarS && c.s >= R.radarS) { F.t = 0.16; F.n = (F.n || 0) + 1;
       if (c === me) { audio.kick(0.25); const kmh = Math.round(me.v * 3.6); toast(`📸 FLASHED · ${kmh} KM/H`); addStyle(150, 'SPEED CAMERA'); screenFlash(); } } }
