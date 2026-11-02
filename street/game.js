@@ -1222,7 +1222,8 @@ function seatDriver(ch, car) {
   const b = new THREE.Box3().setFromObject(car), H = b.max.y - b.min.y, L = b.max.x - b.min.x;
   const k = 0.9; ch.root.scale.setScalar(k);
   car.attach ? null : null; car.add(ch.root);
-  ch.root.position.set(-L * 0.06, Math.max(0.28, H - 0.92) - 0.5 * ch.height * k, -0.36);
+  const drop = car.userData.car?.id === 'cyber' ? 0.4 : 0;   // its roof is low over the cabin: the head poked through
+  ch.root.position.set(-L * 0.06, Math.max(0.28, H - 0.92) - 0.5 * ch.height * k - drop, -0.36);
   ch.root.rotation.set(0, Math.PI / 2, 0); ch.root.visible = true;
 }
 function rayY(root, x, z, top = 60, below = 6) {
@@ -1737,7 +1738,7 @@ async function prepareDrive() {
   const group = CHASE.group = new THREE.Group(); group.visible = false;
   for (const o of [...scene.children]) if (!before.has(o)) group.add(o);
   scene.add(group);
-  warmUp();   // shaders and textures uploaded now, while the menu is up
+  warmUp(); DXB.warmed = true;   // shaders and textures uploaded now, while the menu is up
   return { ferrariT, chironT, coachT, vanT, skodaT, peugeotT, maybachT, ramT, jeepT, porscheT, gronosT };
 }
 // Loading card between the car menu and the chase (building the city can take a few seconds).
@@ -1793,7 +1794,8 @@ async function startDrive() {
   makeTraffic(R, T.ferrariT, T.chironT, spareId, { coach: T.coachT, van: T.vanT, skoda: T.skodaT, peugeot: T.peugeotT, maybach: T.maybachT, ram: T.ramT, jeep: T.jeepT, porsche: T.porscheT, gronos: T.gronosT });
   carTags();
   updateDrive(0); cam.ovPos = cam.override.pos.clone(); cam.ovLook = cam.override.look.clone(); cam.blend = 1;
-  warmUp();
+  // Already warmed while the car menu was up (computers): only the few new things need their shaders.
+  if (DXB.warmed) { try { renderer.compile(scene, camera); } catch (e) { } } else warmUp();
   chaseLoading(false);
   speedo(true); pedals(true);
   $('#fade').classList.remove('on'); $('#letterbox').classList.remove('on');
@@ -2028,7 +2030,8 @@ function nameTag(text) {
   x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '800 34px Inter, Arial, sans-serif'; x.fillText(text, 128, 32);
   x.beginPath(); x.moveTo(116, 62); x.lineTo(140, 62); x.lineTo(128, 78); x.closePath(); x.fill();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); sp.scale.set(1.3, 0.49, 1); sp.renderOrder = 5; return sp;
+  // Same small size on screen near or far (sizeAttenuation off: the scale is a fraction of the screen height).
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, sizeAttenuation: false })); sp.scale.set(0.085, 0.032, 1); sp.renderOrder = 5; return sp;
 }
 function carTags() {
   for (const c of DRV.list) if (c.tag) { scene.remove(c.tag); c.tag = null; }
