@@ -2030,8 +2030,7 @@ function nameTag(text) {
   x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = '800 34px Inter, Arial, sans-serif'; x.fillText(text, 128, 32);
   x.beginPath(); x.moveTo(116, 62); x.lineTo(140, 62); x.lineTo(128, 78); x.closePath(); x.fill();
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
-  // Same small size on screen near or far (sizeAttenuation off: the scale is a fraction of the screen height).
-  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false, sizeAttenuation: false })); sp.scale.set(0.085, 0.032, 1); sp.renderOrder = 5; return sp;
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthWrite: false })); sp.scale.set(1.3, 0.49, 1); sp.renderOrder = 5; return sp;
 }
 function carTags() {
   for (const c of DRV.list) if (c.tag) { scene.remove(c.tag); c.tag = null; }
@@ -2048,7 +2047,8 @@ function carTags() {
 // Speed camera + speed bump, every frame of the chase.
 function streetFx(dt) {
   const R = DRV.R, me = DRV.me;
-  for (const c of DRV.list) if (c.tag) { c.tag.position.set(c.g.position.x, c.g.position.y + c.tagH, c.g.position.z); c.tag.visible = DRV.on; }
+  for (const c of DRV.list) if (c.tag) { c.tag.position.set(c.g.position.x, c.g.position.y + c.tagH, c.g.position.z); c.tag.visible = DRV.on;
+    const d = clamp(camera.position.distanceTo(c.tag.position), 4, 200) * 0.045; c.tag.scale.set(d, d * 0.375, 1); }   // same small size on screen, near or far
   if (R.flash) { const F = R.flash;
     for (const c of DRV.list) { const prev = c.prevS ?? c.s; if (prev < R.radarS && c.s >= R.radarS) { F.t = 0.16; F.n = (F.n || 0) + 1;
       if (c === me) { audio.kick(0.25); const kmh = Math.round(me.v * 3.6); toast(`📸 FLASHED · ${kmh} KM/H`); addStyle(150, 'SPEED CAMERA'); screenFlash(); } } }
