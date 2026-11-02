@@ -2038,7 +2038,6 @@ function carTags() {
   for (const c of DRV.list) {
     let txt = null, col = '#ffd400';
     if (c.role === 'messi') { txt = 'MESSI'; col = '#ff3b3b'; }
-    else if (c.role === 'me') { txt = hero.label; col = hero.color; }
     else if (c.role === 'rival') { const r = c.ch && rv.find(h => h.ch === c.ch); if (r) { txt = r.label; col = r.color; } }
     if (!txt) continue;
     c.tag = nameTag(txt); c.tagH = new THREE.Box3().setFromObject(c.g).max.y - c.g.position.y + 1.1; scene.add(c.tag);
