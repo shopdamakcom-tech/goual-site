@@ -2048,7 +2048,7 @@ function carTags() {
 function streetFx(dt) {
   const R = DRV.R, me = DRV.me;
   for (const c of DRV.list) if (c.tag) { c.tag.position.set(c.g.position.x, c.g.position.y + c.tagH, c.g.position.z); c.tag.visible = DRV.on;
-    const d = clamp(camera.position.distanceTo(c.tag.position), 4, 200) * 0.045; c.tag.scale.set(d, d * 0.375, 1); }   // same small size on screen, near or far
+    const d = clamp(camera.position.distanceTo(c.tag.position), 4, 200) * 0.13; c.tag.scale.set(d, d * 0.375, 1); }   // same small size on screen, near or far
   if (R.flash) { const F = R.flash;
     for (const c of DRV.list) { const prev = c.prevS ?? c.s; if (prev < R.radarS && c.s >= R.radarS) { F.t = 0.16; F.n = (F.n || 0) + 1;
       if (c === me) { audio.kick(0.25); const kmh = Math.round(me.v * 3.6); toast(`📸 FLASHED · ${kmh} KM/H`); addStyle(150, 'SPEED CAMERA'); screenFlash(); } } }
