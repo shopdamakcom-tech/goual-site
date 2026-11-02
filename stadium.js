@@ -820,7 +820,7 @@ function updateReels() {
 // Doors to the mini-games. The tour stops in front of each; PLAY swings it open onto the game's
 // world, and the game opens full screen. STREET FOOT ends corridor A.
 const ARCADES = {
-  street: { X: 45.75, Z: 13, rot: 0, url: 'street/index.html?embed=1', poster: 'street/poster.jpg', logo: 'goual-art-brush-small.webp', cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
+  street: { X: 45.75, Z: 13, rot: 0, url: 'street/index.html?embed=1', poster: 'street/door-poster.jpg', logo: 'goual-art-brush-small.webp', cover: 'street/cover-small.jpg', view: 'street/cover.jpg', viewRepeat: [0.62, 1, 0.24, 0],
     lines: ['STREET', 'FOOT'], tag: 'BALLON D\'OR', foot: 'MINI-GAME · RIO DE JANEIRO', sign: 'ARCADE · STREET FOOT', bg: '#1e5bd8', accent: '#ffd400', accent2: '#ff2d78',
     card: ['STREET FOOT', 'The Ballon d\'Or has gone missing in the favelas of Rio. Play Mbappé, Yamal or Kane and bring it back.'] },
 };
